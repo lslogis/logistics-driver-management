@@ -146,6 +146,17 @@ export class SettlementApiService {
   async previewSettlement(data: PreviewSettlementData): Promise<SettlementPreviewResponse> {
     const { driverId, yearMonth } = data
 
+    // 미래 월 차단
+    const [year, month] = yearMonth.split('-').map(Number)
+    const targetMonth = new Date(year, month - 1)
+    const currentMonth = new Date()
+    currentMonth.setDate(1)
+    currentMonth.setHours(0, 0, 0, 0)
+    
+    if (targetMonth > currentMonth) {
+      throw new Error('미래 월의 정산은 미리보기할 수 없습니다')
+    }
+
     // 기사 존재 확인
     const driver = await this.prisma.driver.findUnique({
       where: { id: driverId },

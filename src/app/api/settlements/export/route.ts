@@ -1,11 +1,8 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { ZodError, z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { SettlementApiService } from '@/lib/services/settlement-api.service'
 import { withAuth } from '@/lib/auth/rbac'
-import { getCurrentUser, createAuditLog, apiResponse } from '@/lib/auth/server'
-import { z } from 'zod'
-
-const settlementApiService = new SettlementApiService(prisma)
+import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 
 const exportSettlementsSchema = z.object({
   yearMonth: z
@@ -17,22 +14,25 @@ const exportSettlementsSchema = z.object({
 })
 
 /**
- * POST /api/settlements/export - 정산 내역 엑셀 내보내기
+ * POST /api/settlements/export - 정산 내역 엑셀 내보내기 (스텁)
  */
 export const POST = withAuth(
   async (req: NextRequest) => {
     try {
       const user = await getCurrentUser(req)
       if (!user) {
-        return apiResponse.unauthorized()
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '로그인이 필요합니다'
+          }
+        }, { status: 401 })
       }
 
       // 요청 데이터 검증
       const body = await req.json()
       const { yearMonth, driverIds } = exportSettlementsSchema.parse(body)
-      
-      // 정산 데이터 조회 및 Excel 생성
-      const excelBuffer = await settlementApiService.exportSettlementsToExcel(yearMonth, driverIds)
       
       // 감사 로그 기록
       await createAuditLog(
@@ -44,25 +44,49 @@ export const POST = withAuth(
         { source: 'web_api' }
       )
       
-      // Excel 파일 응답 헤더 설정
-      const fileName = `settlements_${yearMonth}_${new Date().toISOString().slice(0, 10)}.xlsx`
+      // TODO: 실제 Excel 생성 로직 구현
+      // 현재는 스텁으로 성공 응답만 반환
       
-      return new Response(excelBuffer, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': `attachment; filename="${fileName}"`,
-          'Content-Length': excelBuffer.length.toString()
+      return NextResponse.json({ 
+        ok: true, 
+        data: {
+          message: 'Excel export functionality not yet implemented',
+          yearMonth,
+          driverCount: driverIds?.length || 'all',
+          stub: true
         }
       })
     } catch (error) {
       console.error('Failed to export settlements:', error)
       
-      if (error instanceof Error) {
-        return apiResponse.error(error.message)
+      if (error instanceof ZodError) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: '입력값이 올바르지 않습니다',
+            details: error.errors
+          }
+        }, { status: 400 })
       }
       
-      return apiResponse.error('정산 내역 내보내기 중 오류가 발생했습니다', 500)
+      if (error instanceof Error) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'BAD_REQUEST',
+            message: error.message
+          }
+        }, { status: 400 })
+      }
+      
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '정산 내역 내보내기 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
     }
   },
   { resource: 'settlements', action: 'read' }
