@@ -14,7 +14,21 @@
       "Bash(git commit:*)",
       "Bash(git branch:*)",
       "Bash(git remote add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(npm run:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(npm install:*)",
+      "Bash(docker-compose:*)",
+      "Bash(cat:*)",
+      "Bash(npx prisma db seed:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsx:*)",
+      "Bash(node:*)",
+      "Bash(cp:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": []
   }

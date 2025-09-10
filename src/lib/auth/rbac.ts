@@ -86,14 +86,14 @@ export function hasPermission(
 
 // API 라우트 권한 검사 미들웨어
 export function withAuth(
-  handler: (req: NextRequest, context: { params?: any }) => Promise<NextResponse>,
+  handler: (req: NextRequest, context: { params?: any }) => Promise<Response>,
   options: {
     resource: keyof typeof permissions
     action: string
     requireActive?: boolean
   }
 ) {
-  return async (req: NextRequest, context: { params?: any }) => {
+  return async (req: NextRequest, context: { params?: any } = {}) => {
     try {
       // JWT 토큰에서 사용자 정보 추출
       const token = await getToken({ 

@@ -1,0 +1,302 @@
+import { PrismaClient } from '@prisma/client'
+import { CreateDriverData, UpdateDriverData, GetDriversQuery, DriverResponse, DriversListResponse } from '@/lib/validations/driver'
+
+export class DriverService {
+  constructor(private prisma: PrismaClient) {}
+
+  /**
+   * 기사 목록 조회 (검색, 필터링, 페이지네이션)
+   */
+  async getDrivers(query: GetDriversQuery): Promise<DriversListResponse> {
+    const { page, limit, search, isActive, sortBy, sortOrder } = query
+
+    // 검색 조건 구성
+    const where: any = {}
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+        { companyName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } }
+      ]
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive
+    }
+
+    // 정렬 조건
+    const orderBy: any = {}
+    orderBy[sortBy] = sortOrder
+
+    // 총 개수 조회
+    const total = await this.prisma.driver.count({ where })
+
+    // 기사 목록 조회
+    const drivers = await this.prisma.driver.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+      include: {
+        _count: {
+          select: {
+            vehicles: true,
+            trips: true,
+            settlements: true
+          }
+        }
+      }
+    })
+
+    // 페이지네이션 정보
+    const totalPages = Math.ceil(total / limit)
+    const pagination = {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1
+    }
+
+    return {
+      drivers: drivers.map(this.formatDriverResponse),
+      pagination
+    }
+  }
+
+  /**
+   * 기사 상세 조회
+   */
+  async getDriverById(id: string): Promise<DriverResponse | null> {
+    const driver = await this.prisma.driver.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            vehicles: true,
+            trips: true,
+            settlements: true
+          }
+        }
+      }
+    })
+
+    if (!driver) {
+      return null
+    }
+
+    return this.formatDriverResponse(driver)
+  }
+
+  /**
+   * 기사 생성
+   */
+  async createDriver(data: CreateDriverData, createdBy?: string): Promise<DriverResponse> {
+    // 전화번호 중복 확인
+    const existingDriver = await this.prisma.driver.findUnique({
+      where: { phone: data.phone }
+    })
+
+    if (existingDriver) {
+      throw new Error('이미 등록된 전화번호입니다')
+    }
+
+    // 사업자번호 중복 확인 (입력된 경우만)
+    if (data.businessNumber) {
+      const existingBusinessNumber = await this.prisma.driver.findFirst({
+        where: { 
+          businessNumber: data.businessNumber
+        }
+      })
+
+      if (existingBusinessNumber) {
+        throw new Error('이미 등록된 사업자등록번호입니다')
+      }
+    }
+
+    const driver = await this.prisma.driver.create({
+      data,
+      include: {
+        _count: {
+          select: {
+            vehicles: true,
+            trips: true,
+            settlements: true
+          }
+        }
+      }
+    })
+
+    return this.formatDriverResponse(driver)
+  }
+
+  /**
+   * 기사 정보 수정
+   */
+  async updateDriver(id: string, data: UpdateDriverData): Promise<DriverResponse> {
+    // 기사 존재 확인
+    const existingDriver = await this.prisma.driver.findUnique({
+      where: { id }
+    })
+
+    if (!existingDriver) {
+      throw new Error('기사를 찾을 수 없습니다')
+    }
+
+    // 전화번호 중복 확인 (변경하는 경우만)
+    if (data.phone && data.phone !== existingDriver.phone) {
+      const phoneExists = await this.prisma.driver.findUnique({
+        where: { phone: data.phone }
+      })
+
+      if (phoneExists) {
+        throw new Error('이미 등록된 전화번호입니다')
+      }
+    }
+
+    // 사업자번호 중복 확인 (변경하는 경우만)
+    if (data.businessNumber && data.businessNumber !== existingDriver.businessNumber) {
+      const businessNumberExists = await this.prisma.driver.findFirst({
+        where: { 
+          businessNumber: data.businessNumber,
+          id: { not: id }
+        }
+      })
+
+      if (businessNumberExists) {
+        throw new Error('이미 등록된 사업자등록번호입니다')
+      }
+    }
+
+    const driver = await this.prisma.driver.update({
+      where: { id },
+      data,
+      include: {
+        _count: {
+          select: {
+            vehicles: true,
+            trips: true,
+            settlements: true
+          }
+        }
+      }
+    })
+
+    return this.formatDriverResponse(driver)
+  }
+
+  /**
+   * 기사 삭제 (소프트 삭제)
+   */
+  async deleteDriver(id: string): Promise<void> {
+    // 기사 존재 확인
+    const existingDriver = await this.prisma.driver.findUnique({
+      where: { id },
+      include: {
+        vehicles: true,
+        trips: {
+          where: {
+            status: { in: ['SCHEDULED', 'COMPLETED'] }
+          }
+        }
+      }
+    })
+
+    if (!existingDriver) {
+      throw new Error('기사를 찾을 수 없습니다')
+    }
+
+    // 관련 데이터 확인
+    if (existingDriver.vehicles.length > 0) {
+      throw new Error('차량이 배정된 기사는 삭제할 수 없습니다. 먼저 차량 배정을 해제해주세요.')
+    }
+
+    if (existingDriver.trips.length > 0) {
+      throw new Error('운행 기록이 있는 기사는 삭제할 수 없습니다. 비활성화 처리해주세요.')
+    }
+
+    // 소프트 삭제 (비활성화)
+    await this.prisma.driver.update({
+      where: { id },
+      data: { isActive: false }
+    })
+  }
+
+  /**
+   * 기사 활성화/비활성화
+   */
+  async toggleDriverStatus(id: string): Promise<DriverResponse> {
+    const driver = await this.prisma.driver.findUnique({
+      where: { id }
+    })
+
+    if (!driver) {
+      throw new Error('기사를 찾을 수 없습니다')
+    }
+
+    const updatedDriver = await this.prisma.driver.update({
+      where: { id },
+      data: { isActive: !driver.isActive },
+      include: {
+        _count: {
+          select: {
+            vehicles: true,
+            trips: true,
+            settlements: true
+          }
+        }
+      }
+    })
+
+    return this.formatDriverResponse(updatedDriver)
+  }
+
+  /**
+   * 기사 검색 (간단한 자동완성용)
+   */
+  async searchDrivers(query: string, limit = 10): Promise<Pick<DriverResponse, 'id' | 'name' | 'phone'>[]> {
+    const drivers = await this.prisma.driver.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { phone: { contains: query } }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      },
+      take: limit,
+      orderBy: { name: 'asc' }
+    })
+
+    return drivers
+  }
+
+  /**
+   * 기사 응답 포맷팅
+   */
+  private formatDriverResponse(driver: any): DriverResponse {
+    return {
+      id: driver.id,
+      name: driver.name,
+      phone: driver.phone,
+      email: driver.email,
+      businessNumber: driver.businessNumber,
+      companyName: driver.companyName,
+      representativeName: driver.representativeName,
+      bankName: driver.bankName,
+      accountNumber: driver.accountNumber,
+      remarks: driver.remarks,
+      isActive: driver.isActive,
+      createdAt: driver.createdAt.toISOString(),
+      updatedAt: driver.updatedAt.toISOString(),
+      _count: driver._count
+    }
+  }
+}

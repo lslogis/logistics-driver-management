@@ -1,1129 +1,878 @@
-# 운송기사관리 시스템 (MVP) - 작업 분해 구조
+# TASKS.md - Implementation Task Tracker
 
-**Version**: 1.0.0  
-**작성일**: 2025-01-10  
-**작성자**: Tech Lead  
-**References**: [PLAN.md](./PLAN.md), [SPEC.md](./SPEC.md)
+**Project**: Logistics Driver Management MVP  
+**Updated**: 2025-01-10  
+**Role**: Tech Lead  
+**Principle**: 기능 우선, 타입·성능 최적화는 후순위
 
 ---
 
-## Task Dependency Graph
+## 📊 Task Overview
 
-```mermaid
-graph TD
-    %% Foundation Layer
-    DB-001[DB-001: Prisma Schema v1] --> DB-002[DB-002: Migration Scripts]
-    DB-002 --> API-010[API-010: Drivers CRUD]
-    DB-002 --> API-020[API-020: Vehicles CRUD]
-    DB-002 --> API-030[API-030: Routes CRUD]
-    DB-002 --> API-040[API-040: Trips CRUD]
-    
-    %% API Layer
-    API-010 --> FE-100[FE-100: DriversPage]
-    API-020 --> FE-100
-    API-030 --> FE-110[FE-110: TripsPage]
-    API-040 --> FE-110
-    API-040 --> API-050[API-050: Settlements]
-    API-050 --> FE-120[FE-120: SettlementPage]
-    
-    %% Import Layer
-    API-010 --> IMP-200[IMP-200: CSV Templates]
-    IMP-200 --> IMP-210[IMP-210: Import Wizard]
-    
-    %% Operations Layer
-    DB-002 --> OPS-300[OPS-300: RBAC Middleware]
-    OPS-300 --> OPS-310[OPS-310: Audit Hooks]
-    OPS-310 --> OPS-320[OPS-320: Admin Dashboard]
-    
-    %% Cross Dependencies
-    OPS-300 --> API-010
-    OPS-300 --> API-020
-    OPS-300 --> API-030
-    OPS-300 --> API-040
-    OPS-300 --> API-050
-    OPS-310 --> IMP-210
-    
-    style DB-001 fill:#f9f,stroke:#333,stroke-width:4px
-    style DB-002 fill:#f9f,stroke:#333,stroke-width:4px
-    style OPS-300 fill:#ff9,stroke:#333,stroke-width:2px
-    style API-050 fill:#9ff,stroke:#333,stroke-width:2px
+| Category | Total | Completed | In Progress | Pending |
+|----------|-------|-----------|-------------|---------|
+| Database | 1     | 0         | 1           | 0       |
+| API      | 5     | 0         | 0           | 5       |
+| Frontend | 3     | 0         | 0           | 3       |
+| Import   | 2     | 0         | 0           | 2       |
+| Ops      | 2     | 0         | 0           | 2       |
+| **Total**| **13**| **0**     | **1**       | **12**  |
+
+---
+
+## 🗄️ Database Tasks
+
+### DB-001: Prisma 스키마 확인 & 마이그/시드
+**Status**: 🔄 In Progress  
+**Priority**: P0 - Critical  
+**Estimate**: 2 hours  
+
+**Input**:
+- `prisma/schema.prisma` (existing)
+- `DATABASE_URL` in `.env`
+
+**Actions**:
+```bash
+# 1. Database connection test
+npx prisma db push --accept-data-loss  # Dev only
+
+# 2. Run migrations
+npx prisma migrate dev --name initial
+
+# 3. Seed database
+npx prisma db seed
+
+# 4. Verify with Studio
+npx prisma studio
+```
+
+**Output**:
+- Migration files in `prisma/migrations/`
+- Initial records:
+  - 5+ Drivers
+  - 5+ Vehicles (mixed ownership)
+  - 3+ RouteTemplates
+  - 10+ Trips (various statuses)
+
+**Verification**:
+```sql
+-- Check counts
+SELECT COUNT(*) FROM drivers;
+SELECT COUNT(*) FROM vehicles;
+SELECT COUNT(*) FROM trips;
+```
+
+**Rollback**:
+```bash
+npx prisma migrate reset  # Warning: Drops all data
 ```
 
 ---
 
-## Database Tasks
+## 🔌 API Tasks
 
-### DB-001: Prisma Schema v1
-**Priority**: P0 (Critical)  
-**Owner**: Backend Lead  
-**Estimated**: 8h
+### API-011: Drivers API
+**Status**: ⏳ Pending  
+**Priority**: P0 - Critical  
+**Estimate**: 4 hours  
+**Depends On**: DB-001  
 
-#### Inputs
-- [SPEC.md Section 6](./SPEC.md#6-data-contracts-draft) - Data Contracts
-- PostgreSQL 15 configuration
-- Asia/Seoul timezone requirement
+**Input**:
+- Prisma Client configured
+- Driver model in schema
 
-#### Steps
-1. Create Prisma schema directory structure
-2. Define enums in `commons.prisma`
-   ```prisma
-   enum VehicleOwnership {
-     OWNED      // 고정
-     CHARTER    // 용차
-     CONSIGNED  // 지입
-   }
-   enum TripStatus {
-     SCHEDULED
-     COMPLETED
-     ABSENCE
-     SUBSTITUTE
-   }
-   enum SettlementStatus {
-     DRAFT
-     CONFIRMED
-     PAID
-   }
-   ```
-3. Create domain schemas:
-   - `auth.prisma`: User, Session, Role
-   - `driver.prisma`: Driver, Vehicle
-   - `route.prisma`: RouteTemplate
-   - `trip.prisma`: Trip
-   - `settlement.prisma`: Settlement, SettlementItem
-   - `audit.prisma`: AuditLog
-4. Define relationships and constraints
-5. Add indexes for performance:
-   - `@@index([driverId, date])` on Trip
-   - `@@index([yearMonth, driverId])` on Settlement
-   - `@@unique([plateNumber, date, driverId])` on Trip
+**Actions**:
+```typescript
+// src/app/api/drivers/route.ts
+export async function GET(request: Request) {
+  // List with pagination (?page=1&limit=10)
+  const drivers = await prisma.driver.findMany({
+    where: { isActive: true },
+    skip, take, orderBy: { name: 'asc' }
+  });
+  return NextResponse.json(drivers);
+}
 
-#### Artifacts
-- `/prisma/schema/*.prisma` files
-- Schema documentation
-- ER diagram
+export async function POST(request: Request) {
+  // Create with Zod validation
+  const body = await request.json();
+  const validated = driverSchema.parse(body);
+  
+  // Check phone uniqueness
+  const existing = await prisma.driver.findUnique({
+    where: { phone: validated.phone }
+  });
+  if (existing) {
+    return NextResponse.json(
+      { error: 'Phone already exists' },
+      { status: 409 }
+    );
+  }
+  
+  const driver = await prisma.driver.create({ data: validated });
+  return NextResponse.json(driver, { status: 201 });
+}
+```
 
-#### Tests
-- [ ] Schema validation: `npx prisma validate`
-- [ ] Foreign key relationships correct
-- [ ] Unique constraints working
-- [ ] Timezone handling (timestamptz)
+**Zod Schema**:
+```typescript
+const driverSchema = z.object({
+  name: z.string().min(2).max(100),
+  phone: z.string().regex(/^010-\d{4}-\d{4}$/),
+  bankName: z.string().optional(),
+  accountNumber: z.string().optional()
+});
+```
 
-#### Rollback
-- Previous schema backup in `/prisma/backup/`
-- Migration rollback command ready
+**Output**:
+- `/api/drivers` - GET list (200)
+- `/api/drivers/[id]` - GET detail (200/404)
+- `/api/drivers` - POST create (201/400/409)
+- `/api/drivers/[id]` - PUT update (200/404)
+- `/api/drivers/[id]` - DELETE soft delete (204/404)
 
----
+**Verification**:
+```bash
+# Test list
+curl http://localhost:3000/api/drivers
 
-### DB-002: Migration Scripts
-**Priority**: P0 (Critical)  
-**Owner**: Backend Lead  
-**Estimated**: 4h  
-**Dependencies**: DB-001
+# Test create
+curl -X POST http://localhost:3000/api/drivers \
+  -H "Content-Type: application/json" \
+  -d '{"name":"테스트기사","phone":"010-1234-5678"}'
 
-#### Inputs
-- Completed Prisma schemas
-- Seed data requirements
+# Test duplicate phone (expect 409)
+curl -X POST http://localhost:3000/api/drivers \
+  -H "Content-Type: application/json" \
+  -d '{"name":"다른기사","phone":"010-1234-5678"}'
+```
 
-#### Steps
-1. Generate initial migration
-   ```bash
-   npx prisma migrate dev --name init
-   ```
-2. Create seed script `/prisma/seed.ts`
-   - Admin user
-   - Sample drivers (10)
-   - Sample vehicles (10)
-   - Sample routes (5)
-3. Create reset script `/scripts/db-reset.sh`
-   ```bash
-   #!/bin/bash
-   npx prisma migrate reset --force
-   npx prisma db seed
-   ```
-4. Create backup script `/scripts/db-backup.sh`
-
-#### Artifacts
-- `/prisma/migrations/` directory
-- `/prisma/seed.ts`
-- `/scripts/db-*.sh` scripts
-
-#### Tests
-- [ ] Migration applies cleanly
-- [ ] Seed data loads correctly
-- [ ] Reset script works
-- [ ] Backup/restore verified
-
-#### Rollback
-- `npx prisma migrate reset`
-- Restore from backup
+**Rollback**: Delete created test records via Prisma Studio
 
 ---
 
-## API Tasks
+### API-012: Vehicles API
+**Status**: ⏳ Pending  
+**Priority**: P0 - Critical  
+**Estimate**: 3 hours  
+**Depends On**: API-011  
 
-### API-010: Drivers CRUD + Zod Schema
-**Priority**: P0 (Critical)  
-**Owner**: Backend Dev 1  
-**Estimated**: 8h  
-**Dependencies**: DB-002, OPS-300
+**Input**:
+- Vehicle model with ownership enum
+- Driver relationship
 
-#### Inputs
-- Driver schema from DB-001
-- [SPEC.md Section 7.1](./SPEC.md#71-역할별-권한-매트릭스) - RBAC matrix
+**Actions**:
+```typescript
+// Handle ownership enum
+const vehicleSchema = z.object({
+  plateNumber: z.string().min(7).max(12),
+  vehicleType: z.string(),
+  ownership: z.enum(['OWNED', 'CHARTER', 'CONSIGNED']),
+  driverId: z.string().uuid().nullable()
+});
 
-#### Steps
-1. Create Zod validation schemas
-   ```typescript
-   // lib/validations/driver.ts
-   export const driverSchema = z.object({
-     name: z.string().min(2).max(50),
-     phone: z.string().regex(/^01[0-9]-\d{4}-\d{4}$/),
-     email: z.string().email().optional(),
-     businessNumber: z.string().regex(/^\d{3}-\d{2}-\d{5}$/).optional(),
-     bankAccount: z.string().optional()
-   });
-   ```
-2. Implement service layer `/lib/services/driver.service.ts`
-3. Create API routes:
-   - `GET /api/drivers` - List with pagination
-   - `GET /api/drivers/:id` - Get single
-   - `POST /api/drivers` - Create (admin, dispatcher)
-   - `PUT /api/drivers/:id` - Update (admin, dispatcher)
-   - `DELETE /api/drivers/:id` - Soft delete (admin only)
-4. Error handling policy:
-   - 400: Validation errors
-   - 401: Unauthorized
-   - 403: Forbidden (RBAC)
-   - 404: Not found
-   - 409: Duplicate (phone/businessNumber)
-   - 500: Server error
+// Check plate uniqueness
+const existing = await prisma.vehicle.findUnique({
+  where: { plateNumber: validated.plateNumber }
+});
+```
 
-#### Artifacts
-- `/app/api/drivers/route.ts`
-- `/app/api/drivers/[id]/route.ts`
-- `/lib/services/driver.service.ts`
-- `/lib/validations/driver.ts`
+**Output**:
+- CRUD endpoints with ownership validation
+- Driver assignment/unassignment
 
-#### Tests
-- [ ] CRUD operations work
-- [ ] Validation rejects invalid data
-- [ ] RBAC prevents unauthorized access
-- [ ] Duplicate phone number rejected
-- [ ] Soft delete preserves data
+**Verification**:
+```bash
+# Create vehicle
+curl -X POST http://localhost:3000/api/vehicles \
+  -d '{"plateNumber":"12가3456","vehicleType":"1톤","ownership":"OWNED"}'
 
-#### Rollback
-- Revert API route files
-- Restore previous service version
+# Update driver assignment
+curl -X PUT http://localhost:3000/api/vehicles/[id] \
+  -d '{"driverId":"[driver-uuid]"}'
+```
 
 ---
 
-### API-020: Vehicles CRUD
-**Priority**: P1 (High)  
-**Owner**: Backend Dev 1  
-**Estimated**: 6h  
-**Dependencies**: DB-002, API-010, OPS-300
+### API-013: Routes API
+**Status**: ⏳ Pending  
+**Priority**: P1 - High  
+**Estimate**: 3 hours  
+**Depends On**: DB-001  
 
-#### Inputs
-- Vehicle schema with ownership enum
-- Driver-Vehicle relationship
+**Input**:
+- RouteTemplate model
+- weekdayPattern as int[]
+- Decimal fare fields
 
-#### Steps
-1. Create Zod schema with ownership validation
-   ```typescript
-   export const vehicleSchema = z.object({
-     plateNumber: z.string().regex(/^\d{2,3}[가-힣]\d{4}$/),
-     vehicleType: z.enum(['1톤', '2.5톤', '5톤', '11톤']),
-     ownership: z.enum(['OWNED', 'CHARTER', 'CONSIGNED']),
-     driverId: z.string().uuid().optional()
-   });
-   ```
-2. Implement vehicle service with:
-   - Driver assignment validation (1:1)
-   - Ownership change tracking
-3. Create API routes with RBAC:
-   - Only admin can create/update/delete vehicles
-   - All roles can read
+**Actions**:
+```typescript
+const routeSchema = z.object({
+  name: z.string(),
+  loadingPoint: z.string(),
+  unloadingPoint: z.string(),
+  weekdayPattern: z.array(z.number().min(0).max(6)),
+  driverFare: z.number().positive(),
+  billingFare: z.number().positive()
+});
 
-#### Artifacts
-- `/app/api/vehicles/route.ts`
-- `/app/api/vehicles/[id]/route.ts`
-- `/lib/services/vehicle.service.ts`
+// Ensure driverFare <= billingFare
+if (validated.driverFare > validated.billingFare) {
+  return NextResponse.json(
+    { error: 'Driver fare cannot exceed billing fare' },
+    { status: 400 }
+  );
+}
+```
 
-#### Tests
-- [ ] Vehicle CRUD operations
-- [ ] Ownership enum validation
-- [ ] Driver assignment (1:1 constraint)
-- [ ] Plate number uniqueness
-- [ ] RBAC enforcement
+**Output**:
+- CRUD with weekday pattern validation
+- Fare validation logic
 
-#### Rollback
-- Revert vehicle-related files
-- Remove vehicle-driver relationships
-
----
-
-### API-030: Routes CRUD
-**Priority**: P1 (High)  
-**Owner**: Backend Dev 2  
-**Estimated**: 8h  
-**Dependencies**: DB-002, OPS-300
-
-#### Inputs
-- RouteTemplate schema
-- Weekday pattern requirements (0-6)
-- Fare pair (driverFare, billingFare)
-
-#### Steps
-1. Create route validation schema
-   ```typescript
-   export const routeSchema = z.object({
-     name: z.string().min(3).max(100),
-     loadingPoint: z.string(),
-     unloadingPoint: z.string(),
-     distance: z.number().positive().optional(),
-     driverFare: z.number().nonnegative(),
-     billingFare: z.number().nonnegative(),
-     weekdayPattern: z.array(z.number().min(0).max(6)),
-     defaultDriverId: z.string().uuid().optional()
-   });
-   ```
-2. Implement route service with:
-   - Weekday mask validation
-   - Fare validation (billing >= driver)
-   - Auto trip generation for month
-3. Create endpoints:
-   - Standard CRUD
-   - `POST /api/routes/generate-trips` - Generate monthly trips
-
-#### Artifacts
-- `/app/api/routes/route.ts`
-- `/app/api/routes/[id]/route.ts`
-- `/app/api/routes/generate-trips/route.ts`
-- `/lib/services/route.service.ts`
-
-#### Tests
-- [ ] Route CRUD operations
-- [ ] Weekday pattern validation (0-6)
-- [ ] Fare pair validation
-- [ ] Monthly trip generation
-- [ ] Duplicate route name handling
-
-#### Rollback
-- Remove generated trips
-- Revert route files
+**Verification**:
+```bash
+# Create route with weekday pattern
+curl -X POST http://localhost:3000/api/routes \
+  -d '{"name":"서울-부산","weekdayPattern":[1,2,3,4,5],"driverFare":100000,"billingFare":120000}'
+```
 
 ---
 
-### API-040: Trips CRUD
-**Priority**: P0 (Critical)  
-**Owner**: Backend Dev 2  
-**Estimated**: 10h  
-**Dependencies**: DB-002, API-010, API-030, OPS-300
+### API-014: Trips API
+**Status**: ⏳ Pending  
+**Priority**: P1 - High  
+**Estimate**: 5 hours  
+**Depends On**: API-011, API-012, API-013  
 
-#### Inputs
-- Trip schema with status enum
-- Absence/substitute handling rules
-- Uniqueness constraint (plate+date+driver)
+**Input**:
+- Trip model with status enum
+- Unique constraint (vehicleId, date, driverId)
 
-#### Steps
-1. Create comprehensive trip validation
-   ```typescript
-   export const tripSchema = z.object({
-     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-     driverId: z.string().uuid(),
-     vehicleId: z.string().uuid(),
-     routeTemplateId: z.string().uuid().optional(),
-     status: z.enum(['SCHEDULED', 'COMPLETED', 'ABSENCE', 'SUBSTITUTE']),
-     // Absence fields
-     absenceReason: z.string().optional(),
-     deductionAmount: z.number().optional(),
-     // Substitute fields
-     substituteDriverId: z.string().uuid().optional(),
-     substituteFare: z.number().optional(),
-     // Custom route
-     customRoute: z.object({
-       loadingPoint: z.string(),
-       unloadingPoint: z.string(),
-       description: z.string()
-     }).optional()
-   });
-   ```
-2. Implement trip service with:
-   - Duplicate validation (plate+date+driver)
-   - Absence deduction calculation (10%)
-   - Substitute fare handling (5% + substitute cost)
-   - Status transition rules
-3. Create bulk operations:
-   - `POST /api/trips/bulk-update` - Update multiple trips
-   - `POST /api/trips/bulk-status` - Change status for date range
+**Actions**:
+```typescript
+const tripSchema = z.object({
+  date: z.string().datetime(),
+  driverId: z.string().uuid(),
+  vehicleId: z.string().uuid(),
+  routeTemplateId: z.string().uuid(),
+  status: z.enum(['SCHEDULED', 'COMPLETED', 'ABSENCE', 'SUBSTITUTE']),
+  deductionAmount: z.number().optional(),
+  substituteDriverId: z.string().uuid().optional(),
+  absenceReason: z.string().optional()
+});
 
-#### Artifacts
-- `/app/api/trips/route.ts`
-- `/app/api/trips/[id]/route.ts`
-- `/app/api/trips/bulk-update/route.ts`
-- `/lib/services/trip.service.ts`
+// Validate status-specific fields
+if (status === 'ABSENCE' && !absenceReason) {
+  return NextResponse.json(
+    { error: 'Absence reason required' },
+    { status: 400 }
+  );
+}
 
-#### Tests
-- [ ] Trip CRUD with all statuses
-- [ ] Duplicate constraint enforced
-- [ ] Absence deduction calculated correctly
-- [ ] Substitute driver assignment
-- [ ] Bulk operations work
-- [ ] Date range queries
+if (status === 'SUBSTITUTE' && !substituteDriverId) {
+  return NextResponse.json(
+    { error: 'Substitute driver required' },
+    { status: 400 }
+  );
+}
 
-#### Rollback
-- Restore trips to previous state
-- Revert calculation changes
+// Check unique constraint
+const existing = await prisma.trip.findFirst({
+  where: { vehicleId, date, driverId }
+});
+if (existing) {
+  return NextResponse.json(
+    { error: 'Trip already exists for this vehicle/date/driver' },
+    { status: 409 }
+  );
+}
+```
 
----
+**Output**:
+- CRUD with unique constraint validation
+- Status-specific field validation
 
-### API-050: Settlements API
-**Priority**: P0 (Critical)  
-**Owner**: Backend Lead  
-**Estimated**: 12h  
-**Dependencies**: API-040
+**Verification**:
+```bash
+# Create trip
+curl -X POST http://localhost:3000/api/trips \
+  -d '{"date":"2025-01-15T09:00:00Z","driverId":"[id]","vehicleId":"[id]","status":"COMPLETED"}'
 
-#### Inputs
-- Settlement calculation rules from [SPEC.md Section 5.2](./SPEC.md#52-정산-계산-규칙)
-- Lock mechanism requirements
-
-#### Steps
-1. Create settlement validation
-   ```typescript
-   export const settlementSchema = z.object({
-     yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
-     driverId: z.string().uuid(),
-     adjustments: z.array(z.object({
-       type: z.enum(['ADDITION', 'DEDUCTION']),
-       description: z.string(),
-       amount: z.number()
-     })).optional()
-   });
-   ```
-2. Implement settlement service:
-   ```typescript
-   class SettlementService {
-     async preview(driverId: string, yearMonth: string) {
-       // Calculate without saving
-     }
-     async create(driverId: string, yearMonth: string) {
-       // Create DRAFT settlement
-     }
-     async confirm(settlementId: string) {
-       // Lock settlement, prevent changes
-     }
-     async exportExcel(settlementId: string) {
-       // Generate Excel file
-     }
-   }
-   ```
-3. Create settlement endpoints:
-   - `GET /api/settlements` - List settlements
-   - `POST /api/settlements` - Create draft
-   - `GET /api/settlements/:id/preview` - Preview calculation
-   - `POST /api/settlements/:id/confirm` - Confirm & lock
-   - `GET /api/settlements/:id/export` - Excel download
-
-#### Artifacts
-- `/app/api/settlements/route.ts`
-- `/app/api/settlements/[id]/route.ts`
-- `/app/api/settlements/[id]/preview/route.ts`
-- `/app/api/settlements/[id]/confirm/route.ts`
-- `/app/api/settlements/[id]/export/route.ts`
-- `/lib/services/settlement.service.ts`
-
-#### Tests
-- [ ] Settlement calculation accuracy
-- [ ] Preview matches final
-- [ ] Confirm locks data
-- [ ] Cannot modify confirmed settlement
-- [ ] Excel export works
-- [ ] Month boundary calculations
-
-#### Rollback
-- Unlock settlements
-- Restore calculation logic
+# Test duplicate (expect 409)
+curl -X POST http://localhost:3000/api/trips \
+  -d '{"date":"2025-01-15T09:00:00Z","driverId":"[same-id]","vehicleId":"[same-id]","status":"COMPLETED"}'
+```
 
 ---
 
-## Frontend Tasks
+### API-015: Settlements API
+**Status**: ⏳ Pending  
+**Priority**: P1 - High  
+**Estimate**: 6 hours  
+**Depends On**: API-014  
 
-### FE-100: DriversPage with DB Integration
-**Priority**: P1 (High)  
-**Owner**: Frontend Dev 1  
-**Estimated**: 10h  
-**Dependencies**: API-010, API-020
+**Input**:
+- Settlement model
+- `tests/settlement.test.ts` logic
 
-#### Inputs
-- Driver API endpoints
-- Vehicle assignment requirements
-- UI/UX mockups
+**Actions**:
+```typescript
+// GET /api/settlements?yearMonth=2025-01&driverId=xxx
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const yearMonth = searchParams.get('yearMonth');
+  const driverId = searchParams.get('driverId');
+  
+  const settlements = await prisma.settlement.findMany({
+    where: { yearMonth, driverId },
+    include: { items: true }
+  });
+  return NextResponse.json(settlements);
+}
 
-#### Steps
-1. Create driver list page with DataTable
-   ```typescript
-   // app/drivers/page.tsx
-   export default function DriversPage() {
-     const { data: drivers } = useQuery({
-       queryKey: ['drivers'],
-       queryFn: fetchDrivers
-     });
-     // DataTable with sorting, filtering, pagination
-   }
-   ```
-2. Implement driver form modal:
-   - Create/Edit modes
-   - Form validation with react-hook-form
-   - Vehicle assignment dropdown
-3. Add optimistic updates:
-   ```typescript
-   const mutation = useMutation({
-     mutationFn: updateDriver,
-     onMutate: async (newDriver) => {
-       await queryClient.cancelQueries(['drivers']);
-       const previous = queryClient.getQueryData(['drivers']);
-       queryClient.setQueryData(['drivers'], old => 
-         old.map(d => d.id === newDriver.id ? newDriver : d)
-       );
-       return { previous };
-     },
-     onError: (err, newDriver, context) => {
-       queryClient.setQueryData(['drivers'], context.previous);
-     }
-   });
-   ```
-4. Add search/filter functionality
-5. Implement soft delete with confirmation
+// POST /api/settlements/preview
+export async function POST(request: Request) {
+  const { yearMonth, driverId } = await request.json();
+  
+  // Get trips for the month
+  const trips = await prisma.trip.findMany({
+    where: {
+      driverId,
+      date: {
+        gte: new Date(`${yearMonth}-01`),
+        lt: new Date(`${yearMonth}-01`).addMonths(1)
+      }
+    }
+  });
+  
+  // Calculate using settlement.test.ts logic
+  const regularTrips = trips.filter(t => t.status === 'COMPLETED');
+  const baseFare = regularTrips.reduce((sum, t) => sum + t.driverFare, 0);
+  
+  const absenceTrips = trips.filter(t => t.status === 'ABSENCE');
+  const absenceDeduction = absenceTrips.reduce((sum, t) => 
+    sum + (t.deductionAmount || t.driverFare * 0.1), 0
+  );
+  
+  const substituteTrips = trips.filter(t => t.status === 'SUBSTITUTE');
+  const substituteDeduction = substituteTrips.reduce((sum, t) => 
+    sum + (t.deductionAmount || t.driverFare * 0.05), 0
+  );
+  
+  return NextResponse.json({
+    yearMonth,
+    driverId,
+    totalTrips: trips.length,
+    totalBaseFare: baseFare,
+    totalDeductions: absenceDeduction + substituteDeduction,
+    finalAmount: baseFare - absenceDeduction - substituteDeduction
+  });
+}
 
-#### Artifacts
-- `/app/drivers/page.tsx`
-- `/app/drivers/layout.tsx`
-- `/components/drivers/DriverTable.tsx`
-- `/components/drivers/DriverModal.tsx`
-- `/hooks/useDrivers.ts`
+// POST /api/settlements/finalize
+export async function POST(request: Request) {
+  const { settlementId } = await request.json();
+  
+  // Check if already confirmed
+  const settlement = await prisma.settlement.findUnique({
+    where: { id: settlementId }
+  });
+  
+  if (settlement?.status === 'CONFIRMED') {
+    return NextResponse.json(
+      { error: 'Settlement already confirmed' },
+      { status: 400 }
+    );
+  }
+  
+  // Update to CONFIRMED with lock
+  const updated = await prisma.settlement.update({
+    where: { id: settlementId },
+    data: {
+      status: 'CONFIRMED',
+      confirmedAt: new Date(),
+      confirmedBy: userId // from session
+    }
+  });
+  
+  return NextResponse.json(updated);
+}
 
-#### Tests
-- [ ] Driver list loads and displays
-- [ ] Create driver works
-- [ ] Edit driver updates optimistically
-- [ ] Delete shows confirmation
-- [ ] Search/filter works
-- [ ] Vehicle assignment dropdown populated
+// POST /api/settlements/export (stub)
+export async function POST(request: Request) {
+  return NextResponse.json({ 
+    message: 'Export stub - Excel generation pending' 
+  });
+}
+```
 
-#### Rollback
-- Restore previous page version
-- Clear optimistic cache
+**Output**:
+- List by yearMonth/driver
+- Preview calculation
+- Finalize with lock
+- Export stub
 
----
+**Verification**:
+```bash
+# Preview
+curl -X POST http://localhost:3000/api/settlements/preview \
+  -d '{"yearMonth":"2025-01","driverId":"[id]"}'
 
-### FE-110: TripsPage with Calendar/Table Toggle
-**Priority**: P1 (High)  
-**Owner**: Frontend Dev 2  
-**Estimated**: 12h  
-**Dependencies**: API-040
+# Finalize
+curl -X POST http://localhost:3000/api/settlements/finalize \
+  -d '{"settlementId":"[id]"}'
 
-#### Inputs
-- Trip API endpoints
-- Calendar view requirements
-- Drag-drop assignment needs
-
-#### Steps
-1. Create trip page with view toggle
-   ```typescript
-   export default function TripsPage() {
-     const [view, setView] = useState<'calendar' | 'table'>('calendar');
-     const [selectedDate, setSelectedDate] = useState(new Date());
-     
-     return view === 'calendar' 
-       ? <TripCalendar date={selectedDate} />
-       : <TripTable date={selectedDate} />;
-   }
-   ```
-2. Implement calendar view:
-   - Monthly calendar grid
-   - Trip count badges per day
-   - Status color coding
-3. Implement table view:
-   - Daily trips list
-   - Inline status editing
-   - Bulk selection
-4. Add drag-drop for quick assignment:
-   ```typescript
-   const handleDrop = (tripId: string, driverId: string) => {
-     updateTrip({ id: tripId, driverId });
-   };
-   ```
-5. Quick actions:
-   - Mark absence/substitute
-   - Assign substitute driver
-   - Add deduction
-
-#### Artifacts
-- `/app/trips/page.tsx`
-- `/components/trips/TripCalendar.tsx`
-- `/components/trips/TripTable.tsx`
-- `/components/trips/QuickAssign.tsx`
-- `/hooks/useTrips.ts`
-
-#### Tests
-- [ ] Calendar/table toggle works
-- [ ] Calendar shows trip counts
-- [ ] Table allows inline editing
-- [ ] Drag-drop assignment works
-- [ ] Status updates reflect immediately
-- [ ] Date navigation works
-
-#### Rollback
-- Restore previous trip management
-- Reset trip assignments
+# Test already confirmed (expect 400)
+curl -X POST http://localhost:3000/api/settlements/finalize \
+  -d '{"settlementId":"[same-id]"}'
+```
 
 ---
 
-### FE-120: SettlementPage with Preview/Export
-**Priority**: P0 (Critical)  
-**Owner**: Frontend Dev 1  
-**Estimated**: 10h  
-**Dependencies**: API-050
+## 🎨 Frontend Tasks
 
-#### Inputs
-- Settlement API endpoints
-- Excel export requirements
-- Preview UI mockups
+### FE-101: DriversPage 연동
+**Status**: ⏳ Pending  
+**Priority**: P2 - Medium  
+**Estimate**: 4 hours  
+**Depends On**: API-011  
 
-#### Steps
-1. Create settlement page structure
-   ```typescript
-   export default function SettlementPage() {
-     const [yearMonth, setYearMonth] = useState(getCurrentYearMonth());
-     const [selectedDriver, setSelectedDriver] = useState(null);
-     
-     return (
-       <>
-         <SettlementFilters 
-           yearMonth={yearMonth}
-           onYearMonthChange={setYearMonth}
-         />
-         <SettlementList yearMonth={yearMonth} />
-         {selectedDriver && (
-           <SettlementPreview 
-             driverId={selectedDriver}
-             yearMonth={yearMonth}
-           />
-         )}
-       </>
-     );
-   }
-   ```
-2. Implement preview modal:
-   - Trip summary table
-   - Deduction details
-   - Final calculation
-   - Manual adjustments
-3. Add confirmation flow:
-   ```typescript
-   const confirmSettlement = async (settlementId: string) => {
-     if (!confirm('정산을 확정하시겠습니까?')) return;
-     await api.confirmSettlement(settlementId);
-     toast.success('정산이 확정되었습니다');
-   };
-   ```
-4. Implement Excel export:
-   ```typescript
-   const exportExcel = async (settlementId: string) => {
-     const blob = await api.exportSettlement(settlementId);
-     downloadBlob(blob, `settlement-${yearMonth}.xlsx`);
-   };
-   ```
+**Input**:
+- `src/app/drivers/page.tsx`
+- Remove `sample-data.ts`
 
-#### Artifacts
-- `/app/settlements/page.tsx`
-- `/components/settlements/SettlementList.tsx`
-- `/components/settlements/SettlementPreview.tsx`
-- `/components/settlements/SettlementConfirm.tsx`
-- `/hooks/useSettlements.ts`
+**Actions**:
+```typescript
+// React Query setup
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-#### Tests
-- [ ] Settlement list displays
-- [ ] Preview calculations correct
-- [ ] Manual adjustments work
-- [ ] Confirmation locks settlement
-- [ ] Excel export downloads
-- [ ] Cannot edit confirmed settlements
+const { data: drivers, isLoading } = useQuery({
+  queryKey: ['drivers'],
+  queryFn: () => fetch('/api/drivers').then(res => res.json())
+});
 
-#### Rollback
-- Unlock settlements if needed
-- Restore previous calculations
+const createMutation = useMutation({
+  mutationFn: (data) => fetch('/api/drivers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }),
+  onSuccess: () => {
+    queryClient.invalidateQueries(['drivers']);
+    setModalOpen(false);
+  },
+  onError: (error) => {
+    toast.error(error.message);
+  }
+});
+```
+
+**Output**:
+- Real-time driver list
+- Create/Edit/Delete modals
+- Error toast notifications
+
+**Verification**:
+- Create driver → appears in list
+- Edit driver → updates immediately
+- Delete driver → removes from list
 
 ---
 
-## Import Tasks
+### FE-111: TripsPage 연동
+**Status**: ⏳ Pending  
+**Priority**: P2 - Medium  
+**Estimate**: 5 hours  
+**Depends On**: API-014  
 
-### IMP-200: CSV Templates
-**Priority**: P2 (Medium)  
-**Owner**: Backend Dev 1  
-**Estimated**: 4h  
-**Dependencies**: API-010
+**Input**:
+- Table/Calendar toggle preserved
+- Date filter
 
-#### Inputs
-- Data models from DB-001
-- Field requirements from SPEC.md
+**Actions**:
+```typescript
+// Handle unique constraint errors
+const createTripMutation = useMutation({
+  mutationFn: (data) => fetch('/api/trips', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  onError: (error) => {
+    if (error.status === 409) {
+      toast.error('이미 등록된 운행입니다');
+    } else {
+      toast.error('운행 등록 실패');
+    }
+  }
+});
+```
 
-#### Steps
-1. Create driver template `/public/templates/drivers.csv`
-   ```csv
-   이름*,연락처*,차량번호,사업자번호,상호명,대표자명,은행명,계좌번호,비고
-   홍길동,010-1234-5678,12가3456,123-45-67890,길동운송,홍길동,국민은행,123-456-789012,
-   ```
-2. Create vehicle template `/public/templates/vehicles.csv`
-   ```csv
-   차량번호*,차종*,톤수,소유구분*,배정기사
-   12가3456,탑차,2.5,고정,홍길동
-   ```
-3. Create route template `/public/templates/routes.csv`
-   ```csv
-   노선명*,상차지*,하차지*,거리(km),기사운임*,청구운임*,운행요일,기본기사
-   서울-부산,서울물류센터,부산항,450,250000,300000,"월,수,금",홍길동
-   ```
-4. Create trip template `/public/templates/trips.csv`
-   ```csv
-   운행일*,기사명*,차량번호*,노선명,상태,기사운임,청구운임,비고
-   2025-01-10,홍길동,12가3456,서울-부산,완료,250000,300000,
-   ```
-5. Add download endpoint `/api/templates/:type`
+**Output**:
+- Date-filtered trip list
+- Unique constraint error handling
+- Status update dropdowns
 
-#### Artifacts
-- `/public/templates/*.csv` files
-- `/app/api/templates/[type]/route.ts`
-- Template documentation
-
-#### Tests
-- [ ] Templates have correct headers
-- [ ] Required fields marked with *
-- [ ] Sample data included
-- [ ] Downloads work
-- [ ] Encoding is UTF-8 with BOM
-
-#### Rollback
-- Remove template files
-- Restore previous templates
+**Verification**:
+- Create duplicate trip → error message
+- Change status → updates in DB
 
 ---
 
-### IMP-210: Import Wizard
-**Priority**: P1 (High)  
-**Owner**: Full-stack Dev  
-**Estimated**: 16h  
-**Dependencies**: IMP-200, OPS-310
+### FE-121: SettlementPage 연동
+**Status**: ⏳ Pending  
+**Priority**: P2 - Medium  
+**Estimate**: 4 hours  
+**Depends On**: API-015  
 
-#### Inputs
-- CSV templates
-- Validation rules
-- Mapping requirements
+**Input**:
+- Month/Driver selectors
+- Preview/Finalize flow
 
-#### Steps
-1. Create import wizard component
-   ```typescript
-   export function ImportWizard() {
-     const [step, setStep] = useState(1);
-     const [file, setFile] = useState(null);
-     const [mapping, setMapping] = useState({});
-     const [validation, setValidation] = useState(null);
-     
-     return (
-       <WizardSteps current={step}>
-         <UploadStep onUpload={setFile} />
-         <MappingStep 
-           file={file}
-           mapping={mapping}
-           onMapping={setMapping}
-         />
-         <ValidationStep 
-           validation={validation}
-           onValidate={validate}
-         />
-         <CommitStep onCommit={commit} />
-       </WizardSteps>
-     );
-   }
-   ```
-2. Implement file parser:
-   ```typescript
-   import Papa from 'papaparse';
-   
-   const parseCSV = (file: File) => {
-     return new Promise((resolve) => {
-       Papa.parse(file, {
-         header: true,
-         encoding: 'UTF-8',
-         complete: (results) => resolve(results)
-       });
-     });
-   };
-   ```
-3. Create column mapper:
-   - Auto-detect mappings
-   - Manual override
-   - Save mapping profiles
-4. Implement validation:
-   - Required fields check
-   - Format validation
-   - Duplicate detection
-   - Reference validation
-5. Add simulation mode:
-   - Show what will be created/updated
-   - Highlight conflicts
-   - Allow selective import
+**Actions**:
+```typescript
+// Preview calculation
+const previewMutation = useMutation({
+  mutationFn: ({ yearMonth, driverId }) => 
+    fetch('/api/settlements/preview', {
+      method: 'POST',
+      body: JSON.stringify({ yearMonth, driverId })
+    }).then(res => res.json())
+});
 
-#### Artifacts
-- `/components/import/ImportWizard.tsx`
-- `/components/import/UploadStep.tsx`
-- `/components/import/MappingStep.tsx`
-- `/components/import/ValidationStep.tsx`
-- `/components/import/CommitStep.tsx`
-- `/lib/utils/csv-parser.ts`
-- `/lib/services/import.service.ts`
+// Finalize with confirmation
+const finalizeMutation = useMutation({
+  mutationFn: (settlementId) => 
+    fetch('/api/settlements/finalize', {
+      method: 'POST',
+      body: JSON.stringify({ settlementId })
+    }),
+  onSuccess: () => {
+    setLocked(true);
+    toast.success('정산이 확정되었습니다');
+  }
+});
+```
 
-#### Tests
-- [ ] File upload accepts CSV
-- [ ] Auto-mapping works
-- [ ] Validation catches errors
-- [ ] Simulation shows preview
-- [ ] Commit imports data
-- [ ] Audit log created
+**Output**:
+- Month selector → Preview button
+- Preview results display
+- Finalize button → Lock status
+- Export stub button
 
-#### Rollback
-- Rollback imported data
-- Restore from audit log
+**Verification**:
+- Preview shows correct calculations
+- Finalize locks the settlement
+- Locked settlements show read-only UI
 
 ---
 
-## Operations Tasks
+## 📥 Import Tasks
 
-### OPS-300: RBAC Middleware
-**Priority**: P0 (Critical)  
-**Owner**: Backend Lead  
-**Estimated**: 8h  
-**Dependencies**: DB-002
+### IMP-201: CSV Import (drivers)
+**Status**: ⏳ Pending  
+**Priority**: P3 - Low  
+**Estimate**: 4 hours  
+**Depends On**: API-011  
 
-#### Inputs
-- Role matrix from [SPEC.md Section 7.1](./SPEC.md#71-역할별-권한-매트릭스)
-- NextAuth.js configuration
+**Input**:
+- `templates/csv/drivers.csv`
 
-#### Steps
-1. Extend NextAuth session
-   ```typescript
-   // lib/auth/config.ts
-   declare module "next-auth" {
-     interface Session {
-       user: {
-         id: string;
-         email: string;
-         name: string;
-         role: 'ADMIN' | 'DISPATCHER' | 'ACCOUNTANT';
-       }
-     }
-   }
-   ```
-2. Create RBAC middleware
-   ```typescript
-   // middleware.ts
-   export function withAuth(
-     handler: NextApiHandler,
-     allowedRoles: UserRole[]
-   ) {
-     return async (req, res) => {
-       const session = await getServerSession(req, res, authOptions);
-       if (!session) {
-         return res.status(401).json({ error: 'Unauthorized' });
-       }
-       if (!allowedRoles.includes(session.user.role)) {
-         return res.status(403).json({ error: 'Forbidden' });
-       }
-       return handler(req, res);
-     };
-   }
-   ```
-3. Apply to all API routes:
-   ```typescript
-   // Example usage
-   export const GET = withAuth(
-     async (req, res) => { /* handler */ },
-     ['ADMIN', 'DISPATCHER']
-   );
-   ```
-4. Create permission helper
-   ```typescript
-   export const permissions = {
-     drivers: {
-       create: ['ADMIN', 'DISPATCHER'],
-       read: ['ADMIN', 'DISPATCHER', 'ACCOUNTANT'],
-       update: ['ADMIN', 'DISPATCHER'],
-       delete: ['ADMIN']
-     }
-   };
-   ```
+**Actions**:
+```typescript
+// Parse CSV
+import { parse } from 'csv-parse';
 
-#### Artifacts
-- `/middleware.ts`
-- `/lib/auth/rbac.ts`
-- `/lib/auth/permissions.ts`
-- Updated API routes with RBAC
+const records = parse(csvContent, {
+  columns: true,
+  skip_empty_lines: true
+});
 
-#### Tests
-- [ ] Admin can access all endpoints
-- [ ] Dispatcher has correct permissions
-- [ ] Accountant limited to read + settlement
-- [ ] Unauthorized returns 401
-- [ ] Forbidden returns 403
+// Validate each row
+const errors = [];
+const valid = [];
 
-#### Rollback
-- Remove middleware
-- Restore open access (dev only)
+for (const [index, row] of records.entries()) {
+  try {
+    const validated = driverSchema.parse(row);
+    valid.push(validated);
+  } catch (error) {
+    errors.push({ row: index + 1, error: error.message });
+  }
+}
 
----
+// Simulation response
+if (errors.length > 0) {
+  return NextResponse.json({
+    success: false,
+    errors,
+    validCount: valid.length,
+    errorCount: errors.length
+  });
+}
 
-### OPS-310: Audit Log Hooks
-**Priority**: P1 (High)  
-**Owner**: Backend Dev 2  
-**Estimated**: 6h  
-**Dependencies**: OPS-300, IMP-210
+// Commit with transaction
+const result = await prisma.$transaction(async (tx) => {
+  const created = [];
+  for (const driver of valid) {
+    const existing = await tx.driver.findUnique({
+      where: { phone: driver.phone }
+    });
+    if (!existing) {
+      created.push(await tx.driver.create({ data: driver }));
+    }
+  }
+  return created;
+});
 
-#### Inputs
-- Audit log schema
-- Events to track
+// Audit log
+await prisma.auditLog.create({
+  data: {
+    action: 'IMPORT',
+    entityType: 'Driver',
+    metadata: { count: result.length },
+    userId
+  }
+});
+```
 
-#### Steps
-1. Create audit service
-   ```typescript
-   // lib/services/audit.service.ts
-   export class AuditService {
-     async log(event: AuditEvent) {
-       await prisma.auditLog.create({
-         data: {
-           userId: event.userId,
-           userName: event.userName,
-           action: event.action,
-           entityType: event.entityType,
-           entityId: event.entityId,
-           changes: event.changes,
-           metadata: {
-             ip: event.ip,
-             userAgent: event.userAgent,
-             ...event.metadata
-           }
-         }
-       });
-     }
-   }
-   ```
-2. Create Prisma middleware for auto-logging
-   ```typescript
-   prisma.$use(async (params, next) => {
-     const result = await next(params);
-     
-     if (['create', 'update', 'delete'].includes(params.action)) {
-       await auditService.log({
-         action: params.action,
-         entityType: params.model,
-         entityId: result.id,
-         changes: params.args
-       });
-     }
-     
-     return result;
-   });
-   ```
-3. Add import audit logging:
-   ```typescript
-   // Special handling for bulk imports
-   await auditService.log({
-     action: 'IMPORT',
-     entityType: 'Driver',
-     metadata: {
-       fileName: file.name,
-       recordCount: records.length,
-       created: created.length,
-       updated: updated.length
-     }
-   });
-   ```
-4. Create audit viewer API
-   ```typescript
-   export const GET = withAuth(
-     async (req) => {
-       const logs = await prisma.auditLog.findMany({
-         orderBy: { createdAt: 'desc' },
-         take: 100
-       });
-       return Response.json(logs);
-     },
-     ['ADMIN']
-   );
-   ```
+**Output**:
+- Validation report JSON
+- Success/error counts
+- Audit log entry
 
-#### Artifacts
-- `/lib/services/audit.service.ts`
-- `/lib/prisma/audit-middleware.ts`
-- `/app/api/audit/route.ts`
+**Verification**:
+```bash
+# Test with sample CSV
+curl -X POST http://localhost:3000/api/import/drivers \
+  -F "file=@templates/csv/drivers.csv"
+```
 
-#### Tests
-- [ ] CRUD operations logged
-- [ ] Import events logged
-- [ ] Settlement confirmation logged
-- [ ] User info captured
-- [ ] Metadata recorded
-
-#### Rollback
-- Disable audit middleware
-- Preserve existing logs
+**Rollback**: Transaction auto-rollback on error
 
 ---
 
-### OPS-320: Admin Dashboard
-**Priority**: P2 (Medium)  
-**Owner**: Full-stack Dev  
-**Estimated**: 8h  
-**Dependencies**: OPS-310
+### IMP-202: CSV Import (trips)
+**Status**: ⏳ Pending  
+**Priority**: P3 - Low  
+**Estimate**: 5 hours  
+**Depends On**: API-014  
 
-#### Inputs
-- Metrics requirements
-- Health check needs
-- Dashboard mockups
+**Input**:
+- `templates/csv/trips.csv`
 
-#### Steps
-1. Create dashboard layout
-   ```typescript
-   export default function AdminDashboard() {
-     return (
-       <div className="grid grid-cols-2 gap-4">
-         <MetricCard title="일일 운행" value={metrics.dailyTrips} />
-         <MetricCard title="활성 기사" value={metrics.activeDrivers} />
-         <MetricCard title="정산 대기" value={metrics.pendingSettlements} />
-         <MetricCard title="시스템 상태" value={health.status} />
-       </div>
-     );
-   }
-   ```
-2. Create metrics API
-   ```typescript
-   export const GET = withAuth(
-     async () => {
-       const metrics = await calculateMetrics();
-       return Response.json({
-         dailyTrips: metrics.dailyTrips,
-         activeDrivers: metrics.activeDrivers,
-         pendingSettlements: metrics.pendingSettlements,
-         importSuccessRate: metrics.importSuccessRate,
-         systemUptime: process.uptime()
-       });
-     },
-     ['ADMIN']
-   );
-   ```
-3. Implement health checks
-   ```typescript
-   export async function healthCheck() {
-     const checks = {
-       database: await checkDatabase(),
-       redis: await checkRedis(),
-       storage: await checkStorage(),
-       memory: process.memoryUsage()
-     };
-     
-     return {
-       status: Object.values(checks).every(c => c.healthy) ? 'healthy' : 'degraded',
-       checks
-     };
-   }
-   ```
-4. Add audit log viewer
-5. Create system settings page
+**Actions**:
+```typescript
+// Handle unique constraint violations
+const errors = [];
+const created = [];
 
-#### Artifacts
-- `/app/admin/dashboard/page.tsx`
-- `/app/admin/audit/page.tsx`
-- `/app/admin/settings/page.tsx`
-- `/app/api/dashboard/metrics/route.ts`
-- `/app/api/dashboard/health/route.ts`
+for (const trip of valid) {
+  try {
+    // Check unique constraint
+    const existing = await tx.trip.findFirst({
+      where: {
+        vehicleId: trip.vehicleId,
+        date: trip.date,
+        driverId: trip.driverId
+      }
+    });
+    
+    if (existing) {
+      errors.push({
+        row: trip.rowNumber,
+        error: 'Duplicate trip'
+      });
+    } else {
+      created.push(await tx.trip.create({ data: trip }));
+    }
+  } catch (error) {
+    errors.push({
+      row: trip.rowNumber,
+      error: error.message
+    });
+  }
+}
 
-#### Tests
-- [ ] Dashboard loads for admin
-- [ ] Metrics display correctly
-- [ ] Health check works
-- [ ] Audit logs viewable
-- [ ] Non-admin cannot access
+// Partial success option
+if (errors.length > 0 && !allowPartial) {
+  throw new Error('Import failed with errors');
+}
+```
 
-#### Rollback
-- Remove admin pages
-- Disable metrics collection
+**Output**:
+- Unique constraint violation report
+- Partial success option
+- Rollback on critical errors
+
+**Verification**:
+- Import 100 trips → success count
+- Import duplicates → error report
 
 ---
 
-## Task Checklist
+## 🔧 Operations Tasks
 
-### Week 1 Sprint (Foundation)
-- [ ] DB-001: Prisma Schema v1
-- [ ] DB-002: Migration Scripts
-- [ ] OPS-300: RBAC Middleware
-- [ ] IMP-200: CSV Templates
+### OPS-301: /admin/health
+**Status**: ⏳ Pending  
+**Priority**: P3 - Low  
+**Estimate**: 2 hours  
 
-### Week 2 Sprint (Core CRUD)
-- [ ] API-010: Drivers CRUD
-- [ ] API-020: Vehicles CRUD
-- [ ] API-030: Routes CRUD
-- [ ] API-040: Trips CRUD
-- [ ] FE-100: DriversPage
+**Actions**:
+```typescript
+// src/app/admin/health/route.ts
+export async function GET() {
+  const dbCheck = await prisma.$queryRaw`SELECT 1`;
+  const migrations = await prisma.$queryRaw`
+    SELECT migration_name, finished_at 
+    FROM _prisma_migrations 
+    ORDER BY finished_at DESC 
+    LIMIT 1
+  `;
+  
+  return NextResponse.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version,
+    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7),
+    database: 'connected',
+    lastMigration: migrations[0]?.migration_name,
+    logLevel: process.env.LOG_LEVEL || 'info'
+  });
+}
+```
 
-### Week 3 Sprint (Settlement & UI)
-- [ ] API-050: Settlements API
-- [ ] FE-110: TripsPage
-- [ ] FE-120: SettlementPage
-- [ ] OPS-310: Audit Log Hooks
-
-### Week 4 Sprint (Import & Polish)
-- [ ] IMP-210: Import Wizard
-- [ ] OPS-320: Admin Dashboard
-- [ ] Integration Testing
-- [ ] Performance Optimization
-- [ ] Documentation
-
----
-
-## Risk Mitigation per Task
-
-| Task | Risk | Mitigation |
-|------|------|------------|
-| DB-001 | Schema changes | Version control, migrations |
-| API-040 | Complex validation | Comprehensive tests |
-| API-050 | Calculation errors | Unit tests, Excel comparison |
-| FE-110 | Performance issues | Virtual scrolling, pagination |
-| IMP-210 | Data corruption | Validation, rollback capability |
-| OPS-300 | Security holes | Penetration testing |
+**Verification**:
+```bash
+curl http://localhost:3000/admin/health
+# Expected: {"status":"healthy","timestamp":"...","database":"connected"}
+```
 
 ---
 
-## Success Metrics
+### OPS-310: RUNBOOK & RELEASE_NOTES
+**Status**: ⏳ Pending  
+**Priority**: P3 - Low  
+**Estimate**: 3 hours  
 
-### Code Quality
-- [ ] 80% test coverage
-- [ ] No critical security issues
-- [ ] TypeScript strict mode
-- [ ] ESLint no errors
+**RUNBOOK.md**:
+```markdown
+# Deployment Runbook
 
-### Performance
-- [ ] API response < 200ms (P95)
-- [ ] Page load < 2s
-- [ ] Settlement calculation < 5s
-- [ ] Import 1000 records < 10s
+## Quick Start
+\`\`\`bash
+# 1. Clone repository
+git clone [repo-url]
+cd logistics-driver-management
 
-### Business
-- [ ] All CRUD operations working
-- [ ] Settlement accuracy 100%
-- [ ] Import success rate > 95%
-- [ ] Audit trail complete
+# 2. Environment setup
+cp .env.example .env
+# Edit DATABASE_URL, NEXTAUTH_SECRET
+
+# 3. Start services
+docker-compose up -d
+
+# 4. Database setup
+npx prisma migrate deploy
+npx prisma db seed
+
+# 5. Verify
+curl http://localhost:3000/admin/health
+\`\`\`
+
+## Environment Variables
+- DATABASE_URL: PostgreSQL connection string
+- NEXTAUTH_SECRET: Random 64+ character string
+- NEXTAUTH_URL: Application URL
+
+## Backup/Restore
+\`\`\`bash
+# Backup
+docker exec postgres pg_dump -U user logistics > backup.sql
+
+# Restore
+docker exec -i postgres psql -U user logistics < backup.sql
+\`\`\`
+
+## Schema Version
+Check current: SELECT migration_name FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 1;
+```
+
+**RELEASE_NOTES.md**:
+```markdown
+# Release Notes v1.0.0
+
+## Features
+- Driver management CRUD
+- Vehicle management with ownership types
+- Route templates with weekday patterns
+- Trip recording with unique constraints
+- Settlement calculation and locking
+- CSV import for bulk data
+
+## Known Issues
+- Excel export is stub only
+- No email notifications yet
+
+## Breaking Changes
+- None (initial release)
+```
+
+**Verification**:
+- Follow RUNBOOK on fresh environment
+- Successful startup = RUNBOOK works
 
 ---
 
-**END OF TASKS**
+## 📊 Task Priority Matrix
 
-_Tasks will be tracked in project management tool and updated daily during standup._
+| Priority | Tasks | Total Hours |
+|----------|-------|-------------|
+| **P0 - Critical** | DB-001, API-011, API-012 | 9 hours |
+| **P1 - High** | API-013, API-014, API-015 | 14 hours |
+| **P2 - Medium** | FE-101, FE-111, FE-121 | 13 hours |
+| **P3 - Low** | IMP-201, IMP-202, OPS-301, OPS-310 | 14 hours |
+| **Total** | 13 tasks | **50 hours** |
+
+---
+
+## 🎯 Definition of Done
+
+### Per Task
+- [ ] Code compiles without errors
+- [ ] Basic happy path works
+- [ ] Error cases return proper status codes
+- [ ] Verification steps pass
+- [ ] Rollback documented (if applicable)
+
+### Sprint Complete
+- [ ] All P0 tasks complete
+- [ ] Database has sample data
+- [ ] APIs respond to curl tests
+- [ ] Frontend shows real data
+- [ ] docker-compose up works
+
+---
+
+## 🚀 Quick Commands
+
+```bash
+# Start everything
+docker-compose up
+
+# Reset database
+npx prisma migrate reset
+
+# Test API
+curl http://localhost:3000/api/drivers
+
+# Check health
+curl http://localhost:3000/admin/health
+
+# View database
+npx prisma studio
+```
+
+---
+
+**Last Updated**: 2025-01-10  
+**Next Review**: After P0 tasks complete
