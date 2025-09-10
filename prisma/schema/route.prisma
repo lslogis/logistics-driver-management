@@ -1,0 +1,36 @@
+// 노선 템플릿 모델
+
+model RouteTemplate {
+  id               String  @id @default(cuid())
+  name             String  @unique // 노선명 (예: 서울-부산)
+  loadingPoint     String  // 상차지
+  unloadingPoint   String  // 하차지
+  distance         Float?  // 거리(km)
+  
+  // 운임 정보 (원화, 소수점 2자리)
+  driverFare       Decimal @db.Decimal(12, 2) // 기사 운임
+  billingFare      Decimal @db.Decimal(12, 2) // 청구 운임
+  
+  // 요일 패턴 (0=일요일, 1=월요일, ..., 6=토요일)
+  weekdayPattern   Int[]   // 예: [1,2,3,4,5] = 월~금
+  
+  // 기본 배정 기사 (선택)
+  defaultDriverId  String?
+  
+  isActive         Boolean @default(true)
+  
+  // 메타데이터
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  defaultDriver Driver? @relation("RouteDefaultDriver", fields: [defaultDriverId], references: [id], onDelete: SetNull)
+  trips         Trip[]
+  
+  // 비즈니스 규칙: 청구운임 >= 기사운임
+  @@index([name]) // 노선명 검색
+  @@index([loadingPoint]) // 상차지별 조회
+  @@index([defaultDriverId]) // 기사별 노선 조회
+  @@index([isActive]) // 활성 노선 필터링
+  @@map("route_templates")
+}

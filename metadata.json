@@ -1,0 +1,5 @@
+{
+  "name": "LS Logistics Driver Management",
+  "description": "A web application for LS Logistics to manage drivers, track their trips, and calculate monthly settlements.",
+  "requestFramePermissions": []
+}

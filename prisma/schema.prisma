@@ -1,0 +1,324 @@
+// 메인 Prisma 스키마 파일 - 모든 도메인 스키마를 통합
+// 이 파일은 자동 생성되므로 직접 수정하지 마세요.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==============================================
+// ENUMS (from commons.prisma)
+// ==============================================
+
+enum VehicleOwnership {
+  OWNED      // 고정 (자차)
+  CHARTER    // 용차 (임시)
+  CONSIGNED  // 지입 (계약)
+}
+
+enum TripStatus {
+  SCHEDULED   // 예정
+  COMPLETED   // 완료
+  ABSENCE     // 결행
+  SUBSTITUTE  // 대차
+}
+
+enum SettlementStatus {
+  DRAFT      // 임시 저장
+  CONFIRMED  // 확정 (수정 불가)
+  PAID       // 지급 완료
+}
+
+enum UserRole {
+  ADMIN      // 관리자 (모든 권한)
+  DISPATCHER // 배차담당자 (운행 관리)
+  ACCOUNTANT // 정산담당자 (정산 업무)
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  EXPORT
+  CONFIRM
+  LOGIN
+  LOGOUT
+}
+
+enum SettlementItemType {
+  TRIP        // 운행 운임
+  DEDUCTION   // 공제 (결행, 대차)
+  ADDITION    // 추가 지급
+  ADJUSTMENT  // 수동 조정
+}
+
+// ==============================================
+// AUTH MODELS (from auth.prisma)
+// ==============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String?
+  role      UserRole @default(DISPATCHER)
+  isActive  Boolean  @default(true)
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  lastLogin DateTime? @db.Timestamptz(6)
+  
+  accounts    Account[]
+  sessions    Session[]
+  auditLogs   AuditLog[]
+  settlements Settlement[] @relation("SettlementCreator")
+  confirmedSettlements Settlement[] @relation("SettlementConfirmer")
+  
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(6)
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// ==============================================
+// DRIVER MODELS (from driver.prisma)
+// ==============================================
+
+model Driver {
+  id             String  @id @default(cuid())
+  name           String
+  phone          String  @unique
+  email          String?
+  businessNumber String?
+  companyName    String?
+  representativeName String?
+  bankName       String?
+  accountNumber  String?
+  remarks        String?
+  isActive       Boolean @default(true)
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  vehicles        Vehicle[]
+  trips           Trip[]
+  routeTemplates  RouteTemplate[] @relation("RouteDefaultDriver")
+  settlements     Settlement[] @relation("DriverSettlements")
+  substituteTrips Trip[] @relation("SubstituteDriver")
+  
+  @@index([name])
+  @@index([phone])
+  @@index([isActive])
+  @@map("drivers")
+}
+
+model Vehicle {
+  id          String           @id @default(cuid())
+  plateNumber String           @unique
+  vehicleType String
+  ownership   VehicleOwnership
+  driverId    String?
+  isActive    Boolean          @default(true)
+  capacity    Float?
+  year        Int?
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  driver Driver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  trips  Trip[]
+  
+  @@index([plateNumber])
+  @@index([ownership])
+  @@index([driverId])
+  @@map("vehicles")
+}
+
+// ==============================================
+// ROUTE MODELS (from route.prisma)
+// ==============================================
+
+model RouteTemplate {
+  id               String  @id @default(cuid())
+  name             String  @unique
+  loadingPoint     String
+  unloadingPoint   String
+  distance         Float?
+  driverFare       Decimal @db.Decimal(12, 2)
+  billingFare      Decimal @db.Decimal(12, 2)
+  weekdayPattern   Int[]
+  defaultDriverId  String?
+  isActive         Boolean @default(true)
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  defaultDriver Driver? @relation("RouteDefaultDriver", fields: [defaultDriverId], references: [id], onDelete: SetNull)
+  trips         Trip[]
+  
+  @@index([name])
+  @@index([loadingPoint])
+  @@index([defaultDriverId])
+  @@index([isActive])
+  @@map("route_templates")
+}
+
+// ==============================================
+// TRIP MODELS (from trip.prisma)
+// ==============================================
+
+model Trip {
+  id                 String    @id @default(cuid())
+  date               DateTime  @db.Date
+  driverId           String
+  vehicleId          String
+  routeType          String    @default("fixed")
+  routeTemplateId    String?
+  customRoute        Json?
+  status             TripStatus @default(SCHEDULED)
+  driverFare         Decimal   @db.Decimal(12, 2)
+  billingFare        Decimal   @db.Decimal(12, 2)
+  absenceReason      String?
+  deductionAmount    Decimal?  @db.Decimal(12, 2)
+  substituteDriverId String?
+  substituteFare     Decimal?  @db.Decimal(12, 2)
+  remarks            String?
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdBy String?
+  
+  driver           Driver              @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle          Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  routeTemplate    RouteTemplate?      @relation(fields: [routeTemplateId], references: [id], onDelete: SetNull)
+  substituteDriver Driver?             @relation("SubstituteDriver", fields: [substituteDriverId], references: [id], onDelete: SetNull)
+  settlementItems  SettlementItem[]
+  
+  @@unique([vehicleId, date, driverId], name: "unique_vehicle_date_driver")
+  @@index([driverId, date])
+  @@index([date, status])
+  @@index([routeTemplateId])
+  @@index([substituteDriverId])
+  @@map("trips")
+}
+
+// ==============================================
+// SETTLEMENT MODELS (from settlement.prisma)
+// ==============================================
+
+model Settlement {
+  id              String           @id @default(cuid())
+  yearMonth       String
+  driverId        String
+  status          SettlementStatus @default(DRAFT)
+  totalTrips      Int              @default(0)
+  totalBaseFare   Decimal          @default(0) @db.Decimal(12, 2)
+  totalDeductions Decimal          @default(0) @db.Decimal(12, 2)
+  totalAdditions  Decimal          @default(0) @db.Decimal(12, 2)
+  finalAmount     Decimal          @default(0) @db.Decimal(12, 2)
+  confirmedAt     DateTime?        @db.Timestamptz(6)
+  confirmedBy     String?
+  paidAt          DateTime?        @db.Timestamptz(6)
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdBy String?
+  
+  driver    Driver            @relation("DriverSettlements", fields: [driverId], references: [id], onDelete: Cascade)
+  creator   User?             @relation("SettlementCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  confirmer User?             @relation("SettlementConfirmer", fields: [confirmedBy], references: [id], onDelete: SetNull)
+  items     SettlementItem[]
+  
+  @@unique([driverId, yearMonth], name: "unique_driver_yearmonth")
+  @@index([yearMonth, status])
+  @@index([driverId, status])
+  @@index([status, confirmedAt])
+  @@map("settlements")
+}
+
+model SettlementItem {
+  id           String              @id @default(cuid())
+  settlementId String
+  tripId       String?
+  type         SettlementItemType
+  description  String
+  amount       Decimal             @db.Decimal(12, 2)
+  date         DateTime            @db.Date
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  settlement Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  trip       Trip?      @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  
+  @@index([settlementId, type])
+  @@index([tripId])
+  @@index([date])
+  @@map("settlement_items")
+}
+
+// ==============================================
+// AUDIT MODELS (from audit.prisma)
+// ==============================================
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  userName   String
+  action     AuditAction
+  entityType String
+  entityId   String
+  changes    Json?
+  metadata   Json?
+  
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

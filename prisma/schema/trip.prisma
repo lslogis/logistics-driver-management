@@ -1,0 +1,58 @@
+// 운행 관련 모델
+
+model Trip {
+  id               String    @id @default(cuid())
+  date             DateTime  @db.Date // 운행일 (날짜만)
+  
+  // 운행 주체
+  driverId         String    // 운행 기사
+  vehicleId        String    // 운행 차량
+  
+  // 노선 정보
+  routeType        String    @default("fixed") // "fixed" 또는 "custom"
+  routeTemplateId  String?   // 고정노선 ID (nullable for custom)
+  
+  // 커스텀 노선 정보 (고정노선이 아닌 경우)
+  customRoute      Json?     // { loadingPoint, unloadingPoint, description }
+  
+  // 운행 상태 및 결과
+  status           TripStatus @default(SCHEDULED)
+  
+  // 운임 정보 (실제 적용된 운임, 정산 시점에 고정)
+  driverFare       Decimal   @db.Decimal(12, 2) // 기사 운임
+  billingFare      Decimal   @db.Decimal(12, 2) // 청구 운임
+  
+  // 결행 정보 (status = ABSENCE)
+  absenceReason    String?   // 결행 사유
+  deductionAmount  Decimal?  @db.Decimal(12, 2) // 공제 금액 (기본: 기사운임의 10%)
+  
+  // 대차 정보 (status = SUBSTITUTE) 
+  substituteDriverId String? // 대차 기사 ID
+  substituteFare   Decimal?  @db.Decimal(12, 2) // 대차비 (원 기사가 대차 기사에게 지급)
+  
+  remarks          String?   // 비고
+  
+  // 메타데이터
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdBy String?  // 생성한 사용자 ID
+  
+  // Relations
+  driver         Driver        @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  routeTemplate  RouteTemplate? @relation(fields: [routeTemplateId], references: [id], onDelete: SetNull)
+  substituteDriver Driver?     @relation("SubstituteDriver", fields: [substituteDriverId], references: [id], onDelete: SetNull)
+  
+  // 정산 연결
+  settlementItems SettlementItem[]
+  
+  // 비즈니스 제약: 차량번호 + 날짜 + 기사 조합 유니크 (중복 운행 방지)
+  @@unique([vehicleId, date, driverId], name: "unique_vehicle_date_driver")
+  
+  // 인덱스 최적화
+  @@index([driverId, date]) // 기사별 운행 조회 (정산용)
+  @@index([date, status]) // 일일 운행 현황 조회
+  @@index([routeTemplateId]) // 노선별 운행 조회
+  @@index([substituteDriverId]) // 대차 기사 조회
+  @@map("trips")
+}

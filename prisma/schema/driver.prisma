@@ -1,0 +1,59 @@
+// 기사 및 차량 관련 모델
+
+model Driver {
+  id             String  @id @default(cuid())
+  name           String  // 기사명
+  phone          String  @unique // 연락처
+  email          String? // 이메일
+  businessNumber String? // 사업자번호 (형식: 123-45-67890)
+  companyName    String? // 상호명
+  representativeName String? // 대표자명
+  bankName       String? // 은행명
+  accountNumber  String? // 계좌번호
+  remarks        String? // 비고
+  isActive       Boolean @default(true) // 활성 상태
+  
+  // 메타데이터 (Asia/Seoul 타임존)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  vehicles    Vehicle[] // 배정된 차량들 (현재는 1:1이지만 확장 고려)
+  trips       Trip[]    // 운행 기록
+  routeTemplates RouteTemplate[] @relation("RouteDefaultDriver") // 기본 배정된 노선
+  settlements Settlement[] @relation("DriverSettlements") // 정산 내역
+  
+  // 대차 관련
+  substituteTrips Trip[] @relation("SubstituteDriver") // 대차 운행
+  
+  @@index([name]) // 이름 검색 최적화
+  @@index([phone]) // 연락처 검색 최적화
+  @@index([isActive]) // 활성 기사 필터링 최적화
+  @@map("drivers")
+}
+
+model Vehicle {
+  id          String           @id @default(cuid())
+  plateNumber String           @unique // 차량번호 (형식: 12가3456)
+  vehicleType String           // 차종 (1톤, 2.5톤, 5톤, 11톤)
+  ownership   VehicleOwnership // 소유권 구분
+  driverId    String?          // 배정된 기사 (nullable)
+  isActive    Boolean          @default(true)
+  
+  // 추가 차량 정보
+  capacity    Float?           // 적재량(톤)
+  year        Int?             // 연식
+  
+  // 메타데이터
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  driver Driver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  trips  Trip[]
+  
+  @@index([plateNumber]) // 차량번호 검색 최적화
+  @@index([ownership]) // 소유권별 필터링
+  @@index([driverId]) // 기사별 차량 조회
+  @@map("vehicles")
+}
