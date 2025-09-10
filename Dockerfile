@@ -2,6 +2,12 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Install system dependencies for Prisma
+RUN apk add --no-cache \
+    openssl \
+    openssl-dev \
+    libc6-compat
+
 # Install dependencies
 COPY package*.json ./
 RUN npm ci --only=production
