@@ -1,5 +1,6 @@
 import { PrismaClient, TripStatus, SettlementStatus, SettlementItemType } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library'
+import { getYearMonthRange } from '../validations/settlement'
 
 export interface SettlementCalculationResult {
   totalTrips: number
@@ -48,9 +49,7 @@ export class SettlementService {
     }
 
     // 3. 해당 월의 운행 기록 조회
-    const [year, month] = yearMonth.split('-').map(Number)
-    const startDate = new Date(year, month - 1, 1) // 월 첫날
-    const endDate = new Date(year, month, 0) // 월 마지막 날
+    const { start: startDate, end: endDate } = getYearMonthRange(yearMonth)
 
     const trips = await this.prisma.trip.findMany({
       where: {
