@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Plus, Search, Edit, Trash2, Calendar, User, Truck, Route, MapPin, DollarSign } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Calendar, User, Truck, Route, MapPin, DollarSign, Upload } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
 import { TripResponse, CreateTripData, UpdateTripData, getTripStatusName, getTripStatusColor, canEditTrip, canDeleteTrip } from '@/lib/validations/trip'
@@ -21,13 +21,13 @@ function useTrips(search?: string, dateFrom?: string, dateTo?: string, page = 1,
       })
       
       const response = await fetch(`/api/trips?${params}`)
+      const result = await response.json()
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to fetch trips')
+        throw new Error(result.error?.message || 'Failed to fetch trips')
       }
       
-      return response.json()
+      return result.data
     },
     staleTime: 30000, // 30초 동안 fresh
     retry: 2
@@ -46,12 +46,13 @@ function useCreateTrip() {
         body: JSON.stringify(data)
       })
       
+      const result = await response.json()
+      
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to create trip')
+        throw new Error(result.error?.message || 'Failed to create trip')
       }
       
-      return response.json()
+      return result.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trips'] })
@@ -75,12 +76,13 @@ function useUpdateTrip() {
         body: JSON.stringify(data)
       })
       
+      const result = await response.json()
+      
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to update trip')
+        throw new Error(result.error?.message || 'Failed to update trip')
       }
       
-      return response.json()
+      return result.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trips'] })
@@ -102,12 +104,13 @@ function useDeleteTrip() {
         method: 'DELETE'
       })
       
+      const result = await response.json()
+      
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to delete trip')
+        throw new Error(result.error?.message || 'Failed to delete trip')
       }
       
-      return response.json()
+      return result.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trips'] })
