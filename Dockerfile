@@ -10,7 +10,8 @@ RUN apk add --no-cache \
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci --only=production
+# Install all dependencies (including dev dependencies for development)
+RUN npm ci
 
 # Copy source code
 COPY . .

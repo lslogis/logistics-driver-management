@@ -24,8 +24,8 @@ git clone [repository-url]
 cd logistics-driver-management
 
 # 2. 환경 변수 설정
-cp .env.example .env
-# .env 파일 편집 (아래 환경변수 섹션 참고)
+cp .env.example .env.local
+# .env.local 파일 편집 (아래 환경변수 섹션 참고)
 
 # 3. Docker Compose 실행
 docker-compose up -d
@@ -40,15 +40,19 @@ curl http://localhost:3000/api/health
 
 ### 1.2 필수 환경 변수
 
-**Database Configuration**:
+**Database Configuration (.env.local)**:
 ```bash
-# PostgreSQL 데이터베이스 연결
+# PostgreSQL 데이터베이스 연결 (Docker Compose 환경)
 DATABASE_URL="postgresql://postgres:password@db:5432/logistics_db"
 
-# 데이터베이스 옵션 (선택)
+# 데이터베이스 컨테이너 설정
 POSTGRES_DB=logistics_db
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=secure_password_here
+
+# ⚠️ 중요: Docker 환경에서는 호스트명을 'db'로 사용 (docker-compose.yml의 서비스명)
+# 로컬 개발: postgresql://postgres:password@localhost:5432/logistics_db
+# Docker 환경: postgresql://postgres:password@db:5432/logistics_db
 ```
 
 **Authentication Configuration**:
@@ -246,30 +250,51 @@ tar -xzf /backups/uploads_backup_latest.tar.gz
 
 ### 3.1 정산 상태 확인
 
-**정산 상태 조회**:
-```sql
--- 현재 정산 상태 확인
+**정산 상태 조회 (Docker 환경)**:
+```bash
+# Docker를 통해 PostgreSQL 접근
+docker-compose exec -T db psql -U postgres -d logistics_db << 'EOF'
+
+-- 현재 정산 상태 확인  
 SELECT 
   s.id,
-  s.yearMonth,
-  d.name as driverName,
+  s."yearMonth",
+  d.name as "driverName",
   s.status,
-  s.confirmedAt,
-  s.confirmedBy,
-  u.name as confirmedByName
+  s."confirmedAt",
+  s."confirmedBy",
+  COALESCE(u.name, 'System') as "confirmedByName"
 FROM settlements s
-JOIN drivers d ON s.driverId = d.id
-LEFT JOIN users u ON s.confirmedBy = u.id
-WHERE s.yearMonth = '2025-01'
-ORDER BY s.confirmedAt DESC;
+JOIN drivers d ON s."driverId" = d.id
+LEFT JOIN users u ON s."confirmedBy" = u.id
+WHERE s."yearMonth" = '2025-01'
+ORDER BY s."confirmedAt" DESC;
 
 -- 잠긴 정산 개수 확인
 SELECT 
   status,
   COUNT(*) as count
 FROM settlements
-WHERE yearMonth = '2025-01'
+WHERE "yearMonth" = '2025-01'
 GROUP BY status;
+
+EOF
+```
+
+**프로덕션 안전 절차**:
+```bash
+# 1. 현재 정산 상태 백업
+docker-compose exec -T db pg_dump -U postgres -d logistics_db -t settlements > "settlements_backup_$(date +%Y%m%d_%H%M%S).sql"
+
+# 2. 정산 상태 확인 후 잠금 해제 (API 사용 권장)
+curl -X POST http://localhost:3000/api/settlements/unlock \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ADMIN_JWT_TOKEN" \
+  -d '{
+    "yearMonth": "2025-01",
+    "reason": "Emergency correction required",
+    "approvedBy": "supervisor-name"
+  }'
 ```
 
 ### 3.2 비상 잠금 해제
@@ -532,14 +557,20 @@ curl http://localhost:3000/api/audit?action=IMPORT&limit=1
 
 **기본 헬스체크**:
 ```bash
-# 애플리케이션 상태 확인
-curl -f http://localhost:3000/api/health || echo "Application unhealthy"
+# 1. 시스템 헬스체크 (구현된 API 사용)
+curl -f http://localhost:3000/api/admin/health || echo "❌ Application unhealthy"
 
-# 데이터베이스 연결 확인
-docker-compose exec app npx prisma db push --preview-feature --skip-generate || echo "Database unhealthy"
+# 2. 간단한 헬스체크 (HEAD 방식)
+curl -I http://localhost:3000/api/admin/health || echo "❌ Quick health check failed"
 
-# Redis 연결 확인 (향후 구현)
-docker-compose exec redis redis-cli ping || echo "Redis unhealthy"
+# 3. 컨테이너 상태 확인
+docker-compose ps
+
+# 4. 데이터베이스 직접 연결 테스트
+docker-compose exec db pg_isready -U postgres || echo "❌ Database unhealthy"
+
+# 5. 애플리케이션 로그 확인
+docker-compose logs --tail=50 app
 ```
 
 **상세 헬스체크 스크립트**:
