@@ -1,147 +1,68 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { ZodError, z } from 'zod'
+import Papa from 'papaparse'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth/rbac'
-import { getCurrentUser, createAuditLog, apiResponse } from '@/lib/auth/server'
-import { z } from 'zod'
+import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { TripStatus } from '@prisma/client'
 
-// CSV Import 검증 스키마
-const importTripsSchema = z.object({
-  validateOnly: z
-    .string()
-    .optional()
-    .transform(val => val === 'true')
-})
-
-// CSV 파싱 함수 (drivers와 동일)
-function parseCSV(csvContent: string): string[][] {
-  const lines = csvContent.trim().split('\n')
-  return lines.map(line => {
-    const result: string[] = []
-    let current = ''
-    let inQuotes = false
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i]
-      
-      if (char === '"') {
-        inQuotes = !inQuotes
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim())
-        current = ''
-      } else {
-        current += char
-      }
-    }
-    
-    result.push(current.trim())
-    return result
-  })
-}
+// 템플릿 헤더 정의
+const REQUIRED_HEADERS = ['날짜', '기사전화번호', '차량번호', '기사요금', '청구요금']
+const TEMPLATE_HEADERS = ['날짜', '기사전화번호', '차량번호', '노선명', '상차지', '하차지', '기사요금', '청구요금', '상태', '차감액', '결행사유', '대차기사전화번호', '대차요금', '비고']
 
 // CSV 데이터를 Trip 객체로 변환
-function csvRowToTrip(row: string[], headers: string[]) {
+function csvRowToTrip(row: any) {
   const data: any = {}
   
-  headers.forEach((header, index) => {
-    const value = row[index]?.trim() || ''
-    
-    switch (header.toLowerCase()) {
-      case 'date':
-      case '날짜':
-      case '운행일':
-        if (value) {
-          // 날짜 형식 통일 (YYYY-MM-DD)
-          const date = new Date(value)
-          if (!isNaN(date.getTime())) {
-            data.date = date.toISOString()
-          }
-        }
-        break
-      case 'driverphone':
-      case '기사전화번호':
-      case 'driver_phone':
-        data.driverPhone = value
-        break
-      case 'vehicleplate':
-      case 'vehicleplatenumber':
-      case '차량번호':
-      case 'plate_number':
-        data.vehiclePlate = value
-        break
-      case 'routename':
-      case '노선명':
-      case 'route_name':
-        data.routeName = value
-        break
-      case 'loadingpoint':
-      case '상차지':
-      case 'loading_point':
-        data.loadingPoint = value
-        break
-      case 'unloadingpoint':
-      case '하차지':
-      case 'unloading_point':
-        data.unloadingPoint = value
-        break
-      case 'driverfare':
-      case '기사요금':
-      case 'driver_fare':
-        if (value && !isNaN(Number(value))) {
-          data.driverFare = Number(value)
-        }
-        break
-      case 'billingfare':
-      case '청구요금':
-      case 'billing_fare':
-        if (value && !isNaN(Number(value))) {
-          data.billingFare = Number(value)
-        }
-        break
-      case 'status':
-      case '상태':
-        const statusMap: Record<string, TripStatus> = {
-          '예정': 'SCHEDULED',
-          '완료': 'COMPLETED',
-          '결행': 'ABSENCE',
-          '대차': 'SUBSTITUTE',
-          'scheduled': 'SCHEDULED',
-          'completed': 'COMPLETED',
-          'absence': 'ABSENCE',
-          'substitute': 'SUBSTITUTE'
-        }
-        data.status = statusMap[value.toLowerCase()] || 'SCHEDULED'
-        break
-      case 'deductionamount':
-      case '차감액':
-      case 'deduction_amount':
-        if (value && !isNaN(Number(value))) {
-          data.deductionAmount = Number(value)
-        }
-        break
-      case 'absencereason':
-      case '결행사유':
-      case 'absence_reason':
-        data.absenceReason = value || undefined
-        break
-      case 'substitutedriverphone':
-      case '대차기사전화번호':
-      case 'substitute_driver_phone':
-        data.substituteDriverPhone = value || undefined
-        break
-      case 'substitutefare':
-      case '대차요금':
-      case 'substitute_fare':
-        if (value && !isNaN(Number(value))) {
-          data.substituteFare = Number(value)
-        }
-        break
-      case 'remarks':
-      case '비고':
-        data.remarks = value || undefined
-        break
+  // 날짜 처리
+  if (row['날짜']) {
+    const date = new Date(row['날짜'].trim())
+    if (!isNaN(date.getTime())) {
+      data.date = date.toISOString().split('T')[0] // YYYY-MM-DD 형식
     }
-  })
+  }
+  
+  // 기본 필드
+  if (row['기사전화번호']) data.driverPhone = row['기사전화번호'].trim()
+  if (row['차량번호']) data.vehiclePlate = row['차량번호'].trim()
+  if (row['노선명']) data.routeName = row['노선명'].trim()
+  if (row['상차지']) data.loadingPoint = row['상차지'].trim()
+  if (row['하차지']) data.unloadingPoint = row['하차지'].trim()
+  
+  // 숫자 필드
+  if (row['기사요금']) {
+    const fare = parseFloat(row['기사요금'].toString().replace(/[^\d.-]/g, ''))
+    if (!isNaN(fare) && fare > 0) data.driverFare = fare
+  }
+  if (row['청구요금']) {
+    const fare = parseFloat(row['청구요금'].toString().replace(/[^\d.-]/g, ''))
+    if (!isNaN(fare) && fare > 0) data.billingFare = fare
+  }
+  if (row['차감액']) {
+    const amount = parseFloat(row['차감액'].toString().replace(/[^\d.-]/g, ''))
+    if (!isNaN(amount) && amount > 0) data.deductionAmount = amount
+  }
+  if (row['대차요금']) {
+    const fare = parseFloat(row['대차요금'].toString().replace(/[^\d.-]/g, ''))
+    if (!isNaN(fare) && fare > 0) data.substituteFare = fare
+  }
+  
+  // 상태 매핑
+  if (row['상태']) {
+    const statusMap: Record<string, TripStatus> = {
+      '예정': 'SCHEDULED',
+      '완료': 'COMPLETED',
+      '결행': 'ABSENCE',
+      '대차': 'SUBSTITUTE'
+    }
+    const statusKey = row['상태'].trim()
+    data.status = statusMap[statusKey] || 'SCHEDULED'
+  }
+  
+  // 선택적 필드
+  if (row['결행사유']) data.absenceReason = row['결행사유'].trim()
+  if (row['대차기사전화번호']) data.substituteDriverPhone = row['대차기사전화번호'].trim()
+  if (row['비고']) data.remarks = row['비고'].trim()
   
   return data
 }
@@ -154,77 +75,116 @@ export const POST = withAuth(
     try {
       const user = await getCurrentUser(req)
       if (!user) {
-        return apiResponse.unauthorized()
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '로그인이 필요합니다'
+          }
+        }, { status: 401 })
       }
 
       // FormData 파싱
       const formData = await req.formData()
       const file = formData.get('file') as File
-      const validateOnlyParam = formData.get('validateOnly') as string
+      const mode = formData.get('mode') as string || 'simulate'
       
-      const { validateOnly } = importTripsSchema.parse({ 
-        validateOnly: validateOnlyParam 
-      })
-
       if (!file) {
-        return apiResponse.error('CSV 파일을 선택해주세요')
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NO_FILE',
+            message: 'CSV 파일을 선택해주세요'
+          }
+        }, { status: 400 })
       }
 
       if (!file.name.toLowerCase().endsWith('.csv')) {
-        return apiResponse.error('CSV 파일만 업로드 가능합니다')
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INVALID_FILE_TYPE',
+            message: 'CSV 파일만 업로드 가능합니다'
+          }
+        }, { status: 400 })
       }
 
-      if (file.size > 10 * 1024 * 1024) { // 10MB 제한
-        return apiResponse.error('파일 크기는 10MB 이하여야 합니다')
+      if (file.size > 50 * 1024 * 1024) { // 50MB 제한 (trips는 대용량 가능)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'FILE_TOO_LARGE',
+            message: '파일 크기는 50MB 이하여야 합니다'
+          }
+        }, { status: 400 })
       }
 
-      // CSV 내용 읽기
+      // CSV 내용 읽기 및 파싱
       const csvContent = await file.text()
-      const rows = parseCSV(csvContent)
-
-      if (rows.length === 0) {
-        return apiResponse.error('CSV 파일이 비어있습니다')
-      }
-
-      // 헤더 행 처리
-      const headers = rows[0].map(h => h.toLowerCase().trim())
-      const dataRows = rows.slice(1)
-
-      if (dataRows.length === 0) {
-        return apiResponse.error('데이터가 없습니다. 헤더 행만 있습니다')
-      }
-
-      // 필수 컬럼 확인
-      const requiredHeaders = {
-        date: ['date', '날짜', '운행일'],
-        driverPhone: ['driverphone', '기사전화번호', 'driver_phone'],
-        vehiclePlate: ['vehicleplate', 'vehicleplatenumber', '차량번호', 'plate_number'],
-        driverFare: ['driverfare', '기사요금', 'driver_fare'],
-        billingFare: ['billingfare', '청구요금', 'billing_fare']
-      }
-
-      const missingFields: string[] = []
-      Object.entries(requiredHeaders).forEach(([field, possibleHeaders]) => {
-        const hasField = possibleHeaders.some(h => headers.includes(h))
-        if (!hasField) {
-          missingFields.push(`${field} (${possibleHeaders.join(' 또는 ')})`)
-        }
+      
+      const parseResult = Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim()
       })
 
-      if (missingFields.length > 0) {
-        return apiResponse.error(`필수 컬럼이 없습니다: ${missingFields.join(', ')}`)
+      if (parseResult.errors.length > 0) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'CSV_PARSE_ERROR',
+            message: 'CSV 파일을 파싱할 수 없습니다',
+            details: parseResult.errors
+          }
+        }, { status: 400 })
+      }
+
+      const rows = parseResult.data as any[]
+      
+      if (rows.length === 0) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'EMPTY_FILE',
+            message: 'CSV 파일이 비어있습니다'
+          }
+        }, { status: 400 })
+      }
+
+      // 헤더 검증
+      const headers = Object.keys(rows[0])
+      const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h))
+      
+      if (missingHeaders.length > 0) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'MISSING_HEADERS',
+            message: `필수 헤더가 없습니다: ${missingHeaders.join(', ')}`,
+            details: {
+              required: REQUIRED_HEADERS,
+              found: headers,
+              template: TEMPLATE_HEADERS
+            }
+          }
+        }, { status: 400 })
       }
 
       // 참조 데이터 미리 로드 (성능 최적화)
-      const drivers = await prisma.driver.findMany({
-        select: { id: true, phone: true, name: true }
-      })
-      const vehicles = await prisma.vehicle.findMany({
-        select: { id: true, plateNumber: true, vehicleType: true }
-      })
-      const routes = await prisma.routeTemplate.findMany({
-        select: { id: true, name: true }
-      })
+      const [drivers, vehicles, routes] = await Promise.all([
+        prisma.driver.findMany({
+          where: { isActive: true },
+          select: { id: true, phone: true, name: true }
+        }),
+        prisma.vehicle.findMany({
+          where: { isActive: true },
+          select: { id: true, plateNumber: true, vehicleType: true }
+        }),
+        prisma.routeTemplate.findMany({
+          where: { isActive: true },
+          select: { id: true, name: true }
+        })
+      ])
 
       // 룩업 맵 생성
       const driverMap = new Map(drivers.map(d => [d.phone, d]))
@@ -233,26 +193,30 @@ export const POST = withAuth(
 
       // 데이터 검증 및 변환
       const results = {
-        total: dataRows.length,
+        total: rows.length,
         valid: 0,
         invalid: 0,
+        duplicates: 0,
+        conflicts: 0,
         imported: 0,
-        errors: [] as Array<{ row: number; error: string; data?: any }>
+        errors: [] as Array<{ row: number; error: string; data?: any }>,
+        validData: [] as any[]
       }
 
       const validTrips: any[] = []
+      const uniqueKeys = new Set<string>() // 배치 내 중복 체크용
 
-      for (let i = 0; i < dataRows.length; i++) {
+      for (let i = 0; i < rows.length; i++) {
         const rowIndex = i + 2 // CSV에서 실제 행 번호
-        const row = dataRows[i]
+        const row = rows[i]
         
         try {
           // CSV 행을 Trip 객체로 변환
-          const tripData = csvRowToTrip(row, headers)
+          const tripData = csvRowToTrip(row)
           
           // 필수 필드 검증
           if (!tripData.date) {
-            throw new Error('날짜가 필요합니다')
+            throw new Error('날짜가 올바르지 않습니다')
           }
           
           if (!tripData.driverPhone) {
@@ -283,7 +247,7 @@ export const POST = withAuth(
             throw new Error(`등록되지 않은 차량입니다: ${tripData.vehiclePlate}`)
           }
 
-          // 노선 찾기 (선택사항)
+          // 노선 처리 (선택사항)
           let routeTemplateId = null
           let customRoute = null
 
@@ -292,7 +256,7 @@ export const POST = withAuth(
             if (route) {
               routeTemplateId = route.id
             } else {
-              // 커스텀 노선으로 처리
+              // 커스텀 노선 처리
               if (tripData.loadingPoint && tripData.unloadingPoint) {
                 customRoute = {
                   loadingPoint: tripData.loadingPoint,
@@ -303,7 +267,6 @@ export const POST = withAuth(
               }
             }
           } else if (tripData.loadingPoint && tripData.unloadingPoint) {
-            // 커스텀 노선
             customRoute = {
               loadingPoint: tripData.loadingPoint,
               unloadingPoint: tripData.unloadingPoint
@@ -312,7 +275,7 @@ export const POST = withAuth(
             throw new Error('노선명 또는 상차지/하차지 정보가 필요합니다')
           }
 
-          // 대차 기사 찾기 (SUBSTITUTE 상태인 경우)
+          // 대차 기사 처리
           let substituteDriverId = null
           if (tripData.status === 'SUBSTITUTE') {
             if (!tripData.substituteDriverPhone) {
@@ -332,57 +295,77 @@ export const POST = withAuth(
             substituteDriverId = substituteDriver.id
           }
 
-          // 중복 확인 (같은 날짜, 기사, 차량)
-          const tripDate = new Date(tripData.date).toISOString().split('T')[0]
+          // 유니크 키 생성 (날짜 + 기사 + 차량)
+          const uniqueKey = `${tripData.date}-${driver.id}-${vehicle.id}`
+          
+          // 배치 내 중복 체크
+          if (uniqueKeys.has(uniqueKey)) {
+            results.errors.push({
+              row: rowIndex,
+              error: `파일 내 중복된 운행입니다: ${tripData.date} ${driver.name} ${vehicle.plateNumber}`,
+              data: tripData
+            })
+            results.duplicates++
+            results.invalid++
+            continue
+          }
+          
+          // DB 중복 체크 (unique constraint 검증)
           const existingTrip = await prisma.trip.findFirst({
             where: {
-              date: new Date(tripDate),
+              date: new Date(tripData.date + 'T00:00:00Z'),
               driverId: driver.id,
               vehicleId: vehicle.id
             }
           })
 
           if (existingTrip) {
-            throw new Error(`중복된 운행입니다 (${tripDate}, ${driver.name}, ${vehicle.plateNumber})`)
+            results.errors.push({
+              row: rowIndex,
+              error: `이미 등록된 운행입니다: ${tripData.date} ${driver.name} ${vehicle.plateNumber}`,
+              data: tripData
+            })
+            results.conflicts++
+            results.invalid++
+            continue
           }
 
-          // 배치 내 중복 확인
-          const duplicateInBatch = validTrips.find(t => 
-            t.date === tripDate && 
-            t.driverId === driver.id && 
-            t.vehicleId === vehicle.id
-          )
-          if (duplicateInBatch) {
-            throw new Error(`배치 내 중복된 운행입니다 (${tripDate}, ${driver.name}, ${vehicle.plateNumber})`)
-          }
+          uniqueKeys.add(uniqueKey)
 
           // 유효한 Trip 객체 생성
           const validTrip = {
-            date: new Date(tripDate),
+            date: new Date(tripData.date + 'T00:00:00Z'),
             driverId: driver.id,
             vehicleId: vehicle.id,
             routeTemplateId,
             customRoute,
-            status: tripData.status,
-            driverFare: tripData.driverFare,
-            billingFare: tripData.billingFare,
-            deductionAmount: tripData.deductionAmount || null,
+            status: tripData.status || 'SCHEDULED',
+            driverFare: tripData.driverFare.toString(),
+            billingFare: tripData.billingFare.toString(),
+            deductionAmount: tripData.deductionAmount ? tripData.deductionAmount.toString() : null,
             substituteDriverId,
-            substituteFare: tripData.substituteFare || null,
+            substituteFare: tripData.substituteFare ? tripData.substituteFare.toString() : null,
             absenceReason: tripData.absenceReason || null,
             remarks: tripData.remarks || null,
-            // 미리보기용 추가 정보
+            // 미리보기용 정보
             _preview: {
               driverName: driver.name,
               driverPhone: driver.phone,
               vehiclePlate: vehicle.plateNumber,
               vehicleType: vehicle.vehicleType,
-              routeName: tripData.routeName,
-              originalData: tripData
+              routeName: tripData.routeName || '커스텀',
+              status: tripData.status || 'SCHEDULED'
             }
           }
 
           validTrips.push(validTrip)
+          results.validData.push({
+            ...validTrip._preview,
+            date: tripData.date,
+            driverFare: tripData.driverFare,
+            billingFare: tripData.billingFare,
+            row: rowIndex
+          })
           results.valid++
           
         } catch (error) {
@@ -395,48 +378,85 @@ export const POST = withAuth(
           results.errors.push({
             row: rowIndex,
             error: errorMessage,
-            data: csvRowToTrip(row, headers)
+            data: csvRowToTrip(row)
           })
           results.invalid++
         }
       }
 
-      // 검증만 수행하는 경우
-      if (validateOnly) {
-        return apiResponse.success({
-          message: '검증이 완료되었습니다',
-          results: {
-            ...results,
-            preview: validTrips.slice(0, 5).map(trip => ({
-              date: trip.date.toISOString().split('T')[0],
-              driver: trip._preview.driverName,
-              driverPhone: trip._preview.driverPhone,
-              vehicle: `${trip._preview.vehiclePlate} (${trip._preview.vehicleType})`,
-              route: trip._preview.routeName || '커스텀',
-              status: trip.status,
-              driverFare: trip.driverFare,
-              billingFare: trip.billingFare
-            }))
+      // 시뮬레이션 모드 - 검증 결과만 반환
+      if (mode === 'simulate') {
+        return NextResponse.json({
+          ok: true,
+          data: {
+            message: '검증이 완료되었습니다',
+            mode: 'simulate',
+            results: {
+              total: results.total,
+              valid: results.valid,
+              invalid: results.invalid,
+              duplicates: results.duplicates,
+              conflicts: results.conflicts,
+              errors: results.errors.slice(0, 20), // 처음 20개 에러만
+              preview: results.validData.slice(0, 10) // 처음 10개 미리보기
+            }
           }
         })
       }
 
-      // 실제 가져오기 수행
+      // 커밋 모드 - 실제 저장
       if (validTrips.length === 0) {
-        return apiResponse.error('가져올 수 있는 유효한 데이터가 없습니다', 400)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NO_VALID_DATA',
+            message: '가져올 수 있는 유효한 데이터가 없습니다',
+            details: results
+          }
+        }, { status: 400 })
       }
 
-      // 트랜잭션으로 일괄 삽입
-      await prisma.$transaction(async (tx) => {
-        for (const trip of validTrips) {
-          // _preview 제거하고 실제 데이터만 저장
-          const { _preview, ...tripDataToSave } = trip
-          await tx.trip.create({
-            data: tripDataToSave
-          })
-          results.imported++
+      // 트랜잭션으로 일괄 삽입 (부분 성공은 후순위)
+      try {
+        const createdTrips = await prisma.$transaction(async (tx) => {
+          const trips = []
+          for (const trip of validTrips) {
+            const { _preview, ...tripDataToSave } = trip
+            const created = await tx.trip.create({
+              data: tripDataToSave,
+              include: {
+                driver: { select: { name: true } },
+                vehicle: { select: { plateNumber: true } }
+              }
+            })
+            trips.push(created)
+          }
+          return trips
+        })
+        
+        results.imported = createdTrips.length
+      } catch (error) {
+        console.error('Transaction failed:', error)
+        
+        // 유니크 제약 조건 위반이 발생한 경우
+        if (error instanceof Error && error.message.includes('unique')) {
+          return NextResponse.json({
+            ok: false,
+            error: {
+              code: 'UNIQUE_CONSTRAINT_VIOLATION',
+              message: '중복된 운행 데이터가 감지되어 전체 가져오기가 실패했습니다',
+              details: {
+                total: results.total,
+                validated: results.valid,
+                conflicts: results.conflicts,
+                duplicates: results.duplicates
+              }
+            }
+          }, { status: 409 })
         }
-      })
+        
+        throw error
+      }
 
       // 감사 로그 기록
       await createAuditLog(
@@ -448,28 +468,143 @@ export const POST = withAuth(
           action: 'csv_import',
           fileName: file.name,
           fileSize: file.size,
-          results
+          mode: 'commit',
+          imported: results.imported,
+          total: results.total
         },
         { 
           source: 'csv_import',
-          importStats: results
+          importStats: {
+            total: results.total,
+            valid: results.valid,
+            invalid: results.invalid,
+            duplicates: results.duplicates,
+            conflicts: results.conflicts,
+            imported: results.imported
+          }
         }
       )
 
-      return apiResponse.success({
-        message: `${results.imported}개의 운행이 성공적으로 등록되었습니다`,
-        results
+      return NextResponse.json({
+        ok: true,
+        data: {
+          message: `${results.imported}개의 운행이 성공적으로 등록되었습니다`,
+          mode: 'commit',
+          results: {
+            total: results.total,
+            valid: results.valid,
+            invalid: results.invalid,
+            duplicates: results.duplicates,
+            conflicts: results.conflicts,
+            imported: results.imported,
+            errors: results.errors.slice(0, 20)
+          }
+        }
       })
 
     } catch (error) {
       console.error('Failed to import trips:', error)
       
-      if (error instanceof Error) {
-        return apiResponse.error(error.message)
+      if (error instanceof ZodError) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: '입력값이 올바르지 않습니다',
+            details: error.errors
+          }
+        }, { status: 400 })
       }
       
-      return apiResponse.error('운행 가져오기 중 오류가 발생했습니다', 500)
+      if (error instanceof Error) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error.message
+          }
+        }, { status: 500 })
+      }
+      
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '운행 가져오기 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
     }
   },
   { resource: 'trips', action: 'create' }
+)
+
+/**
+ * GET /api/import/trips/template - CSV 템플릿 다운로드
+ */
+export const GET = withAuth(
+  async (req: NextRequest) => {
+    try {
+      // CSV 템플릿 생성
+      const csvContent = Papa.unparse({
+        fields: TEMPLATE_HEADERS,
+        data: [
+          {
+            '날짜': '2025-01-15',
+            '기사전화번호': '010-1234-5678',
+            '차량번호': '12가1234',
+            '노선명': '서울-부산 정기',
+            '상차지': '서울역',
+            '하차지': '부산역',
+            '기사요금': 150000,
+            '청구요금': 180000,
+            '상태': '예정',
+            '차감액': '',
+            '결행사유': '',
+            '대차기사전화번호': '',
+            '대차요금': '',
+            '비고': '샘플 데이터'
+          },
+          {
+            '날짜': '2025-01-16',
+            '기사전화번호': '010-9876-5432',
+            '차량번호': '34나5678',
+            '노선명': '',
+            '상차지': '인천공항',
+            '하차지': '김포공항',
+            '기사요금': 80000,
+            '청구요금': 100000,
+            '상태': '완료',
+            '차감액': '',
+            '결행사유': '',
+            '대차기사전화번호': '',
+            '대차요금': '',
+            '비고': '커스텀 노선 예시'
+          }
+        ]
+      })
+
+      // BOM 추가 (Excel에서 한글 인식을 위해)
+      const BOM = '\uFEFF'
+      const csvWithBOM = BOM + csvContent
+
+      return new Response(csvWithBOM, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="trips_template.csv"'
+        }
+      })
+    } catch (error) {
+      console.error('Failed to generate template:', error)
+      
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '템플릿 생성 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
+    }
+  },
+  { resource: 'trips', action: 'read' }
 )
