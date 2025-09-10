@@ -121,7 +121,7 @@ export default function HomePage() {
                 월별 정산 처리, 미리보기 및 엑셀 내보내기
               </p>
               <Link
-                href="/settlements"
+                href="/settlement"
                 className="btn btn-primary"
               >
                 정산 관리
@@ -139,20 +139,12 @@ export default function HomePage() {
               <p className="text-gray-600 mb-4">
                 기사, 운행 데이터 일괄 등록 및 검증
               </p>
-              <div className="flex flex-col space-y-2">
-                <Link
-                  href="/import/drivers"
-                  className="btn btn-primary text-center"
-                >
-                  기사 가져오기
-                </Link>
-                <Link
-                  href="/import/trips"
-                  className="btn btn-secondary text-center"
-                >
-                  운행 가져오기
-                </Link>
-              </div>
+              <Link
+                href="/import"
+                className="btn btn-primary"
+              >
+                데이터 가져오기
+              </Link>
             </div>
           </div>
 
@@ -178,8 +170,15 @@ export default function HomePage() {
 
         {/* 시스템 상태 */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
             시스템 상태
+            <a 
+              href="/admin/health" 
+              target="_blank"
+              className="text-sm text-blue-600 hover:text-blue-700 font-normal"
+            >
+              상세 상태 확인 →
+            </a>
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center">

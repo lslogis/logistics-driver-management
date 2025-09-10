@@ -1,0 +1,2 @@
+date,driverPhone,vehiclePlateNumber,routeTemplateName,status,driverFare,billingFare,absenceReason,deductionAmount,substituteDriverPhone,substituteFare,remarks
+2025-09-01,010-1234-5678,12가3456,서울-부산,COMPLETED,50000,60000,,,,운행완료
