@@ -19,13 +19,13 @@ function useDrivers(search?: string, page = 1, limit = 20) {
       })
       
       const response = await fetch(`/api/drivers?${params}`)
+      const result = await response.json()
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to fetch drivers')
+        throw new Error(result.error?.message || 'Failed to fetch drivers')
       }
       
-      return response.json()
+      return result.data
     },
     staleTime: 30000, // 30초 동안 fresh
     retry: 2
@@ -43,13 +43,13 @@ function useCreateDriver() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       })
+      const result = await response.json()
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to create driver')
+        throw new Error(result.error?.message || 'Failed to create driver')
       }
       
-      return response.json()
+      return result.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] })
@@ -72,13 +72,13 @@ function useUpdateDriver() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       })
+      const result = await response.json()
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to update driver')
+        throw new Error(result.error?.message || 'Failed to update driver')
       }
       
-      return response.json()
+      return result.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] })
@@ -99,13 +99,13 @@ function useDeleteDriver() {
       const response = await fetch(`/api/drivers/${id}`, {
         method: 'DELETE'
       })
+      const result = await response.json()
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to delete driver')
+        throw new Error(result.error?.message || 'Failed to delete driver')
       }
       
-      return response.json()
+      return result.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] })

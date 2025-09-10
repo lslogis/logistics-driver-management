@@ -1,8 +1,9 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { ZodError } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { DriverService } from '@/lib/services/driver.service'
 import { withAuth } from '@/lib/auth/rbac'
-import { getCurrentUser, createAuditLog, apiResponse } from '@/lib/auth/server'
+import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { updateDriverSchema } from '@/lib/validations/driver'
 
 const driverService = new DriverService(prisma)
@@ -16,19 +17,37 @@ export const GET = withAuth(
       const { id } = context.params || {}
       
       if (!id) {
-        return apiResponse.error('기사 ID가 필요합니다')
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'MISSING_ID',
+            message: '기사 ID가 필요합니다'
+          }
+        }, { status: 400 })
       }
       
       const driver = await driverService.getDriverById(id)
       
       if (!driver) {
-        return apiResponse.error('기사를 찾을 수 없습니다', 404)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '기사를 찾을 수 없습니다'
+          }
+        }, { status: 404 })
       }
       
-      return apiResponse.success(driver)
+      return NextResponse.json({ ok: true, data: driver })
     } catch (error) {
       console.error('Failed to get driver:', error)
-      return apiResponse.error('기사 조회 중 오류가 발생했습니다', 500)
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '기사 조회 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
     }
   },
   { resource: 'drivers', action: 'read' }
@@ -42,19 +61,37 @@ export const PUT = withAuth(
     try {
       const user = await getCurrentUser(req)
       if (!user) {
-        return apiResponse.unauthorized()
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '로그인이 필요합니다'
+          }
+        }, { status: 401 })
       }
 
       const { id } = context.params || {}
       
       if (!id) {
-        return apiResponse.error('기사 ID가 필요합니다')
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'MISSING_ID',
+            message: '기사 ID가 필요합니다'
+          }
+        }, { status: 400 })
       }
 
       // 기존 데이터 조회 (감사 로그용)
       const originalDriver = await driverService.getDriverById(id)
       if (!originalDriver) {
-        return apiResponse.error('기사를 찾을 수 없습니다', 404)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '기사를 찾을 수 없습니다'
+          }
+        }, { status: 404 })
       }
 
       // 요청 데이터 검증
@@ -85,15 +122,49 @@ export const PUT = withAuth(
         )
       }
       
-      return apiResponse.success(updatedDriver)
+      return NextResponse.json({ ok: true, data: updatedDriver })
     } catch (error) {
       console.error('Failed to update driver:', error)
       
-      if (error instanceof Error) {
-        return apiResponse.error(error.message)
+      if (error instanceof ZodError) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: '입력 데이터가 올바르지 않습니다',
+            details: error.errors
+          }
+        }, { status: 400 })
       }
       
-      return apiResponse.error('기사 정보 수정 중 오류가 발생했습니다', 500)
+      if (error instanceof Error) {
+        // 중복 전화번호 체크
+        if (error.message.includes('unique') || error.message.includes('Unique')) {
+          return NextResponse.json({
+            ok: false,
+            error: {
+              code: 'DUPLICATE_PHONE',
+              message: '이미 등록된 전화번호입니다'
+            }
+          }, { status: 409 })
+        }
+        
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error.message
+          }
+        }, { status: 500 })
+      }
+      
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '기사 정보 수정 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
     }
   },
   { resource: 'drivers', action: 'update' }
@@ -107,19 +178,37 @@ export const DELETE = withAuth(
     try {
       const user = await getCurrentUser(req)
       if (!user) {
-        return apiResponse.unauthorized()
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '로그인이 필요합니다'
+          }
+        }, { status: 401 })
       }
 
       const { id } = context.params || {}
       
       if (!id) {
-        return apiResponse.error('기사 ID가 필요합니다')
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'MISSING_ID',
+            message: '기사 ID가 필요합니다'
+          }
+        }, { status: 400 })
       }
 
       // 기존 데이터 조회 (감사 로그용)
       const originalDriver = await driverService.getDriverById(id)
       if (!originalDriver) {
-        return apiResponse.error('기사를 찾을 수 없습니다', 404)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '기사를 찾을 수 없습니다'
+          }
+        }, { status: 404 })
       }
 
       // 기사 삭제 (소프트 삭제)
@@ -143,15 +232,30 @@ export const DELETE = withAuth(
         }
       )
       
-      return apiResponse.success({ message: '기사가 비활성화되었습니다' })
+      return NextResponse.json({ 
+        ok: true, 
+        data: { message: '기사가 비활성화되었습니다' }
+      })
     } catch (error) {
       console.error('Failed to delete driver:', error)
       
       if (error instanceof Error) {
-        return apiResponse.error(error.message)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error.message
+          }
+        }, { status: 500 })
       }
       
-      return apiResponse.error('기사 삭제 중 오류가 발생했습니다', 500)
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '기사 삭제 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
     }
   },
   { resource: 'drivers', action: 'delete' }

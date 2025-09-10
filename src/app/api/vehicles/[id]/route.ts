@@ -1,8 +1,9 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { ZodError } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { VehicleService } from '@/lib/services/vehicle.service'
 import { withAuth } from '@/lib/auth/rbac'
-import { getCurrentUser, createAuditLog, apiResponse } from '@/lib/auth/server'
+import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { updateVehicleSchema } from '@/lib/validations/vehicle'
 
 const vehicleService = new VehicleService(prisma)
@@ -16,19 +17,37 @@ export const GET = withAuth(
       const { id } = context.params || {}
       
       if (!id) {
-        return apiResponse.error('차량 ID가 필요합니다')
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'MISSING_ID',
+            message: '차량 ID가 필요합니다'
+          }
+        }, { status: 400 })
       }
       
       const vehicle = await vehicleService.getVehicleById(id)
       
       if (!vehicle) {
-        return apiResponse.error('차량을 찾을 수 없습니다', 404)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '차량을 찾을 수 없습니다'
+          }
+        }, { status: 404 })
       }
       
-      return apiResponse.success(vehicle)
+      return NextResponse.json({ ok: true, data: vehicle })
     } catch (error) {
       console.error('Failed to get vehicle:', error)
-      return apiResponse.error('차량 조회 중 오류가 발생했습니다', 500)
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '차량 조회 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
     }
   },
   { resource: 'vehicles', action: 'read' }
@@ -42,19 +61,37 @@ export const PUT = withAuth(
     try {
       const user = await getCurrentUser(req)
       if (!user) {
-        return apiResponse.unauthorized()
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '로그인이 필요합니다'
+          }
+        }, { status: 401 })
       }
 
       const { id } = context.params || {}
       
       if (!id) {
-        return apiResponse.error('차량 ID가 필요합니다')
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'MISSING_ID',
+            message: '차량 ID가 필요합니다'
+          }
+        }, { status: 400 })
       }
 
       // 기존 데이터 조회 (감사 로그용)
       const originalVehicle = await vehicleService.getVehicleById(id)
       if (!originalVehicle) {
-        return apiResponse.error('차량을 찾을 수 없습니다', 404)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '차량을 찾을 수 없습니다'
+          }
+        }, { status: 404 })
       }
 
       // 요청 데이터 검증
@@ -85,15 +122,49 @@ export const PUT = withAuth(
         )
       }
       
-      return apiResponse.success(updatedVehicle)
+      return NextResponse.json({ ok: true, data: updatedVehicle })
     } catch (error) {
       console.error('Failed to update vehicle:', error)
       
-      if (error instanceof Error) {
-        return apiResponse.error(error.message)
+      if (error instanceof ZodError) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: '입력 데이터가 올바르지 않습니다',
+            details: error.errors
+          }
+        }, { status: 400 })
       }
       
-      return apiResponse.error('차량 정보 수정 중 오류가 발생했습니다', 500)
+      if (error instanceof Error) {
+        // 중복 차량번호 체크
+        if (error.message.includes('unique') || error.message.includes('Unique')) {
+          return NextResponse.json({
+            ok: false,
+            error: {
+              code: 'DUPLICATE_PLATE_NUMBER',
+              message: '이미 등록된 차량번호입니다'
+            }
+          }, { status: 409 })
+        }
+        
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error.message
+          }
+        }, { status: 500 })
+      }
+      
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '차량 정보 수정 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
     }
   },
   { resource: 'vehicles', action: 'update' }
@@ -107,19 +178,37 @@ export const DELETE = withAuth(
     try {
       const user = await getCurrentUser(req)
       if (!user) {
-        return apiResponse.unauthorized()
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '로그인이 필요합니다'
+          }
+        }, { status: 401 })
       }
 
       const { id } = context.params || {}
       
       if (!id) {
-        return apiResponse.error('차량 ID가 필요합니다')
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'MISSING_ID',
+            message: '차량 ID가 필요합니다'
+          }
+        }, { status: 400 })
       }
 
       // 기존 데이터 조회 (감사 로그용)
       const originalVehicle = await vehicleService.getVehicleById(id)
       if (!originalVehicle) {
-        return apiResponse.error('차량을 찾을 수 없습니다', 404)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '차량을 찾을 수 없습니다'
+          }
+        }, { status: 404 })
       }
 
       // 차량 삭제 (소프트 삭제)
@@ -143,15 +232,30 @@ export const DELETE = withAuth(
         }
       )
       
-      return apiResponse.success({ message: '차량이 비활성화되었습니다' })
+      return NextResponse.json({ 
+        ok: true, 
+        data: { message: '차량이 비활성화되었습니다' }
+      })
     } catch (error) {
       console.error('Failed to delete vehicle:', error)
       
       if (error instanceof Error) {
-        return apiResponse.error(error.message)
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error.message
+          }
+        }, { status: 500 })
       }
       
-      return apiResponse.error('차량 삭제 중 오류가 발생했습니다', 500)
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '차량 삭제 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
     }
   },
   { resource: 'vehicles', action: 'delete' }
