@@ -28,7 +28,8 @@
       "Bash(npx tsx:*)",
       "Bash(node:*)",
       "Bash(cp:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(npx prisma migrate:*)"
     ],
     "deny": []
   }

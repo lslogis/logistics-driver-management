@@ -404,6 +404,68 @@ export class SettlementApiService {
   }
 
   /**
+   * 정산 확정 (finalizeSettlement 별칭)
+   */
+  async finalizeSettlement(id: string, confirmedBy: string, remarks?: string): Promise<SettlementResponse> {
+    return this.confirmSettlement(id, confirmedBy, { remarks })
+  }
+
+  /**
+   * 정산 엑셀 내보내기
+   */
+  async exportSettlementsToExcel(yearMonth: string, driverIds?: string[]): Promise<Buffer> {
+    // 정산 데이터 조회
+    const where: any = { yearMonth }
+    if (driverIds && driverIds.length > 0) {
+      where.driverId = { in: driverIds }
+    }
+
+    const settlements = await this.prisma.settlement.findMany({
+      where,
+      include: {
+        driver: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            companyName: true,
+            businessNumber: true
+          }
+        },
+        items: {
+          orderBy: { date: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    })
+
+    // Excel 생성 (stub - 실제 구현은 xlsx 라이브러리 필요)
+    const excelData = settlements.map(settlement => ({
+      기사명: settlement.driver.name,
+      전화번호: settlement.driver.phone,
+      회사명: settlement.driver.companyName || '',
+      사업자번호: settlement.driver.businessNumber || '',
+      정산월: settlement.yearMonth,
+      총운행수: settlement.totalTrips,
+      기본요금: Number(settlement.totalBaseFare),
+      공제액: Number(settlement.totalDeductions),
+      추가액: Number(settlement.totalAdditions),
+      최종정산액: Number(settlement.finalAmount),
+      상태: settlement.status === 'DRAFT' ? '임시저장' : settlement.status === 'CONFIRMED' ? '확정' : '지급완료',
+      생성일: settlement.createdAt.toISOString().split('T')[0],
+      확정일: settlement.confirmedAt?.toISOString().split('T')[0] || '',
+      지급일: settlement.paidAt?.toISOString().split('T')[0] || ''
+    }))
+
+    // CSV 형태로 생성 (Excel 라이브러리 대신 임시)
+    const headers = Object.keys(excelData[0] || {}).join(',')
+    const rows = excelData.map(row => Object.values(row).join(','))
+    const csvContent = [headers, ...rows].join('\n')
+    
+    return Buffer.from(csvContent, 'utf8')
+  }
+
+  /**
    * 정산 지급 완료 처리
    */
   async markSettlementAsPaid(id: string): Promise<SettlementResponse> {

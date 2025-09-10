@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Plus, Search, Edit, Trash2, Phone, User, Building, CreditCard } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Phone, User, Building, CreditCard, Upload } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
 import { DriverResponse, CreateDriverData, UpdateDriverData } from '@/lib/validations/driver'
+import Link from 'next/link'
 
 // 기사 목록 조회
 function useDrivers(search?: string, page = 1, limit = 20) {
@@ -390,13 +391,22 @@ export default function DriversPage() {
                 기사 관리
               </h1>
             </div>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              기사 등록
-            </button>
+            <div className="flex items-center space-x-3">
+              <Link
+                href="/import/drivers"
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                CSV 가져오기
+              </Link>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                기사 등록
+              </button>
+            </div>
           </div>
         </div>
       </header>

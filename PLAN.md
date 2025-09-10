@@ -216,84 +216,99 @@ POST   /api/import/trips         # Bulk trip import with validation
 
 ---
 
-## 📅 Workstreams & Milestones (4 Weeks)
+## 📅 Workstreams & Milestones (4 Weeks) - IMMEDIATE EXECUTION
 
-### Week 1: Foundation & Core APIs
+### Week 1: Foundation & Core APIs ✅ **COMPLETED TODAY**
 **Goal**: Database connection and basic CRUD APIs
+**Status**: ✅ **DONE** - All deliverables completed
 
-**Tasks**:
-- [x] Database connection and migration verification
-- [x] Seed data setup
-- [ ] Drivers API scaffolding (GET/POST/PUT/DELETE)
-- [ ] Vehicles API scaffolding
-- [ ] Basic RBAC middleware integration
+**Completed Tasks**:
+- ✅ **DB-001**: Database connection and migration verification
+- ✅ **API-011**: Drivers API complete (GET/POST/PUT/DELETE)
+- ✅ **API-012**: Vehicles API complete (GET/POST/PUT/DELETE)
+- ✅ **FE-101**: DriversPage React Query integration complete
 
-**Deliverables**:
-- Working database with migrations
-- Drivers and Vehicles APIs functional
-- Postman collection for testing
+**Deliverables Achieved**:
+- ✅ Working database with migrations and seed data (10 drivers, 12 vehicles)
+- ✅ Drivers and Vehicles APIs fully functional with RBAC
+- ✅ Frontend DriversPage connected to real API
+- ✅ CRUD operations tested and verified
+
+**Definition of Done (TODAY) ✅**:
+- ✅ `/api/drivers` CRUD complete with validation
+- ✅ `/api/vehicles` CRUD complete with validation  
+- ✅ DriversPage fully integrated with React Query
+- ✅ All operations working at http://localhost:3000
 
 ---
 
-### Week 2: Trips & Routes + Frontend Integration
-**Goal**: Complete trip management and connect frontend
+### Week 2: Routes, Trips & Frontend Integration
+**Goal**: Complete remaining APIs and frontend connections
+**Status**: 🔄 **IN PROGRESS**
 
 **Tasks**:
-- [ ] Routes API implementation
-- [ ] Trips API with unique constraint validation
-- [ ] React Query setup
-- [ ] Replace Drivers page with API data
-- [ ] Replace Trips page with API data
+- ✅ **API-013**: Routes API implementation (COMPLETED)
+- ✅ **API-014**: Trips API with status management (COMPLETED)
+- 🔄 **FE-111**: Replace Trips page with API data (NEXT)
+- [ ] Date-based trip filtering optimization
+- [ ] Status management UI components
 
 **Deliverables**:
-- All CRUD APIs complete
+- Complete CRUD APIs for all domains
 - Frontend pages connected to real APIs
-- Date-based trip filtering working
+- Trip status workflow (SCHEDULED → COMPLETED/ABSENCE/SUBSTITUTE)
 
 ---
 
-### Week 3: Settlement & Import
-**Goal**: Settlement calculation and CSV import
+### Week 3: Settlement & Validation
+**Goal**: Settlement calculation and data integrity
+**Status**: ⏳ **PENDING**
 
 **Tasks**:
-- [ ] Settlement preview calculation
-- [ ] Settlement finalize with lock mechanism
-- [ ] Excel export stub
-- [ ] CSV import for drivers
-- [ ] CSV import for trips
+- [ ] **API-015**: Settlement API complete verification
+- [ ] **FE-121**: Settlement preview/finalize/export UI
+- [ ] Settlement calculation logic (월락 방식)
+- [ ] Lock mechanism (DRAFT → CONFIRMED → PAID)
 
 **Deliverables**:
-- Settlement preview and lock working
-- CSV import handling 100+ records
-- Basic Excel export
+- Settlement preview calculation working
+- Finalize with immutability lock
+- Export stub for Excel generation
 
 ---
 
-### Week 4: Deployment & Documentation
-**Goal**: Production-ready deployment
+### Week 4: Import & Operations
+**Goal**: CSV import and deployment readiness
+**Status**: ⏳ **PENDING**
 
 **Tasks**:
-- [ ] Admin health check endpoint (/admin/health)
-- [ ] Docker Compose production configuration
-- [ ] Environment-specific configs (.env.staging/.env.production)
-- [ ] RUNBOOK.md creation
-- [ ] RELEASE_NOTES.md
+- [ ] **IMP-201**: CSV Import (drivers) - template enforcement
+- [ ] **IMP-202**: CSV Import (trips) - validation pipeline
+- [ ] **OPS-301**: Health check endpoint (/api/health)
+- [ ] **OPS-310**: RUNBOOK.md and RELEASE_NOTES.md
 
 **Deliverables**:
-- `docker-compose up` working in production mode
-- Deployment documentation
-- Health monitoring endpoint
+- CSV import handling 100+ records with validation
+- Production health monitoring
+- Complete deployment documentation
 
 ---
 
-## ⚠️ Risks & Mitigations
+## ⚠️ Risks & Mitigations - IMMEDIATE EXECUTION
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| **Schema Changes** | High | Migration scripts with rollback capability |
-| **CSV Format Variations** | Medium | Fixed templates first, mapping profiles later |
-| **Performance Issues** | Low | Defer optimization, focus on functionality |
-| **Data Loss** | High | Daily backups, soft deletes only |
+| Risk | Impact | Mitigation | Status |
+|------|--------|------------|--------|
+| **Schema Changes** | 🔴 **CRITICAL** | **금지**: 스키마 고정 (오늘 이후) | ✅ **LOCKED** |
+| **CSV Format Variations** | 🟡 **MEDIUM** | **강제 템플릿 사용**: templates/csv/*.csv 준수 | 📋 **ENFORCED** |
+| **Performance Issues** | 🟢 **LOW** | 배포 후 최적화, 기능 우선 원칙 유지 | ⏰ **DEFERRED** |
+| **Port Conflicts** | 🟡 **MEDIUM** | 3000번 포트 단독 사용, 중복 프로세스 강제 종료 | ✅ **RESOLVED** |
+| **Data Loss** | 🔴 **HIGH** | Soft delete 전용, PostgreSQL 백업, 감사로그 | 🛡️ **PROTECTED** |
+
+### Critical Constraints (IMMEDIATE)
+- ⚠️ **스키마 변동 금지**: Prisma schema는 소스오브트루스, 수정 시 즉시 중단
+- 📋 **CSV 포맷 강제**: templates/csv/ 파일 형식 외 수정 불가
+- 🎯 **기능 우선 정책**: 타입/성능 경고는 로그로만, 배포 우선
+- 🔒 **포트 3000 고정**: 개발서버는 3000번에서만 실행
 
 ---
 

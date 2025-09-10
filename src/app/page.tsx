@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Truck, Users, Route, Calculator, Settings, BarChart3 } from 'lucide-react'
+import { Truck, Users, Route, Calculator, Settings, BarChart3, Upload } from 'lucide-react'
 
 export default function HomePage() {
   return (
@@ -126,6 +126,33 @@ export default function HomePage() {
               >
                 정산 관리
               </Link>
+            </div>
+          </div>
+
+          {/* CSV 가져오기 */}
+          <div className="card hover:shadow-lg transition-shadow">
+            <div className="card-body text-center">
+              <Upload className="h-12 w-12 text-primary-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                CSV 가져오기
+              </h3>
+              <p className="text-gray-600 mb-4">
+                기사, 운행 데이터 일괄 등록 및 검증
+              </p>
+              <div className="flex flex-col space-y-2">
+                <Link
+                  href="/import/drivers"
+                  className="btn btn-primary text-center"
+                >
+                  기사 가져오기
+                </Link>
+                <Link
+                  href="/import/trips"
+                  className="btn btn-secondary text-center"
+                >
+                  운행 가져오기
+                </Link>
+              </div>
             </div>
           </div>
 
