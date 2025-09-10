@@ -22,13 +22,13 @@ function useSettlements(search?: string, yearMonth?: string, driverId?: string, 
       })
       
       const response = await fetch(`/api/settlements?${params}`)
+      const result = await response.json()
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to fetch settlements')
+        throw new Error(result.error?.message || 'Failed to fetch settlements')
       }
       
-      return response.json() as Promise<SettlementsListResponse>
+      return result.data as SettlementsListResponse
     },
     staleTime: 30000, // 30초 동안 fresh
     retry: 2
@@ -45,12 +45,13 @@ function usePreviewSettlement() {
         body: JSON.stringify(data)
       })
       
+      const result = await response.json()
+      
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to preview settlement')
+        throw new Error(result.error?.message || 'Failed to preview settlement')
       }
       
-      return response.json()
+      return result.data
     },
     onError: (error: Error) => {
       toast.error(error.message)
@@ -63,21 +64,23 @@ function useFinalizeSettlement() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async (data: { settlementId: string; remarks?: string }) => {
+    mutationFn: async (data: { driverId: string; yearMonth: string; remarks?: string }) => {
       const response = await fetch('/api/settlements/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       })
       
+      const result = await response.json()
+      
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to finalize settlement')
+        throw new Error(result.error?.message || 'Failed to finalize settlement')
       }
       
-      return response.json()
+      return result.data
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settlements'] })
       queryClient.invalidateQueries({ queryKey: ['settlements'] })
       toast.success('정산이 확정되었습니다 (월락)')
     },
@@ -97,27 +100,18 @@ function useExportSettlements() {
         body: JSON.stringify(data)
       })
       
+      const result = await response.json()
+      
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to export settlements')
+        throw new Error(result.error?.message || 'Failed to export settlements')
       }
       
-      // 파일 다운로드 처리
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.style.display = 'none'
-      a.href = url
-      a.download = `settlements_${data.yearMonth}_${new Date().toISOString().slice(0, 10)}.xlsx`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      
-      return { success: true }
+      // 스텁이므로 실제 파일 다운로드는 하지 않음
+      return result.data
     },
-    onSuccess: () => {
-      toast.success('엑셀 파일이 다운로드되었습니다')
+    onSuccess: (data) => {
+      // 스텁이므로 실제 다운로드 대신 메시지 표시
+      toast.info('Excel export 기능은 아직 구현되지 않았습니다 (스텁)')
     },
     onError: (error: Error) => {
       toast.error(error.message)
@@ -293,6 +287,8 @@ export default function SettlementsPage() {
   const [yearMonth, setYearMonth] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('')
   const [previewModalData, setPreviewModalData] = useState<any>(null)
+  const [selectedDriverId, setSelectedDriverId] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState('')
 
   const { data: settlementsData, isLoading, error } = useSettlements(searchTerm, yearMonth, undefined, selectedStatus)
   const previewMutation = usePreviewSettlement()
@@ -308,13 +304,18 @@ export default function SettlementsPage() {
     }
   }
 
-  const handleConfirmSettlement = () => {
+  const handleConfirmSettlement = async () => {
     if (!previewModalData) return
     
-    // 실제로는 previewData에서 settlementId를 가져와야 하지만, 
-    // 미리보기는 실제 정산 레코드가 아니므로 임시로 처리
-    toast.info('정산 확정 기능은 실제 정산 생성 후 사용 가능합니다')
-    setPreviewModalData(null)
+    try {
+      await finalizeMutation.mutateAsync({
+        driverId: previewModalData.driverId,
+        yearMonth: previewModalData.yearMonth
+      })
+      setPreviewModalData(null)
+    } catch (error) {
+      // Error is handled by mutation
+    }
   }
 
   const handleExport = (yearMonth: string) => {
@@ -378,6 +379,59 @@ export default function SettlementsPage() {
 
       {/* 메인 콘텐츠 */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {/* 빠른 정산 섹션 */}
+        <div className="mb-6 bg-blue-50 border border-blue-200 p-4 rounded-lg">
+          <h2 className="text-lg font-medium text-blue-900 mb-3">빠른 정산 처리</h2>
+          <div className="flex items-end space-x-4">
+            <div className="flex-1">
+              <label htmlFor="quickMonth" className="block text-sm font-medium text-blue-700 mb-1">
+                정산월 선택
+              </label>
+              <input
+                type="month"
+                id="quickMonth"
+                className="block w-full px-3 py-2 border border-blue-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                max={new Date().toISOString().slice(0, 7)}
+              />
+            </div>
+            <div className="flex-1">
+              <label htmlFor="quickDriver" className="block text-sm font-medium text-blue-700 mb-1">
+                기사 ID (선택사항)
+              </label>
+              <input
+                type="text"
+                id="quickDriver"
+                className="block w-full px-3 py-2 border border-blue-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="기사 ID 입력..."
+                value={selectedDriverId}
+                onChange={(e) => setSelectedDriverId(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={() => {
+                if (!selectedMonth) {
+                  toast.error('정산월을 선택해주세요')
+                  return
+                }
+                if (!selectedDriverId) {
+                  toast.error('기사 ID를 입력해주세요')
+                  return
+                }
+                handlePreview(selectedDriverId, selectedMonth)
+              }}
+              disabled={!selectedMonth || !selectedDriverId || previewMutation.isPending}
+              className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {previewMutation.isPending ? '조회 중...' : '정산 미리보기 → 확정'}
+            </button>
+          </div>
+          <p className="mt-2 text-sm text-blue-600">
+            월을 선택하고 기사 ID를 입력한 후 미리보기를 통해 바로 정산을 확정할 수 있습니다.
+          </p>
+        </div>
+
         {/* 검색 및 필터 */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
