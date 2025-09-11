@@ -1,6 +1,6 @@
 // Implemented the FixedRoutesPage component to manage fixed routes.
 import React, { useState, useEffect, useRef } from 'react';
-import { FixedRoute, Driver } from '../types';
+import { RouteTemplate, Driver } from '../types';
 import Modal from './Modal';
 import { PlusIcon, PencilIcon, TrashIcon, DownloadIcon, UploadIcon } from './icons';
 

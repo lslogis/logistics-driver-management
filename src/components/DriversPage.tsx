@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Driver, FixedRoute } from '../types';
+import { Driver, RouteTemplate } from '../types';
 import Modal from './Modal';
 import { PlusIcon, PencilIcon, TrashIcon, DownloadIcon, UploadIcon } from './icons';
 

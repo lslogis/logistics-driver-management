@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trip, Driver, FixedRoute } from '../types';
+import { Trip, Driver, RouteTemplate } from '../types';
 import Modal from './Modal';
 import { PlusIcon, PencilIcon, TrashIcon, DownloadIcon } from './icons';
 

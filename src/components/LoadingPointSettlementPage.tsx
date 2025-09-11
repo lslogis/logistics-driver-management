@@ -1,11 +1,11 @@
 // FIX: Removed invalid CDATA wrapper.
 import React, { useState, useMemo } from 'react';
-import { Trip, FixedRoute, Driver } from '../types';
+import { Trip, RouteTemplate, Driver } from '../types';
 import { DownloadIcon } from './icons';
 
 interface LoadingPointSettlementPageProps {
   trips: Trip[];
-  fixedRoutes: FixedRoute[];
+  fixedRoutes: RouteTemplate[];
   drivers: Driver[];
 }
 
@@ -88,7 +88,7 @@ const LoadingPointSettlementPage: React.FC<LoadingPointSettlementPageProps> = ({
     return Object.entries(dataByLoadingPoint).sort((a, b) => b[1].totalBillingFare - a[1].totalBillingFare);
   }, [filteredTrips, fixedRouteMap]);
   
-  const totals = useMemo(() => settlementData.reduce((acc, [, data]) => {
+  const totals = useMemo(() => settlementData.reduce((acc, [, data]: [string, any]) => {
       acc.totalBillingFare += data.totalBillingFare;
       acc.totalDriverFare += data.totalDriverFare;
       acc.settledDriverFare += data.settledDriverFare;
@@ -203,7 +203,7 @@ const LoadingPointSettlementPage: React.FC<LoadingPointSettlementPageProps> = ({
               </tr>
             </thead>
             <tbody>
-              {settlementData.map(([loadingPoint, data]) => (
+              {settlementData.map(([loadingPoint, data]: [string, any]) => (
                 <tr key={loadingPoint} className="bg-white border-b hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedLoadingPoint(loadingPoint)}>
                   <td className="px-6 py-4 font-medium text-gray-900">{loadingPoint}</td>
                   <td className="px-6 py-4">{data.count}건</td>

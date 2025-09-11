@@ -37,9 +37,9 @@ export const POST = withAuth(
       // 감사 로그 기록
       await createAuditLog(
         user,
-        'READ',
+        'EXPORT',
         'Settlement',
-        null,
+        'export_' + yearMonth,
         { action: 'export', yearMonth, driverCount: driverIds?.length || 'all' },
         { source: 'web_api' }
       )

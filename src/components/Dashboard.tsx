@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Driver, Trip, FixedRoute } from '../types';
+import { Driver, Trip, RouteTemplate } from '../types';
 import Modal from './Modal';
 
 interface DashboardProps {

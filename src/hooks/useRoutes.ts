@@ -3,10 +3,18 @@ import { routesAPI } from '@/lib/api/routes'
 import { CreateRouteData, UpdateRouteData, GetRoutesQuery } from '@/lib/validations/route'
 import { toast } from 'react-hot-toast'
 
-export function useRoutes(params: GetRoutesQuery = {}) {
+export function useRoutes(params: Partial<GetRoutesQuery> = {}) {
+  const defaultParams: GetRoutesQuery = {
+    page: 1,
+    limit: 20,
+    sortBy: 'name',
+    sortOrder: 'asc',
+    ...params
+  }
+  
   return useQuery({
-    queryKey: ['routes', params],
-    queryFn: () => routesAPI.getRoutes(params),
+    queryKey: ['routes', defaultParams],
+    queryFn: () => routesAPI.getRoutes(defaultParams),
     staleTime: 5 * 60 * 1000
   })
 }

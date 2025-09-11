@@ -1,5 +1,35 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CharterDispatch, CharterCost, Driver } from '../types';
+// Type definitions
+interface CharterDispatch {
+  id: string;
+  date: string;
+  destination: string;
+  driverId: string;
+  driverName: string;
+  vehicleNumber: string;
+  cost: number;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  loadingPoint: string;
+  vehicleType: string;
+}
+
+interface CharterCost {
+  id: string;
+  date: string;
+  destination: string;
+  cost: number;
+  description?: string;
+  loadingPoint: string;
+  vehicleType: string;
+  fareType: string;
+  amount: number;
+}
+
+interface Driver {
+  id: string;
+  name: string;
+  phone: string;
+}
 import Modal from './Modal';
 import { PlusIcon, PencilIcon, TrashIcon, DownloadIcon, XIcon } from './icons';
 
@@ -101,7 +131,7 @@ const CharterDispatchPage: React.FC<CharterDispatchPageProps> = ({ charterDispat
     let maxBaseFare = 0;
     const missingDests: string[] = [];
     if (formData.destinations.length > 0) {
-        const destinationFares = formData.destinations.map(dest => {
+        const destinationFares = formData.destinations.map((dest: string) => {
             const fare = getFare('기본운임', dest);
             if(fare === 0) {
                 missingDests.push(dest);
@@ -207,7 +237,7 @@ const CharterDispatchPage: React.FC<CharterDispatchPageProps> = ({ charterDispat
   const removeDestination = (indexToRemove: number) => {
       setFormData(prev => ({
           ...prev,
-          destinations: prev.destinations.filter((_, index) => index !== indexToRemove)
+          destinations: prev.destinations.filter((_: string, index: number) => index !== indexToRemove)
       }));
   };
 
@@ -260,7 +290,7 @@ const CharterDispatchPage: React.FC<CharterDispatchPageProps> = ({ charterDispat
         return;
     }
 
-    const targetDestination = destinations.find(dest => 
+    const targetDestination = destinations.find((dest: string) => 
         !charterCosts.some(cost => 
             cost.loadingPoint === loadingPoint &&
             cost.vehicleType === vehicleType &&
@@ -384,7 +414,7 @@ const CharterDispatchPage: React.FC<CharterDispatchPageProps> = ({ charterDispat
                 <label className="block text-sm font-medium">지역(행선지)</label>
                 <input type="text" name="currentDestinationInput" value={formData.currentDestinationInput} onChange={handleInputChange} onKeyDown={handleDestinationKeyDown} className="w-full mt-1 p-2 border rounded-md" placeholder="지역 입력 후 Enter" />
                 <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.destinations.map((dest, index) => (
+                    {formData.destinations.map((dest: string, index: number) => (
                         <span key={index} className={`text-sm font-medium px-2.5 py-1 rounded-full flex items-center ${unregisteredDestinations.includes(dest) ? 'bg-red-100 text-red-800 ring-1 ring-red-300' : 'bg-gray-200 text-gray-800'}`}>
                             {dest}
                             <button type="button" onClick={() => removeDestination(index)} className="ml-2 text-gray-500 hover:text-gray-800"><XIcon className="w-3 h-3"/></button>

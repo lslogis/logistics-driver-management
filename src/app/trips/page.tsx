@@ -38,20 +38,33 @@ function CreateTripModal({
   onSubmit: (data: CreateTripData) => void
   isSubmitting: boolean
 }) {
-  const [formData, setFormData] = useState<Partial<CreateTripData>>({
+  const [formData, setFormData] = useState<Partial<CreateTripData & {
+    loadingPoint: string;
+    unloadingPoint: string;
+    driverFare: number | string;
+    billingFare: number | string;
+  }>>({
     date: new Date().toISOString().split('T')[0],
-    status: 'SCHEDULED'
+    status: 'SCHEDULED',
+    loadingPoint: '',
+    unloadingPoint: '',
+    driverFare: 0,
+    billingFare: 0
   })
 
   if (!isOpen) return null
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.date || !formData.driverId || !formData.vehicleId || !formData.driverFare || !formData.billingFare) {
+    if (!formData.date || !formData.driverId || !formData.vehicleId || !Number(formData.driverFare) || !Number(formData.billingFare)) {
       toast.error('필수 필드를 모두 입력해주세요')
       return
     }
-    onSubmit(formData as CreateTripData)
+    onSubmit({
+      ...formData,
+      driverFare: Number(formData.driverFare),
+      billingFare: Number(formData.billingFare)
+    } as CreateTripData)
   }
 
   return (
@@ -109,7 +122,7 @@ function CreateTripModal({
                       type="number"
                       placeholder="0"
                       value={formData.driverFare || ''}
-                      onChange={(e) => setFormData({ ...formData, driverFare: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, driverFare: Number(e.target.value) })}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
@@ -120,7 +133,7 @@ function CreateTripModal({
                       type="number"
                       placeholder="0"
                       value={formData.billingFare || ''}
-                      onChange={(e) => setFormData({ ...formData, billingFare: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, billingFare: Number(e.target.value) })}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
@@ -211,7 +224,13 @@ function EditTripModal({
   onSubmit: (id: string, data: UpdateTripData) => void
   isSubmitting: boolean
 }) {
-  const [formData, setFormData] = useState<Partial<UpdateTripData>>({})
+  const [formData, setFormData] = useState<Partial<UpdateTripData & {
+    date: string;
+    loadingPoint: string;
+    unloadingPoint: string;
+    driverFare: number | string;
+    billingFare: number | string;
+  }>>({})
 
   // trip이 변경될 때 폼 데이터 초기화
   React.useEffect(() => {
@@ -223,8 +242,8 @@ function EditTripModal({
         routeTemplateId: trip.routeTemplate?.id || undefined,
         loadingPoint: trip.customRoute?.loadingPoint || undefined,
         unloadingPoint: trip.customRoute?.unloadingPoint || undefined,
-        driverFare: trip.driverFare,
-        billingFare: trip.billingFare,
+        driverFare: Number(trip.driverFare),
+        billingFare: Number(trip.billingFare),
         remarks: trip.remarks || undefined
       })
     }
@@ -234,11 +253,15 @@ function EditTripModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.date || !formData.driverId || !formData.vehicleId || !formData.driverFare || !formData.billingFare) {
+    if (!formData.date || !formData.driverId || !formData.vehicleId || !Number(formData.driverFare) || !Number(formData.billingFare)) {
       toast.error('필수 필드를 모두 입력해주세요')
       return
     }
-    onSubmit(trip.id, formData as UpdateTripData)
+    onSubmit(trip.id, {
+      ...formData,
+      driverFare: Number(formData.driverFare),
+      billingFare: Number(formData.billingFare)
+    } as UpdateTripData)
   }
 
   return (
@@ -293,7 +316,7 @@ function EditTripModal({
                     <input
                       type="number"
                       value={formData.driverFare || ''}
-                      onChange={(e) => setFormData({ ...formData, driverFare: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, driverFare: Number(e.target.value) })}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
@@ -303,7 +326,7 @@ function EditTripModal({
                     <input
                       type="number"
                       value={formData.billingFare || ''}
-                      onChange={(e) => setFormData({ ...formData, billingFare: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, billingFare: Number(e.target.value) })}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
@@ -574,7 +597,7 @@ export default function TripsPage() {
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState<'SCHEDULED' | 'COMPLETED' | 'ABSENCE' | 'SUBSTITUTE' | ''>('')
 
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -746,7 +769,7 @@ export default function TripsPage() {
                 id="status"
                 className="block w-full px-3 py-2 border border-gray-300 rounded-md"
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => setStatus(e.target.value as 'SCHEDULED' | 'COMPLETED' | 'ABSENCE' | 'SUBSTITUTE' | '')}
               >
                 <option value="">전체</option>
                 <option value="SCHEDULED">예정</option>
@@ -795,7 +818,7 @@ export default function TripsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {data.trips.map((trip) => (
+                    {data.trips.map((trip: any) => (
                       <tr key={trip.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {formatDate(trip.date)}

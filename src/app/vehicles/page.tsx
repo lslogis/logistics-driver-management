@@ -703,7 +703,7 @@ export default function VehiclesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.vehicles.map((vehicle) => (
+                    {data.vehicles.map((vehicle: any) => (
                       <tr key={vehicle.id} className="table-row group">
                         <td className="table-cell">
                           <div className="font-mono text-sm font-medium text-slate-900">

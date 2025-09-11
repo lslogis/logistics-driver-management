@@ -1,7 +1,7 @@
 import { TripResponse, CreateTripData, UpdateTripData, GetTripsQuery } from '@/lib/validations/trip'
 
 export class TripsAPI {
-  async getTrips(params: GetTripsQuery = {}) {
+  async getTrips(params: GetTripsQuery) {
     const searchParams = new URLSearchParams()
     if (params.page) searchParams.set('page', params.page.toString())
     if (params.limit) searchParams.set('limit', params.limit.toString())
@@ -11,7 +11,7 @@ export class TripsAPI {
     if (params.status) searchParams.set('status', params.status)
     if (params.driverId) searchParams.set('driverId', params.driverId)
     if (params.vehicleId) searchParams.set('vehicleId', params.vehicleId)
-    if (params.routeId) searchParams.set('routeId', params.routeId)
+    if (params.routeTemplateId) searchParams.set('routeTemplateId', params.routeTemplateId)
     if (params.sortBy) searchParams.set('sortBy', params.sortBy)
     if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder)
 

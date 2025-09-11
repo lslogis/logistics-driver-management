@@ -1,5 +1,16 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { CharterCost } from '../types';
+// CharterCost type definition
+interface CharterCost {
+  id: string;
+  date: string;
+  destination: string;
+  cost: number;
+  description?: string;
+  loadingPoint: string;
+  vehicleType: string;
+  fareType: string;
+  amount: number;
+}
 import Modal from './Modal';
 import { PlusIcon, PencilIcon, TrashIcon, DownloadIcon, UploadIcon } from './icons';
 

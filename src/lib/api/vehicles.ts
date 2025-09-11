@@ -1,7 +1,7 @@
 import { VehicleResponse, CreateVehicleData, UpdateVehicleData, GetVehiclesQuery } from '@/lib/validations/vehicle'
 
 export class VehiclesAPI {
-  async getVehicles(params: GetVehiclesQuery = {}) {
+  async getVehicles(params: GetVehiclesQuery) {
     const searchParams = new URLSearchParams()
     if (params.page) searchParams.set('page', params.page.toString())
     if (params.limit) searchParams.set('limit', params.limit.toString())

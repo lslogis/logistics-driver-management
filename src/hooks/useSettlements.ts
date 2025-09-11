@@ -65,7 +65,7 @@ export function useExportSettlements() {
         URL.revokeObjectURL(url)
         toast.success('정산 내보내기 완료')
       } else {
-        toast.info('Excel export 기능은 아직 구현되지 않았습니다 (스텁)')
+        toast('Excel export 기능은 아직 구현되지 않았습니다 (스텁)', { icon: 'ℹ️' })
       }
     },
     onError: (error: Error) => {

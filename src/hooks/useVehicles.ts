@@ -3,10 +3,18 @@ import { vehiclesAPI } from '@/lib/api/vehicles'
 import { CreateVehicleData, UpdateVehicleData, GetVehiclesQuery } from '@/lib/validations/vehicle'
 import { toast } from 'react-hot-toast'
 
-export function useVehicles(params: GetVehiclesQuery = {}) {
+export function useVehicles(params: Partial<GetVehiclesQuery> = {}) {
+  const defaultParams: GetVehiclesQuery = {
+    page: 1,
+    limit: 20,
+    sortBy: 'plateNumber',
+    sortOrder: 'asc',
+    ...params
+  }
+  
   return useQuery({
-    queryKey: ['vehicles', params],
-    queryFn: () => vehiclesAPI.getVehicles(params),
+    queryKey: ['vehicles', defaultParams],
+    queryFn: () => vehiclesAPI.getVehicles(defaultParams),
     staleTime: 5 * 60 * 1000
   })
 }

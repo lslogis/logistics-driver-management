@@ -463,7 +463,7 @@ export const POST = withAuth(
         user,
         'CREATE',
         'Trip',
-        null,
+        'csv_import',
         {
           action: 'csv_import',
           fileName: file.name,

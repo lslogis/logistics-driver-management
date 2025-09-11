@@ -274,7 +274,7 @@ export const POST = withAuth(
         user,
         'CREATE',
         'Driver',
-        null,
+        'csv_import',
         {
           action: 'csv_import',
           fileName: file.name,

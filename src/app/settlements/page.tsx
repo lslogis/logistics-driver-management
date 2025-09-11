@@ -468,7 +468,7 @@ export default function SettlementsPage() {
                       </button>
                       {canConfirmSettlement(settlement.status) && (
                         <button
-                          onClick={() => toast.info('정산 확정은 미리보기에서 가능합니다')}
+                          onClick={() => toast('정산 확정은 미리보기에서 가능합니다')}
                           className="p-2 text-gray-400 hover:text-green-600"
                           title="확정"
                         >

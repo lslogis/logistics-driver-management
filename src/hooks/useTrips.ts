@@ -3,10 +3,18 @@ import { tripsAPI } from '@/lib/api/trips'
 import { CreateTripData, UpdateTripData, GetTripsQuery } from '@/lib/validations/trip'
 import { toast } from 'react-hot-toast'
 
-export function useTrips(params: GetTripsQuery = {}) {
+export function useTrips(params: Partial<GetTripsQuery> = {}) {
+  const defaultParams: GetTripsQuery = {
+    page: 1,
+    limit: 20,
+    sortBy: 'date',
+    sortOrder: 'desc',
+    ...params
+  }
+  
   return useQuery({
-    queryKey: ['trips', params],
-    queryFn: () => tripsAPI.getTrips(params),
+    queryKey: ['trips', defaultParams],
+    queryFn: () => tripsAPI.getTrips(defaultParams),
     staleTime: 5 * 60 * 1000
   })
 }

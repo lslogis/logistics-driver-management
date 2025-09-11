@@ -1,7 +1,7 @@
 import { RouteResponse, CreateRouteData, UpdateRouteData, GetRoutesQuery } from '@/lib/validations/route'
 
 export class RoutesAPI {
-  async getRoutes(params: GetRoutesQuery = {}) {
+  async getRoutes(params: GetRoutesQuery) {
     const searchParams = new URLSearchParams()
     if (params.page) searchParams.set('page', params.page.toString())
     if (params.limit) searchParams.set('limit', params.limit.toString())
