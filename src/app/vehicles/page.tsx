@@ -2,12 +2,15 @@
 
 import { useState } from 'react'
 import React from 'react'
-import Link from 'next/link'
-import { useVehicles, useCreateVehicle, useUpdateVehicle, useDeleteVehicle, useAssignDriver } from '@/hooks/useVehicles'
+import { Truck, Plus, Upload, Calendar, User as UserIcon } from 'lucide-react'
+import { useVehicles, useCreateVehicle, useUpdateVehicle, useDeleteVehicle } from '@/hooks/useVehicles'
 import { CreateVehicleData, UpdateVehicleData, VehicleResponse } from '@/lib/validations/vehicle'
 import { VehicleOwnership } from '@prisma/client'
 import { toast } from 'react-hot-toast'
-import '@/styles/design-system.css'
+import ManagementPageLayout from '@/components/layout/ManagementPageLayout'
+import { DataTable, commonActions } from '@/components/ui/DataTable'
+import { ExportButton } from '@/components/ExportButton'
+import { useExportVehicles } from '@/hooks/useImports'
 
 // 차량 등록 모달
 function CreateVehicleModal({ 
@@ -418,6 +421,7 @@ export default function VehiclesPage() {
   const createMutation = useCreateVehicle()
   const updateMutation = useUpdateVehicle()
   const deleteMutation = useDeleteVehicle()
+  const exportMutation = useExportVehicles()
 
   const handleCreate = (data: CreateVehicleData) => {
     createMutation.mutate(data, {
@@ -450,7 +454,7 @@ export default function VehiclesPage() {
     return (
       <div className="page-container">
         <header className="page-header">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="w-full px-4">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center space-x-4">
                 <div className="p-2 bg-red-100 rounded-lg">
@@ -506,368 +510,220 @@ export default function VehiclesPage() {
     )
   }
 
+  // Define table columns
+  const columns = [
+    {
+      key: 'plateNumber',
+      header: '차량번호',
+      render: (value: string) => (
+        <div className="font-mono text-sm font-medium text-gray-900">
+          {value}
+        </div>
+      ),
+    },
+    {
+      key: 'vehicle',
+      header: '차종/제원',
+      render: (value: any, vehicle: VehicleResponse) => (
+        <div className="space-y-1">
+          <div className="font-medium text-gray-900">{vehicle.vehicleType}</div>
+          <div className="flex items-center space-x-3 text-xs text-gray-500">
+            {vehicle.year && (
+              <span className="flex items-center">
+                <Calendar className="h-3 w-3 mr-1" />
+                {vehicle.year}년
+              </span>
+            )}
+            {vehicle.capacity && (
+              <span className="flex items-center">
+                <UserIcon className="h-3 w-3 mr-1" />
+                {vehicle.capacity}인승
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'ownership',
+      header: '소유권',
+      render: (value: VehicleOwnership) => {
+        const variants = {
+          OWNED: 'bg-blue-100 text-blue-800',
+          CHARTER: 'bg-yellow-100 text-yellow-800',
+          CONSIGNED: 'bg-green-100 text-green-800',
+        }
+        const labels = {
+          OWNED: '고정',
+          CHARTER: '용차',
+          CONSIGNED: '지입',
+        }
+        return (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variants[value]}`}>
+            {labels[value]}
+          </span>
+        )
+      },
+    },
+    {
+      key: 'driver',
+      header: '배정 기사',
+      render: (driver: any) => (
+        driver ? (
+          <div className="space-y-1">
+            <div className="font-medium text-gray-900">{driver.name}</div>
+            <div className="text-xs text-gray-500 font-mono">{driver.phone}</div>
+          </div>
+        ) : (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            미배정
+          </span>
+        )
+      ),
+    },
+    {
+      key: 'isActive',
+      header: '상태',
+      render: (isActive: boolean) => (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+          {isActive ? '활성' : '비활성'}
+        </span>
+      ),
+    },
+    {
+      key: 'createdAt',
+      header: '등록일',
+      render: (createdAt: string) => (
+        <div className="text-xs text-gray-500">
+          {new Date(createdAt).toLocaleDateString('ko-KR', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          })}
+        </div>
+      ),
+    },
+  ]
+
+  // Define table actions
+  const actions = [
+    commonActions.edit(
+      (vehicle: VehicleResponse) => handleEdit(vehicle),
+      () => true
+    ),
+    commonActions.delete(
+      (vehicle: VehicleResponse) => handleDelete(vehicle.id),
+      (vehicle: VehicleResponse) => vehicle.isActive
+    ),
+  ]
+
+  // Define search filters
+  const searchFilters = [
+    {
+      label: '차량번호 검색',
+      type: 'text' as const,
+      value: search,
+      onChange: setSearch,
+      placeholder: '예: 12가3456, 서울12가3456...',
+    },
+    {
+      label: '소유권 유형',
+      type: 'select' as const,
+      value: ownership,
+      onChange: setOwnership,
+      options: [
+        { value: 'OWNED', label: '고정 (자차)' },
+        { value: 'CHARTER', label: '용차 (임시)' },
+        { value: 'CONSIGNED', label: '지입 (계약)' },
+      ],
+    },
+    {
+      label: '운행 상태',
+      type: 'select' as const,
+      value: isActive === undefined ? '' : isActive.toString(),
+      onChange: (value: string) => {
+        setIsActive(value === '' ? undefined : value === 'true')
+      },
+      options: [
+        { value: 'true', label: '활성 차량' },
+        { value: 'false', label: '비활성 차량' },
+      ],
+    },
+  ]
+
+  // Define quick actions
+  const quickActions = [
+    {
+      label: '활성 자차',
+      onClick: () => {
+        setOwnership('OWNED')
+        setIsActive(true)
+      },
+    },
+    {
+      label: '비활성 차량',
+      onClick: () => {
+        setOwnership('')
+        setIsActive(false)
+      },
+    },
+    {
+      label: '초기화',
+      onClick: () => {
+        setSearch('')
+        setOwnership('')
+        setIsActive(undefined)
+      },
+      variant: 'outline' as const,
+    },
+  ]
+
   return (
-    <div className="page-container">
-      {/* 헤더 */}
-      <header className="page-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2v0a2 2 0 01-2-2v-2a2 2 0 00-2-2H8V7z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-heading-2 text-slate-900">차량 관리</h1>
-                <p className="text-caption text-slate-500 mt-0.5">Vehicle Management</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Link 
-                href="/" 
-                className="btn-secondary focus-ring"
-              >
-                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                메인으로
-              </Link>
-              <button
-                onClick={() => setCreateModalOpen(true)}
-                className="btn-primary focus-ring"
-              >
-                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                차량 등록
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* 메인 콘텐츠 */}
-      <main className="page-content">
-        {/* 검색 및 필터 - 개선된 디자인 */}
-        <div className="card p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-heading-3 text-slate-900">차량 검색 및 필터</h2>
-            <span className="text-caption text-slate-500">총 {data?.pagination?.total || 0}대 등록</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="md:col-span-2">
-              <label htmlFor="search" className="form-label">
-                차량번호 검색
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  id="search"
-                  className="form-input pl-10"
-                  placeholder="예: 12가3456, 서울12가3456..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="ownership" className="form-label">
-                소유권 유형
-              </label>
-              <select
-                id="ownership"
-                className="form-select"
-                value={ownership}
-                onChange={(e) => setOwnership(e.target.value as VehicleOwnership | '')}
-              >
-                <option value="">전체 유형</option>
-                <option value="OWNED">고정 (자차)</option>
-                <option value="CHARTER">용차 (임시)</option>
-                <option value="CONSIGNED">지입 (계약)</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="isActive" className="form-label">
-                운행 상태
-              </label>
-              <select
-                id="isActive"
-                className="form-select"
-                value={isActive === undefined ? '' : isActive.toString()}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setIsActive(value === '' ? undefined : value === 'true')
-                }}
-              >
-                <option value="">전체 상태</option>
-                <option value="true">활성 차량</option>
-                <option value="false">비활성 차량</option>
-              </select>
-            </div>
-          </div>
-          
-          {/* 빠른 필터 버튼들 */}
-          <div className="flex items-center space-x-2 mt-4 pt-4 border-t border-slate-200">
-            <span className="text-caption text-slate-600">빠른 필터:</span>
-            <button
-              onClick={() => {
-                setOwnership('OWNED')
-                setIsActive(true)
-              }}
-              className="btn-ghost text-xs py-1 px-2 h-auto"
-            >
-              활성 자차
-            </button>
-            <button
-              onClick={() => {
-                setOwnership('')
-                setIsActive(false)
-              }}
-              className="btn-ghost text-xs py-1 px-2 h-auto"
-            >
-              비활성 차량
-            </button>
-            <button
-              onClick={() => {
-                setSearch('')
-                setOwnership('')
-                setIsActive(undefined)
-              }}
-              className="btn-ghost text-xs py-1 px-2 h-auto text-red-600 hover:text-red-700"
-            >
-              초기화
-            </button>
-          </div>
-        </div>
-
-        {/* 차량 목록 - 전문적인 테이블 디자인 */}
-        <div className="table-container">
-          {isLoading ? (
-            <div className="p-12 text-center">
-              <div className="inline-flex items-center space-x-2">
-                <div className="loading-spinner"></div>
-                <span className="text-body-secondary">차량 데이터를 불러오는 중...</span>
-              </div>
-            </div>
-          ) : !data?.vehicles?.length ? (
-            <div className="p-12 text-center">
-              <div className="max-w-sm mx-auto">
-                <svg className="h-16 w-16 text-slate-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2v0a2 2 0 01-2-2v-2a2 2 0 00-2-2H8V7z" />
-                </svg>
-                <h3 className="text-heading-3 text-slate-900 mb-2">등록된 차량이 없습니다</h3>
-                <p className="text-body-secondary mb-4">새 차량을 등록하여 관리를 시작하세요.</p>
-                <button
-                  onClick={() => setCreateModalOpen(true)}
-                  className="btn-primary"
-                >
-                  첫 번째 차량 등록하기
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead className="table-header">
-                    <tr>
-                      <th className="table-header">
-                        차량번호
-                      </th>
-                      <th className="table-header">
-                        차종/제원
-                      </th>
-                      <th className="table-header">
-                        소유권
-                      </th>
-                      <th className="table-header">
-                        배정 기사
-                      </th>
-                      <th className="table-header">
-                        상태
-                      </th>
-                      <th className="table-header">
-                        등록일
-                      </th>
-                      <th className="table-header">
-                        작업
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.vehicles.map((vehicle: any) => (
-                      <tr key={vehicle.id} className="table-row group">
-                        <td className="table-cell">
-                          <div className="font-mono text-sm font-medium text-slate-900">
-                            {vehicle.plateNumber}
-                          </div>
-                        </td>
-                        <td className="table-cell">
-                          <div className="space-y-1">
-                            <div className="font-medium text-slate-900">{vehicle.vehicleType}</div>
-                            <div className="flex items-center space-x-3 text-xs text-slate-500">
-                              {vehicle.year && (
-                                <span className="flex items-center">
-                                  <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-8 0h8m-8 0v8a2 2 0 002 2h4a2 2 0 002-2V7m-8 0V7" />
-                                  </svg>
-                                  {vehicle.year}년
-                                </span>
-                              )}
-                              {vehicle.capacity && (
-                                <span className="flex items-center">
-                                  <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                  </svg>
-                                  {vehicle.capacity}인승
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="table-cell">
-                          <span className={`${
-                            vehicle.ownership === 'OWNED' ? 'badge-info' :
-                            vehicle.ownership === 'CHARTER' ? 'badge-warning' :
-                            'badge-success'
-                          }`}>
-                            {vehicle.ownership === 'OWNED' ? '고정' :
-                             vehicle.ownership === 'CHARTER' ? '용차' : '지입'}
-                          </span>
-                        </td>
-                        <td className="table-cell">
-                          {vehicle.driver ? (
-                            <div className="space-y-1">
-                              <div className="font-medium text-slate-900">{vehicle.driver.name}</div>
-                              <div className="text-caption text-slate-500 font-mono">{vehicle.driver.phone}</div>
-                            </div>
-                          ) : (
-                            <span className="badge-neutral">미배정</span>
-                          )}
-                        </td>
-                        <td className="table-cell">
-                          <span className={`${
-                            vehicle.isActive ? 'badge-success' : 'badge-danger'
-                          }`}>
-                            {vehicle.isActive ? '활성' : '비활성'}
-                          </span>
-                        </td>
-                        <td className="table-cell table-cell-secondary">
-                          <div className="text-caption">
-                            {new Date(vehicle.createdAt).toLocaleDateString('ko-KR', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </div>
-                        </td>
-                        <td className="table-cell">
-                          <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => handleEdit(vehicle)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors focus-ring-inset"
-                              title="차량 정보 수정"
-                            >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            {vehicle.isActive && (
-                              <button
-                                onClick={() => handleDelete(vehicle.id)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors focus-ring-inset"
-                                title="차량 비활성화"
-                              >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* 개선된 페이지네이션 */}
-              {data.pagination && (
-                <div className="bg-slate-50 px-6 py-4 border-t border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-6">
-                      <div className="text-body-secondary">
-                        총 <span className="font-semibold text-slate-900">{data.pagination.total.toLocaleString()}</span>대 중{' '}
-                        <span className="font-semibold text-slate-900">
-                          {((data.pagination.page - 1) * data.pagination.limit) + 1}
-                        </span>
-                        -{' '}
-                        <span className="font-semibold text-slate-900">
-                          {Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)}
-                        </span>
-                        대 표시
-                      </div>
-                      <div className="hidden sm:flex items-center space-x-2 text-caption text-slate-500">
-                        <span>페이지당</span>
-                        <span className="font-mono font-medium">{data.pagination.limit}개</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => setPage(1)}
-                        disabled={page <= 1}
-                        className="p-2 text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed focus-ring-inset"
-                        title="첫 페이지"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => setPage(page - 1)}
-                        disabled={page <= 1}
-                        className="btn-ghost py-1.5 px-3 text-sm disabled:opacity-30"
-                      >
-                        이전
-                      </button>
-                      <div className="flex items-center px-3 py-1.5 text-sm font-mono">
-                        <span className="text-slate-900 font-semibold">{page}</span>
-                        <span className="text-slate-400 mx-1">/</span>
-                        <span className="text-slate-600">{data.pagination.totalPages}</span>
-                      </div>
-                      <button
-                        onClick={() => setPage(page + 1)}
-                        disabled={page >= data.pagination.totalPages}
-                        className="btn-ghost py-1.5 px-3 text-sm disabled:opacity-30"
-                      >
-                        다음
-                      </button>
-                      <button
-                        onClick={() => setPage(data.pagination.totalPages)}
-                        disabled={page >= data.pagination.totalPages}
-                        className="p-2 text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed focus-ring-inset"
-                        title="마지막 페이지"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </main>
+    <ManagementPageLayout
+      title="차량 관리"
+      subtitle="차량 정보를 등록하하고 관리합니다"
+      icon={<Truck />}
+      totalCount={data?.pagination?.total}
+      countLabel="대"
+      primaryAction={{
+        label: '차량 등록',
+        onClick: () => setCreateModalOpen(true),
+        icon: <Plus className="h-4 w-4" />,
+      }}
+      secondaryActions={[{
+        label: 'CSV 가져오기',
+        href: '/import/vehicles',
+        icon: <Upload className="h-4 w-4" />,
+      }]}
+      exportAction={{
+        label: '목록 내보내기',
+        onClick: (format) => exportMutation.mutate(format),
+        loading: exportMutation.isPending,
+      }}
+      searchFilters={searchFilters}
+      quickActions={quickActions}
+      isLoading={isLoading}
+      error={error instanceof Error ? error.message : undefined}
+    >
+      <DataTable
+        data={data?.vehicles || []}
+        columns={columns}
+        actions={actions}
+        pagination={data?.pagination}
+        onPageChange={setPage}
+        emptyState={{
+          icon: <Truck />,
+          title: '등록된 차량이 없습니다',
+          description: '새 차량을 등록하여 관리를 시작하세요.',
+          action: {
+            label: '첫 번째 차량 등록하기',
+            onClick: () => setCreateModalOpen(true),
+          },
+        }}
+        isLoading={isLoading}
+      />
 
       {/* 모달 컴포넌트들 */}
       <CreateVehicleModal
@@ -887,6 +743,6 @@ export default function VehiclesPage() {
         onSubmit={handleUpdate}
         isSubmitting={updateMutation.isPending}
       />
-    </div>
+    </ManagementPageLayout>
   )
 }

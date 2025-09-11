@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { Upload, Download, FileText, AlertCircle, CheckCircle, XCircle, Eye, User, Loader2 } from 'lucide-react'
+import { Upload, Download, FileText, AlertCircle, CheckCircle, XCircle, Eye, Route, Loader2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import Link from 'next/link'
-import { useDriversImportWorkflow, useFileValidation } from '@/hooks/useImports'
+import { useRoutesImportWorkflow, useFileValidation } from '@/hooks/useImports'
 import { ImportResult } from '@/lib/api/imports'
 import { UploadProgress } from '@/components/ui/progress'
 import { ImportResultsDisplay } from '@/components/ImportResultsDisplay'
@@ -110,7 +110,7 @@ function FileDropZone({
 
 
 // 메인 컴포넌트
-export default function ImportDriversPage() {
+export default function ImportRoutesPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [validationResults, setValidationResults] = useState<ImportResult | null>(null)
@@ -124,7 +124,7 @@ export default function ImportDriversPage() {
     isUploading,
     uploadError,
     resetProgress
-  } = useDriversImportWorkflow()
+  } = useRoutesImportWorkflow()
 
   const { getFileFormat } = useFileValidation()
 
@@ -175,8 +175,7 @@ export default function ImportDriversPage() {
     resetProgress()
   }
 
-  const canImport = validationResults && validationResults.valid > 0 && (validationResults.imported === 0 || validationResults.imported === undefined)
-  const hasImported = validationResults && validationResults.imported > 0
+  const canImport = validationResults && validationResults.valid > 0 && validationResults.imported === 0
 
   // Auto-reset upload error when file changes
   useEffect(() => {
@@ -193,21 +192,21 @@ export default function ImportDriversPage() {
         <div className="w-full px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <User className="h-8 w-8 text-blue-600" />
+              <Route className="h-8 w-8 text-purple-600" />
               <h1 className="ml-3 text-xl font-bold text-gray-900">
-                기사 데이터 가져오기
+                노선 템플릿 데이터 가져오기
               </h1>
             </div>
             <div className="flex items-center space-x-3">
               <Link
-                href="/drivers"
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                href="/routes"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
               >
-                기사 목록
+                노선 목록
               </Link>
               <Link
                 href="/"
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
               >
                 메인으로
               </Link>
@@ -220,19 +219,21 @@ export default function ImportDriversPage() {
       <main className="w-full py-6 px-4">
         <div className="space-y-6">
           {/* 안내사항 */}
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+          <div className="bg-purple-50 border border-purple-200 rounded-md p-4">
             <div className="flex">
-              <AlertCircle className="h-5 w-5 text-blue-400" />
+              <AlertCircle className="h-5 w-5 text-purple-400" />
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  데이터 가져오기 안내
+                <h3 className="text-sm font-medium text-purple-800">
+                  노선 템플릿 데이터 가져오기 안내
                 </h3>
-                <div className="mt-2 text-sm text-blue-700">
+                <div className="mt-2 text-sm text-purple-700">
                   <ul className="list-disc pl-5 space-y-1">
                     <li>CSV 또는 Excel 파일의 첫 번째 행은 헤더로 사용됩니다</li>
-                    <li>필수 컬럼: 이름(name), 전화번호(phone)</li>
-                    <li>선택 컬럼: 이메일, 사업자등록번호, 회사명, 대표자명, 은행명, 계좌번호, 비고</li>
-                    <li>중복된 전화번호는 자동으로 제외됩니다</li>
+                    <li>필수 컬럼: 노선명(routeName), 출발지(departure), 도착지(destination)</li>
+                    <li>선택 컬럼: 기본운임(baseFare), 거리(distance), 예상소요시간(duration), 설명(description)</li>
+                    <li>요일별 패턴: 월(monday), 화(tuesday), 수(wednesday), 목(thursday), 금(friday), 토(saturday), 일(sunday) - true/false</li>
+                    <li>운임 설정: 기본운임, 연장요금(additionalFare), 야간할증(nightSurcharge), 휴일할증(holidaySurcharge)</li>
+                    <li>중복된 노선명은 자동으로 제외됩니다</li>
                     <li>최대 파일 크기: 10MB</li>
                   </ul>
                 </div>
@@ -240,7 +241,7 @@ export default function ImportDriversPage() {
                   <button
                     onClick={downloadTemplate}
                     disabled={isLoading}
-                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-purple-600 bg-white border border-purple-300 rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -309,7 +310,7 @@ export default function ImportDriversPage() {
                 <button
                   onClick={handleValidate}
                   disabled={isLoading || !selectedFile || isUploading || !!uploadError}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -330,10 +331,9 @@ export default function ImportDriversPage() {
                     ) : (
                       <Upload className="h-4 w-4 mr-2" />
                     )}
-                    {isLoading ? '가져오는 중...' : `${validationResults.valid}개 기사 등록`}
+                    {isLoading ? '가져오는 중...' : `${validationResults.valid}개 노선 등록`}
                   </button>
                 )}
-
               </div>
             </div>
           )}
@@ -344,8 +344,8 @@ export default function ImportDriversPage() {
               <h2 className="text-lg font-medium text-gray-900 mb-4">3. 처리 결과</h2>
               <ImportResultsDisplay 
                 results={validationResults} 
-                type="drivers"
-                onViewDetails={() => window.location.href = '/drivers'}
+                type="routes"
+                onViewDetails={() => window.location.href = '/routes'}
               />
             </div>
           )}
