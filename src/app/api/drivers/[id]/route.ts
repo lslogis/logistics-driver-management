@@ -171,7 +171,7 @@ export const PUT = withAuth(
 )
 
 /**
- * DELETE /api/drivers/[id] - 기사 삭제 (소프트 삭제)
+ * DELETE /api/drivers/[id] - 기사 삭제 (소프트 삭제 또는 하드 삭제)
  */
 export const DELETE = withAuth(
   async (req: NextRequest, context: { params?: any } = {}) => {
@@ -188,6 +188,8 @@ export const DELETE = withAuth(
       }
 
       const { id } = context.params || {}
+      const url = new URL(req.url)
+      const isHardDelete = url.searchParams.get('hard') === 'true'
       
       if (!id) {
         return NextResponse.json({
@@ -211,31 +213,56 @@ export const DELETE = withAuth(
         }, { status: 404 })
       }
 
-      // 기사 삭제 (소프트 삭제)
-      await driverService.deleteDriver(id)
-      
-      // 감사 로그 기록
-      await createAuditLog(
-        user,
-        'DELETE',
-        'Driver',
-        id,
-        { 
-          deactivated: {
-            from: originalDriver.isActive,
-            to: false
+      if (isHardDelete) {
+        // 하드 삭제 - DB에서 완전 삭제
+        await driverService.hardDeleteDriver(id)
+        
+        // 감사 로그 기록
+        await createAuditLog(
+          user,
+          'DELETE',
+          'Driver',
+          id,
+          { 
+            permanently_deleted: true
+          },
+          { 
+            source: 'web_api',
+            originalData: originalDriver
           }
-        },
-        { 
-          source: 'web_api',
-          originalData: originalDriver
-        }
-      )
-      
-      return NextResponse.json({ 
-        ok: true, 
-        data: { message: '기사가 비활성화되었습니다' }
-      })
+        )
+        
+        return NextResponse.json({ 
+          ok: true, 
+          data: { message: '기사가 완전히 삭제되었습니다' }
+        })
+      } else {
+        // 소프트 삭제 - isActive를 false로 변경
+        await driverService.deleteDriver(id)
+        
+        // 감사 로그 기록
+        await createAuditLog(
+          user,
+          'DELETE',
+          'Driver',
+          id,
+          { 
+            deactivated: {
+              from: originalDriver.isActive,
+              to: false
+            }
+          },
+          { 
+            source: 'web_api',
+            originalData: originalDriver
+          }
+        )
+        
+        return NextResponse.json({ 
+          ok: true, 
+          data: { message: '기사가 비활성화되었습니다' }
+        })
+      }
     } catch (error) {
       console.error('Failed to delete driver:', error)
       

@@ -1,26 +1,29 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Plus, Search, Edit, Trash2, Phone, User, Building, CreditCard, Upload } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import React, { useState, useEffect, useCallback } from 'react'
+import { Plus, User, Building, CreditCard, Upload, Phone, Edit, Trash2, Car, UserX, X } from 'lucide-react'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
 import { DriverResponse, CreateDriverData, UpdateDriverData } from '@/lib/validations/driver'
-import Link from 'next/link'
+import ManagementPageLayout from '@/components/layout/ManagementPageLayout'
+import { DataTable, commonActions } from '@/components/ui/DataTable'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
+import { ExportButton } from '@/components/ExportButton'
+import { useExportDrivers } from '@/hooks/useImports'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
 
-// 기사 목록 조회
-function useDrivers(search?: string, page = 1, limit = 20) {
-  return useQuery({
-    queryKey: ['drivers', search, page, limit],
-    queryFn: async () => {
+// 기사 목록 조회 - 무한 스크롤
+function useDrivers(search?: string) {
+  return useInfiniteQuery({
+    queryKey: ['drivers', search],
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }: { pageParam: number }) => {
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
+        page: pageParam.toString(),
+        limit: '50',
         ...(search && { search })
       })
       
@@ -32,6 +35,12 @@ function useDrivers(search?: string, page = 1, limit = 20) {
       }
       
       return result.data
+    },
+    getNextPageParam: (lastPage: any) => {
+      if (lastPage.pagination.page < lastPage.pagination.totalPages) {
+        return lastPage.pagination.page + 1
+      }
+      return undefined
     },
     staleTime: 30000, // 30초 동안 fresh
     retry: 2
@@ -96,13 +105,40 @@ function useUpdateDriver() {
   })
 }
 
-// 기사 삭제 뮤테이션
-function useDeleteDriver() {
+// 기사 비활성화 뮤테이션 (기존 DELETE API 사용)
+function useDeactivateDriver() {
   const queryClient = useQueryClient()
   
   return useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/drivers/${id}`, {
+        method: 'DELETE'
+      })
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error?.message || 'Failed to deactivate driver')
+      }
+      
+      return result.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drivers'] })
+      toast.success('기사가 비활성화되었습니다')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    }
+  })
+}
+
+// 기사 완전 삭제 뮤테이션 (새로 추가)
+function useHardDeleteDriver() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/drivers/${id}?hard=true`, {
         method: 'DELETE'
       })
       const result = await response.json()
@@ -115,7 +151,7 @@ function useDeleteDriver() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] })
-      toast.success('기사가 비활성화되었습니다')
+      toast.success('기사가 완전히 삭제되었습니다')
     },
     onError: (error: Error) => {
       toast.error(error.message)
@@ -135,10 +171,10 @@ function DriverForm({ driver, onSubmit, isLoading, onCancel }: DriverFormProps) 
   const [formData, setFormData] = useState({
     name: driver?.name || '',
     phone: driver?.phone || '',
-    email: driver?.email || '',
+    vehicleNumber: driver?.vehicleNumber || '',
+    businessName: driver?.businessName || '',
+    representative: driver?.representative || '',
     businessNumber: driver?.businessNumber || '',
-    companyName: driver?.companyName || '',
-    representativeName: driver?.representativeName || '',
     bankName: driver?.bankName || '',
     accountNumber: driver?.accountNumber || '',
     remarks: driver?.remarks || ''
@@ -153,7 +189,9 @@ function DriverForm({ driver, onSubmit, isLoading, onCancel }: DriverFormProps) 
     <form onSubmit={handleSubmit} className="space-y-4 p-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="name">이름 *</Label>
+          <Label htmlFor="name">
+            성함 <span className="text-red-500">*</span>
+          </Label>
           <Input
             type="text"
             id="name"
@@ -164,7 +202,9 @@ function DriverForm({ driver, onSubmit, isLoading, onCancel }: DriverFormProps) 
         </div>
 
         <div>
-          <Label htmlFor="phone">전화번호 *</Label>
+          <Label htmlFor="phone">
+            연락처 <span className="text-red-500">*</span>
+          </Label>
           <Input
             type="tel"
             id="phone"
@@ -176,17 +216,41 @@ function DriverForm({ driver, onSubmit, isLoading, onCancel }: DriverFormProps) 
         </div>
 
         <div>
-          <Label htmlFor="email">이메일</Label>
+          <Label htmlFor="vehicleNumber">
+            차량번호 <span className="text-red-500">*</span>
+          </Label>
           <Input
-            type="email"
-            id="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            type="text"
+            id="vehicleNumber"
+            required
+            value={formData.vehicleNumber}
+            onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+            placeholder="예: 12가3456"
           />
         </div>
 
         <div>
-          <Label htmlFor="businessNumber">사업자등록번호</Label>
+          <Label htmlFor="businessName">사업상호</Label>
+          <Input
+            type="text"
+            id="businessName"
+            value={formData.businessName}
+            onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="representative">대표자</Label>
+          <Input
+            type="text"
+            id="representative"
+            value={formData.representative}
+            onChange={(e) => setFormData({ ...formData, representative: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="businessNumber">사업번호</Label>
           <Input
             type="text"
             id="businessNumber"
@@ -197,27 +261,7 @@ function DriverForm({ driver, onSubmit, isLoading, onCancel }: DriverFormProps) 
         </div>
 
         <div>
-          <Label htmlFor="companyName">회사명</Label>
-          <Input
-            type="text"
-            id="companyName"
-            value={formData.companyName}
-            onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="representativeName">대표자명</Label>
-          <Input
-            type="text"
-            id="representativeName"
-            value={formData.representativeName}
-            onChange={(e) => setFormData({ ...formData, representativeName: e.target.value })}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="bankName">은행명</Label>
+          <Label htmlFor="bankName">계좌은행</Label>
           <Input
             type="text"
             id="bankName"
@@ -233,12 +277,13 @@ function DriverForm({ driver, onSubmit, isLoading, onCancel }: DriverFormProps) 
             id="accountNumber"
             value={formData.accountNumber}
             onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+            placeholder="숫자만 입력"
           />
         </div>
       </div>
 
       <div>
-        <Label htmlFor="remarks">비고</Label>
+        <Label htmlFor="remarks">특이사항</Label>
         <textarea
           id="remarks"
           rows={3}
@@ -265,11 +310,41 @@ export default function DriversPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingDriver, setEditingDriver] = useState<DriverResponse | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
-  const { data: driversData, isLoading, error } = useDrivers(searchTerm)
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useDrivers(searchTerm)
+  
+  // Flatten infinite query data
+  const driversData = data?.pages?.flatMap((page: any) => page.drivers) || []
+  const totalCount = data?.pages?.[0]?.pagination?.total || 0
+  
+  // Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    if (window.innerHeight + document.documentElement.scrollTop 
+        >= document.documentElement.offsetHeight - 1000) {
+      if (hasNextPage && !isFetchingNextPage) {
+        fetchNextPage()
+      }
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
+
   const createMutation = useCreateDriver()
   const updateMutation = useUpdateDriver()
-  const deleteMutation = useDeleteDriver()
+  const deactivateMutation = useDeactivateDriver()
+  const hardDeleteMutation = useHardDeleteDriver()
+  const exportMutation = useExportDrivers()
 
   const handleCreateSubmit = (data: CreateDriverData) => {
     createMutation.mutate(data, {
@@ -288,9 +363,42 @@ export default function DriversPage() {
     )
   }
 
-  const handleDelete = (id: string) => {
+  const handleDeactivate = (id: string) => {
     if (window.confirm('정말로 이 기사를 비활성화하시겠습니까?')) {
-      deleteMutation.mutate(id)
+      deactivateMutation.mutate(id)
+    }
+  }
+
+  const handleHardDelete = (id: string) => {
+    if (window.confirm('정말로 이 기사를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      hardDeleteMutation.mutate(id)
+    }
+  }
+
+  // 대량 작업 핸들러들
+  const handleBulkDeactivate = (ids: string[]) => {
+    if (window.confirm(`선택된 ${ids.length}개 기사를 비활성화하시겠습니까?`)) {
+      Promise.all(ids.map(id => deactivateMutation.mutateAsync(id)))
+        .then(() => {
+          setSelectedIds([])
+          toast.success(`${ids.length}개 기사가 비활성화되었습니다`)
+        })
+        .catch(() => {
+          toast.error('일부 기사 비활성화에 실패했습니다')
+        })
+    }
+  }
+
+  const handleBulkHardDelete = (ids: string[]) => {
+    if (window.confirm(`선택된 ${ids.length}개 기사를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+      Promise.all(ids.map(id => hardDeleteMutation.mutateAsync(id)))
+        .then(() => {
+          setSelectedIds([])
+          toast.success(`${ids.length}개 기사가 완전히 삭제되었습니다`)
+        })
+        .catch(() => {
+          toast.error('일부 기사 삭제에 실패했습니다')
+        })
     }
   }
 
@@ -314,204 +422,193 @@ export default function DriversPage() {
     )
   }
 
-  return (
-    <>
-      {/* 페이지 헤더 */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center space-x-3">
-          <User className="h-8 w-8 text-sky-600" />
+  // Define table columns - 새로운 9컬럼 구조
+  const columns = [
+    {
+      key: 'name',
+      header: '성함',
+      width: '12%',
+      render: (value: any, driver: DriverResponse) => (
+        <div className="flex items-center justify-center">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">기사 관리</h1>
-            <p className="text-slate-600 mt-1">기사 정보를 등록하고 관리합니다</p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-3">
-          <Button variant="outline" asChild>
-            <Link href="/import/drivers">
-              <Upload className="h-4 w-4 mr-2" />
-              CSV 가져오기
-            </Link>
-          </Button>
-          <Button onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            기사 등록
-          </Button>
-        </div>
-      </div>
-
-      {/* 검색 */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              type="text"
-              placeholder="기사명, 전화번호, 회사명으로 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 기사 목록 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            기사 목록
-            {driversData?.pagination && (
-              <span className="text-sm font-normal text-slate-600 ml-2">
-                총 {driversData.pagination.total}명
+            <p className="font-medium text-gray-900">{driver.name}</p>
+            {!driver.isActive && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                비활성
               </span>
             )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="p-8 text-center">
-              <div className="text-slate-500">로딩 중...</div>
-            </div>
-          ) : !driversData?.drivers?.length ? (
-            <div className="p-8 text-center">
-              <User className="mx-auto h-12 w-12 text-slate-400" />
-              <h3 className="mt-2 text-sm font-medium text-slate-900">등록된 기사가 없습니다</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                새로운 기사를 등록해보세요.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>기사 정보</TableHead>
-                    <TableHead>연락처</TableHead>
-                    <TableHead>회사 정보</TableHead>
-                    <TableHead>은행 정보</TableHead>
-                    <TableHead>통계</TableHead>
-                    <TableHead className="w-20">작업</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {driversData.drivers.map((driver: DriverResponse) => (
-                    <TableRow key={driver.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center">
-                            <User className="h-4 w-4 text-sky-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center">
-                              <p className="font-medium text-slate-900">{driver.name}</p>
-                              {!driver.isActive && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                  비활성
-                                </span>
-                              )}
-                            </div>
-                            {driver.remarks && (
-                              <p className="text-sm text-slate-500">{driver.remarks}</p>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div className="flex items-center text-slate-900">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {driver.phone}
-                          </div>
-                          {driver.email && (
-                            <div className="text-slate-500 mt-1">{driver.email}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {driver.companyName && (
-                            <div className="flex items-center text-slate-900">
-                              <Building className="h-3 w-3 mr-1" />
-                              {driver.companyName}
-                            </div>
-                          )}
-                          {driver.representativeName && (
-                            <div className="text-slate-500 mt-1">대표: {driver.representativeName}</div>
-                          )}
-                          {driver.businessNumber && (
-                            <div className="text-slate-500 mt-1">사업자: {driver.businessNumber}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {driver.bankName && driver.accountNumber && (
-                            <div className="flex items-center text-slate-900">
-                              <CreditCard className="h-3 w-3 mr-1" />
-                              {driver.bankName}
-                            </div>
-                          )}
-                          {driver.accountNumber && (
-                            <div className="text-slate-500 mt-1">{driver.accountNumber}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-xs text-slate-500">
-                          <p>차량: {driver._count?.vehicles || 0}대</p>
-                          <p>운행: {driver._count?.trips || 0}회</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingDriver(driver)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(driver.id)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'phone',
+      header: '연락처',
+      width: '12%',
+      render: (value: any, driver: DriverResponse) => (
+        <div className="text-sm text-gray-900">
+          {driver.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
+        </div>
+      ),
+    },
+    {
+      key: 'vehicleNumber',
+      header: '차량번호',
+      width: '10%',
+      render: (value: any, driver: DriverResponse) => (
+        <div className="text-sm text-gray-900 whitespace-nowrap">
+          {driver.vehicleNumber || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'business',
+      header: '사업상호',
+      width: '15%',
+      render: (value: any, driver: DriverResponse) => (
+        <div className="text-sm text-gray-900">
+          {driver.businessName || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'representative',
+      header: '대표자',
+      width: '10%',
+      render: (value: any, driver: DriverResponse) => (
+        <div className="text-sm text-gray-900">
+          {driver.representative || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'bankName',
+      header: '계좌은행',
+      width: '10%',
+      render: (value: any, driver: DriverResponse) => (
+        <div className="text-sm text-gray-900">
+          {driver.bankName || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'accountNumber',
+      header: '계좌번호',
+      width: '15%',
+      render: (value: any, driver: DriverResponse) => (
+        <div className="text-sm text-gray-900">
+          {driver.accountNumber || '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'remarks',
+      header: '특이사항',
+      width: '16%',
+      render: (value: any, driver: DriverResponse) => (
+        <div className="text-sm text-gray-500" title={driver.remarks || ''}>
+          {driver.remarks || '-'}
+        </div>
+      ),
+    },
+  ]
 
-      {/* 페이지네이션 */}
-      {driversData?.pagination && driversData.pagination.totalPages > 1 && (
-        <Card className="mt-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-center">
-              <p className="text-sm text-slate-700">
-                총 <span className="font-medium">{driversData.pagination.total}</span>개 중{' '}
-                <span className="font-medium">
-                  {(driversData.pagination.page - 1) * driversData.pagination.limit + 1}
-                </span>{' '}
-                -{' '}
-                <span className="font-medium">
-                  {Math.min(
-                    driversData.pagination.page * driversData.pagination.limit,
-                    driversData.pagination.total
-                  )}
-                </span>{' '}
-                개 표시
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+  // Define table actions - only edit button
+  const actions = [
+    commonActions.edit(
+      (driver: DriverResponse) => setEditingDriver(driver),
+      () => true
+    ),
+  ]
+
+  return (
+    <ManagementPageLayout
+      title="기사 관리"
+      icon={<User />}
+      totalCount={totalCount}
+      countLabel="명"
+      primaryAction={{
+        label: '기사 등록',
+        onClick: () => setIsCreateModalOpen(true),
+        icon: <Plus className="h-4 w-4" />,
+      }}
+      secondaryActions={[{
+        label: 'Excel 가져오기',
+        onClick: () => window.location.href = '/import/drivers',
+        icon: <Upload className="h-4 w-4" />,
+      }]}
+      exportAction={{
+        label: 'Excel 내보내기',
+        onClick: () => exportMutation.mutate('excel'),
+        loading: exportMutation.isPending,
+      }}
+      searchFilters={[
+        {
+          label: '검색',
+          type: 'text',
+          value: searchTerm,
+          onChange: setSearchTerm,
+          placeholder: '성함, 연락처, 차량번호, 사업상호, 대표자, 계좌번호로 검색...',
+        },
+      ]}
+      isLoading={isLoading}
+      error={error ? String(error) : undefined}
+    >
+      <DataTable
+          data={driversData}
+          columns={columns}
+          actions={actions}
+          selectable={true}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+          getItemId={(driver) => driver.id}
+        bulkActions={[
+          {
+            icon: <UserX className="h-4 w-4" />,
+            label: '선택된 항목 비활성화',
+            onClick: handleBulkDeactivate,
+            variant: 'warning'
+          },
+          {
+            icon: <X className="h-4 w-4" />,
+            label: '선택된 항목 완전삭제',
+            onClick: handleBulkHardDelete,
+            variant: 'danger'
+          }
+        ]}
+        emptyState={{
+          icon: <User />,
+          title: '등록된 기사가 없습니다',
+          description: '새로운 기사를 등록해보세요.',
+          action: {
+            label: '기사 등록',
+            onClick: () => setIsCreateModalOpen(true),
+          },
+        }}
+        isLoading={isLoading}
+      />
+      
+      {/* Infinite scroll loading indicator and manual load more */}
+      {isFetchingNextPage && (
+        <div className="flex justify-center py-4">
+          <div className="flex items-center space-x-2 text-gray-500">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <span className="text-sm">추가 데이터 로딩 중...</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Manual load more button */}
+      {hasNextPage && !isFetchingNextPage && driversData.length > 0 && (
+        <div className="flex justify-center py-4">
+          <Button 
+            variant="outline" 
+            onClick={() => fetchNextPage()}
+            className="text-gray-600 hover:text-gray-900"
+          >
+            더 보기 ({totalCount - driversData.length}개 남음)
+          </Button>
+        </div>
       )}
 
       {/* 생성 모달 */}
@@ -546,6 +643,6 @@ export default function DriversPage() {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </ManagementPageLayout>
   )
 }

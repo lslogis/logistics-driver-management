@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import React from 'react'
+import Link from 'next/link'
 import { Truck, Plus, Upload, Calendar, User as UserIcon } from 'lucide-react'
 import { useVehicles, useCreateVehicle, useUpdateVehicle, useDeleteVehicle } from '@/hooks/useVehicles'
 import { CreateVehicleData, UpdateVehicleData, VehicleResponse } from '@/lib/validations/vehicle'
