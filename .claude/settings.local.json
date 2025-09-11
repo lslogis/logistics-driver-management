@@ -49,7 +49,8 @@
       "Bash(start http://localhost:3000/import/drivers)",
       "Bash(start http://localhost:3000/import/trips)",
       "Bash(start http://localhost:3000)",
-      "Bash(start http://localhost:3000/settlements)"
+      "Bash(start http://localhost:3000/settlements)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

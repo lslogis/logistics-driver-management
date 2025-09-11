@@ -19,6 +19,7 @@ services:
       - ./public:/app/public
       - ./uploads:/app/uploads
       - ./logs:/app/logs
+      - ./tsconfig.json:/app/tsconfig.json
     command: npx next dev -p 3000
 
   db:

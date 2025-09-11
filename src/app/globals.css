@@ -1,14 +1,109 @@
+@import '../styles/design-tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-family-sans);
+    color-scheme: light dark;
+    scroll-behavior: smooth;
   }
   
   body {
-    @apply bg-gray-50 text-gray-900;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+    font-weight: var(--font-weight-normal);
+    letter-spacing: var(--letter-spacing-normal);
+    transition: background-color var(--duration-normal) var(--ease-out),
+                color var(--duration-normal) var(--ease-out);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Typography Reset */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--color-text);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+
+  h1 { font-size: var(--font-size-4xl); }
+  h2 { font-size: var(--font-size-3xl); }
+  h3 { font-size: var(--font-size-2xl); }
+  h4 { font-size: var(--font-size-xl); }
+  h5 { font-size: var(--font-size-lg); }
+  h6 { font-size: var(--font-size-base); }
+
+  p {
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+  }
+
+  /* Form Elements */
+  input, textarea, select {
+    font-size: var(--font-size-base);
+    font-family: var(--font-family-sans);
+  }
+
+  /* Focus Management */
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-border-focus);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-background-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-secondary);
+    border-radius: var(--radius-full);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-tertiary);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+
+  ::-moz-selection {
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+
+  /* Background Grid Pattern */
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Dark mode grid pattern */
+  .dark .bg-grid-pattern {
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   }
 }
 

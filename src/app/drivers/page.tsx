@@ -6,6 +6,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
 import { DriverResponse, CreateDriverData, UpdateDriverData } from '@/lib/validations/driver'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
 
 // 기사 목록 조회
 function useDrivers(search?: string, page = 1, limit = 20) {
@@ -144,186 +150,113 @@ function DriverForm({ driver, onSubmit, isLoading, onCancel }: DriverFormProps) 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 p-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            이름 *
-          </label>
-          <input
+          <Label htmlFor="name">이름 *</Label>
+          <Input
             type="text"
             id="name"
             required
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-            전화번호 *
-          </label>
-          <input
+          <Label htmlFor="phone">전화번호 *</Label>
+          <Input
             type="tel"
             id="phone"
             required
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             placeholder="010-1234-5678"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            이메일
-          </label>
-          <input
+          <Label htmlFor="email">이메일</Label>
+          <Input
             type="email"
             id="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label htmlFor="businessNumber" className="block text-sm font-medium text-gray-700 mb-1">
-            사업자등록번호
-          </label>
-          <input
+          <Label htmlFor="businessNumber">사업자등록번호</Label>
+          <Input
             type="text"
             id="businessNumber"
             value={formData.businessNumber}
             onChange={(e) => setFormData({ ...formData, businessNumber: e.target.value })}
             placeholder="000-00-00000"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-            회사명
-          </label>
-          <input
+          <Label htmlFor="companyName">회사명</Label>
+          <Input
             type="text"
             id="companyName"
             value={formData.companyName}
             onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label htmlFor="representativeName" className="block text-sm font-medium text-gray-700 mb-1">
-            대표자명
-          </label>
-          <input
+          <Label htmlFor="representativeName">대표자명</Label>
+          <Input
             type="text"
             id="representativeName"
             value={formData.representativeName}
             onChange={(e) => setFormData({ ...formData, representativeName: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label htmlFor="bankName" className="block text-sm font-medium text-gray-700 mb-1">
-            은행명
-          </label>
-          <input
+          <Label htmlFor="bankName">은행명</Label>
+          <Input
             type="text"
             id="bankName"
             value={formData.bankName}
             onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-1">
-            계좌번호
-          </label>
-          <input
+          <Label htmlFor="accountNumber">계좌번호</Label>
+          <Input
             type="text"
             id="accountNumber"
             value={formData.accountNumber}
             onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
 
       <div>
-        <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-1">
-          비고
-        </label>
+        <Label htmlFor="remarks">비고</Label>
         <textarea
           id="remarks"
           rows={3}
           value={formData.remarks}
           onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
         />
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
+        <Button type="button" variant="outline" onClick={onCancel}>
           취소
-        </button>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        </Button>
+        <Button type="submit" disabled={isLoading}>
           {isLoading ? '처리 중...' : driver ? '수정' : '등록'}
-        </button>
+        </Button>
       </div>
     </form>
-  )
-}
-
-// 모달 컴포넌트
-interface ModalProps {
-  isOpen: boolean
-  onClose: () => void
-  title: string
-  children: React.ReactNode
-}
-
-function Modal({ isOpen, onClose, title, children }: ModalProps) {
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
-        
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
-          &#8203;
-        </span>
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="sm:flex sm:items-start">
-              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  {title}
-                </h3>
-                <div className="mt-2">
-                  {children}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -332,7 +265,6 @@ export default function DriversPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingDriver, setEditingDriver] = useState<DriverResponse | null>(null)
-  const [deletingDriverId, setDeletingDriverId] = useState<string | null>(null)
 
   const { data: driversData, isLoading, error } = useDrivers(searchTerm)
   const createMutation = useCreateDriver()
@@ -364,207 +296,256 @@ export default function DriversPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">오류가 발생했습니다</h2>
-          <p className="text-gray-600 mb-4">{error instanceof Error ? error.message : '알 수 없는 오류'}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            새로고침
-          </button>
-        </div>
+      <div className="flex items-center justify-center min-h-96">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">오류가 발생했습니다</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-slate-600 mb-4">
+              {error instanceof Error ? error.message : '알 수 없는 오류'}
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              새로고침
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <User className="h-8 w-8 text-blue-600" />
-              <h1 className="ml-3 text-xl font-bold text-gray-900">
-                기사 관리
-              </h1>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Link
-                href="/import/drivers"
-                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                CSV 가져오기
-              </Link>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                기사 등록
-              </button>
-            </div>
+    <>
+      {/* 페이지 헤더 */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-3">
+          <User className="h-8 w-8 text-sky-600" />
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">기사 관리</h1>
+            <p className="text-slate-600 mt-1">기사 정보를 등록하고 관리합니다</p>
           </div>
         </div>
-      </header>
+        <div className="flex items-center space-x-3">
+          <Button variant="outline" asChild>
+            <Link href="/import/drivers">
+              <Upload className="h-4 w-4 mr-2" />
+              CSV 가져오기
+            </Link>
+          </Button>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            기사 등록
+          </Button>
+        </div>
+      </div>
 
-      {/* 메인 콘텐츠 */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* 검색 */}
-        <div className="mb-6">
+      {/* 검색 */}
+      <Card className="mb-6">
+        <CardContent className="p-6">
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
               type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               placeholder="기사명, 전화번호, 회사명으로 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
             />
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* 기사 목록 */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
+      {/* 기사 목록 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            기사 목록
+            {driversData?.pagination && (
+              <span className="text-sm font-normal text-slate-600 ml-2">
+                총 {driversData.pagination.total}명
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           {isLoading ? (
             <div className="p-8 text-center">
-              <div className="text-gray-500">로딩 중...</div>
+              <div className="text-slate-500">로딩 중...</div>
             </div>
           ) : !driversData?.drivers?.length ? (
             <div className="p-8 text-center">
-              <User className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">등록된 기사가 없습니다</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <User className="mx-auto h-12 w-12 text-slate-400" />
+              <h3 className="mt-2 text-sm font-medium text-slate-900">등록된 기사가 없습니다</h3>
+              <p className="mt-1 text-sm text-slate-500">
                 새로운 기사를 등록해보세요.
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
-              {driversData.drivers.map((driver: DriverResponse) => (
-                <li key={driver.id} className="px-6 py-4 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <User className="h-5 w-5 text-blue-600" />
+            <div className="overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>기사 정보</TableHead>
+                    <TableHead>연락처</TableHead>
+                    <TableHead>회사 정보</TableHead>
+                    <TableHead>은행 정보</TableHead>
+                    <TableHead>통계</TableHead>
+                    <TableHead className="w-20">작업</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {driversData.drivers.map((driver: DriverResponse) => (
+                    <TableRow key={driver.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center">
+                            <User className="h-4 w-4 text-sky-600" />
+                          </div>
+                          <div>
+                            <div className="flex items-center">
+                              <p className="font-medium text-slate-900">{driver.name}</p>
+                              {!driver.isActive && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                  비활성
+                                </span>
+                              )}
+                            </div>
+                            {driver.remarks && (
+                              <p className="text-sm text-slate-500">{driver.remarks}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="flex items-center">
-                          <p className="text-sm font-medium text-gray-900">{driver.name}</p>
-                          {!driver.isActive && (
-                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                              비활성
-                            </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="flex items-center text-slate-900">
+                            <Phone className="h-3 w-3 mr-1" />
+                            {driver.phone}
+                          </div>
+                          {driver.email && (
+                            <div className="text-slate-500 mt-1">{driver.email}</div>
                           )}
                         </div>
-                        <div className="mt-1 flex items-center text-sm text-gray-500">
-                          <Phone className="h-4 w-4 mr-1" />
-                          {driver.phone}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
                           {driver.companyName && (
-                            <>
-                              <Building className="h-4 w-4 ml-4 mr-1" />
+                            <div className="flex items-center text-slate-900">
+                              <Building className="h-3 w-3 mr-1" />
                               {driver.companyName}
-                            </>
+                            </div>
                           )}
-                          {driver.bankName && driver.accountNumber && (
-                            <>
-                              <CreditCard className="h-4 w-4 ml-4 mr-1" />
-                              {driver.bankName} {driver.accountNumber}
-                            </>
+                          {driver.representativeName && (
+                            <div className="text-slate-500 mt-1">대표: {driver.representativeName}</div>
+                          )}
+                          {driver.businessNumber && (
+                            <div className="text-slate-500 mt-1">사업자: {driver.businessNumber}</div>
                           )}
                         </div>
-                        {driver.remarks && (
-                          <p className="mt-1 text-sm text-gray-500">{driver.remarks}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="text-right text-xs text-gray-500">
-                        <p>차량: {driver._count?.vehicles || 0}대</p>
-                        <p>운행: {driver._count?.trips || 0}회</p>
-                      </div>
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => setEditingDriver(driver)}
-                          className="p-1 text-gray-400 hover:text-blue-600"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(driver.id)}
-                          className="p-1 text-gray-400 hover:text-red-600"
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* 페이지네이션 */}
-        {driversData?.pagination && driversData.pagination.totalPages > 1 && (
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6 rounded-md shadow">
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  총 <span className="font-medium">{driversData.pagination.total}</span>개 중{' '}
-                  <span className="font-medium">
-                    {(driversData.pagination.page - 1) * driversData.pagination.limit + 1}
-                  </span>{' '}
-                  -{' '}
-                  <span className="font-medium">
-                    {Math.min(
-                      driversData.pagination.page * driversData.pagination.limit,
-                      driversData.pagination.total
-                    )}
-                  </span>{' '}
-                  개 표시
-                </p>
-              </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {driver.bankName && driver.accountNumber && (
+                            <div className="flex items-center text-slate-900">
+                              <CreditCard className="h-3 w-3 mr-1" />
+                              {driver.bankName}
+                            </div>
+                          )}
+                          {driver.accountNumber && (
+                            <div className="text-slate-500 mt-1">{driver.accountNumber}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs text-slate-500">
+                          <p>차량: {driver._count?.vehicles || 0}대</p>
+                          <p>운행: {driver._count?.trips || 0}회</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingDriver(driver)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(driver.id)}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        )}
-      </main>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 페이지네이션 */}
+      {driversData?.pagination && driversData.pagination.totalPages > 1 && (
+        <Card className="mt-6">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-center">
+              <p className="text-sm text-slate-700">
+                총 <span className="font-medium">{driversData.pagination.total}</span>개 중{' '}
+                <span className="font-medium">
+                  {(driversData.pagination.page - 1) * driversData.pagination.limit + 1}
+                </span>{' '}
+                -{' '}
+                <span className="font-medium">
+                  {Math.min(
+                    driversData.pagination.page * driversData.pagination.limit,
+                    driversData.pagination.total
+                  )}
+                </span>{' '}
+                개 표시
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 생성 모달 */}
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title="기사 등록"
-      >
-        <DriverForm
-          onSubmit={handleCreateSubmit}
-          isLoading={createMutation.isPending}
-          onCancel={() => setIsCreateModalOpen(false)}
-        />
-      </Modal>
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>기사 등록</DialogTitle>
+            <DialogClose onClick={() => setIsCreateModalOpen(false)} />
+          </DialogHeader>
+          <DriverForm
+            onSubmit={handleCreateSubmit}
+            isLoading={createMutation.isPending}
+            onCancel={() => setIsCreateModalOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* 수정 모달 */}
-      <Modal
-        isOpen={!!editingDriver}
-        onClose={() => setEditingDriver(null)}
-        title="기사 정보 수정"
-      >
-        {editingDriver && (
-          <DriverForm
-            driver={editingDriver}
-            onSubmit={handleUpdateSubmit}
-            isLoading={updateMutation.isPending}
-            onCancel={() => setEditingDriver(null)}
-          />
-        )}
-      </Modal>
-    </div>
+      <Dialog open={!!editingDriver} onOpenChange={(open) => !open && setEditingDriver(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>기사 정보 수정</DialogTitle>
+            <DialogClose onClick={() => setEditingDriver(null)} />
+          </DialogHeader>
+          {editingDriver && (
+            <DriverForm
+              driver={editingDriver}
+              onSubmit={handleUpdateSubmit}
+              isLoading={updateMutation.isPending}
+              onCancel={() => setEditingDriver(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

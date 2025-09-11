@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import QueryProvider from '@/components/providers/QueryClientProvider'
 import ToastProvider from '@/components/providers/ToastProvider'
+import AdminLayout from '@/components/layout/AdminLayout'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,9 +21,9 @@ export default function RootLayout({
     <html lang="ko">
       <body className={inter.className}>
         <QueryProvider>
-          <div className="min-h-screen bg-gray-50">
+          <AdminLayout>
             {children}
-          </div>
+          </AdminLayout>
           <ToastProvider />
         </QueryProvider>
       </body>
