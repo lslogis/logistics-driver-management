@@ -2,122 +2,10 @@
 
 import React, { useState } from 'react'
 import { Plus, Search, Eye, Download, Lock, DollarSign, Calendar, User, FileText } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
-import { SettlementResponse, SettlementsListResponse, PreviewSettlementData, getSettlementStatusName, getSettlementStatusColor, canEditSettlement, canConfirmSettlement, formatYearMonth } from '@/lib/validations/settlement'
+import { SettlementResponse, getSettlementStatusName, getSettlementStatusColor, canEditSettlement, canConfirmSettlement, formatYearMonth } from '@/lib/validations/settlement'
+import { useSettlements, usePreviewSettlement, useFinalizeSettlement, useExportSettlements, useCreateSettlement } from '@/hooks/useSettlements'
 import Link from 'next/link'
-
-// 정산 목록 조회
-function useSettlements(search?: string, yearMonth?: string, driverId?: string, status?: string, page = 1, limit = 20) {
-  return useQuery({
-    queryKey: ['settlements', search, yearMonth, driverId, status, page, limit],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        ...(search && { search }),
-        ...(yearMonth && { yearMonth }),
-        ...(driverId && { driverId }),
-        ...(status && { status })
-      })
-      
-      const response = await fetch(`/api/settlements?${params}`)
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to fetch settlements')
-      }
-      
-      return result.data as SettlementsListResponse
-    },
-    staleTime: 30000, // 30초 동안 fresh
-    retry: 2
-  })
-}
-
-// 정산 미리보기
-function usePreviewSettlement() {
-  return useMutation({
-    mutationFn: async (data: PreviewSettlementData) => {
-      const response = await fetch('/api/settlements/preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to preview settlement')
-      }
-      
-      return result.data
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
-
-// 정산 확정
-function useFinalizeSettlement() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async (data: { driverId: string; yearMonth: string; remarks?: string }) => {
-      const response = await fetch('/api/settlements/finalize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to finalize settlement')
-      }
-      
-      return result.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settlements'] })
-      queryClient.invalidateQueries({ queryKey: ['settlements'] })
-      toast.success('정산이 확정되었습니다 (월락)')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
-
-// 정산 엑셀 내보내기
-function useExportSettlements() {
-  return useMutation({
-    mutationFn: async (data: { yearMonth: string; driverIds?: string[] }) => {
-      const response = await fetch('/api/settlements/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to export settlements')
-      }
-      
-      // 스텁이므로 실제 파일 다운로드는 하지 않음
-      return result.data
-    },
-    onSuccess: (data) => {
-      // 스텁이므로 실제 다운로드 대신 메시지 표시
-      toast.info('Excel export 기능은 아직 구현되지 않았습니다 (스텁)')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
 
 // 상태 배지 컴포넌트
 function StatusBadge({ status }: { status: SettlementResponse['status'] }) {
@@ -294,6 +182,7 @@ export default function SettlementsPage() {
   const previewMutation = usePreviewSettlement()
   const finalizeMutation = useFinalizeSettlement()
   const exportMutation = useExportSettlements()
+  const createMutation = useCreateSettlement()
 
   const handlePreview = async (driverId: string, yearMonth: string) => {
     try {
@@ -366,11 +255,18 @@ export default function SettlementsPage() {
                 메인으로
               </Link>
               <button
-                onClick={() => toast.info('정산 생성 기능은 곧 추가됩니다')}
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={() => {
+                  if (!selectedMonth || !selectedDriverId) {
+                    toast.error('빠른 정산 처리 섹션에서 월과 기사 ID를 입력해주세요')
+                    return
+                  }
+                  createMutation.mutate({ driverId: selectedDriverId, yearMonth: selectedMonth })
+                }}
+                disabled={!selectedMonth || !selectedDriverId || createMutation.isPending}
+                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                정산 생성
+                {createMutation.isPending ? '생성 중...' : '정산 생성'}
               </button>
             </div>
           </div>

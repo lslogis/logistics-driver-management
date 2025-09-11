@@ -95,6 +95,21 @@ export function withAuth(
 ) {
   return async (req: NextRequest, context: { params?: any } = {}) => {
     try {
+      // 개발환경 인증 우회 확인
+      const devBypass = req.headers.get('x-dev-bypass')
+      if (devBypass === 'true' && (process.env.NODE_ENV === 'development' || process.env.DEV_MODE === 'true')) {
+        console.log(`🔓 Dev auth bypass for ${options.resource}:${options.action}`)
+        // 개발환경 사용자 정보를 req에 추가
+        ;(req as any).user = {
+          id: req.headers.get('x-user-id') || 'dev-user-001',
+          email: req.headers.get('x-user-email') || 'dev@example.com',
+          name: req.headers.get('x-user-name') || 'Dev User',
+          role: req.headers.get('x-user-role') || 'ADMIN',
+          isActive: true
+        }
+        return handler(req, context)
+      }
+
       // JWT 토큰에서 사용자 정보 추출
       const token = await getToken({ 
         req, 

@@ -62,6 +62,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // 개발환경에서 API 인증 우회 (NODE_ENV=development 또는 DEV_MODE=true)
+  if (process.env.NODE_ENV === 'development' || process.env.DEV_MODE === 'true') {
+    if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth')) {
+      console.log(`🔓 Dev bypass activated for: ${pathname}`)
+      const requestHeaders = new Headers(request.headers)
+      // 개발환경 기본 사용자 정보 설정
+      requestHeaders.set('x-user-id', 'dev-user-001')
+      requestHeaders.set('x-user-role', 'ADMIN')
+      requestHeaders.set('x-user-name', 'Dev User')
+      requestHeaders.set('x-user-email', 'dev@example.com')
+      requestHeaders.set('x-dev-bypass', 'true')
+
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders
+        }
+      })
+    }
+  }
+
   // 공개 경로는 인증 검사 생략
   if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next()

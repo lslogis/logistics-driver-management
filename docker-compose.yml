@@ -6,9 +6,9 @@ services:
     ports:
       - "${APP_PORT:-3000}:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/logistics_db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/logistics?schema=public
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-prod-secret}
       - NODE_ENV=${NODE_ENV:-development}
       - TZ=Asia/Seoul
     depends_on:
@@ -19,23 +19,24 @@ services:
       - ./public:/app/public
       - ./uploads:/app/uploads
       - ./logs:/app/logs
-    command: npm run dev
+    command: npx next dev -p 3000
 
   db:
     image: postgres:15-alpine
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
-      - POSTGRES_DB=${POSTGRES_DB:-logistics_db}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=logistics
+      - POSTGRES_INITDB_ARGS=--auth-local=trust --auth-host=scram-sha-256
       - TZ=Asia/Seoul
       - PGTZ=Asia/Seoul
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-logistics_db}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d logistics"]
       interval: 5s
       timeout: 5s
       retries: 5

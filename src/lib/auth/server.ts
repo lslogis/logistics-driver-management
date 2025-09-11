@@ -16,6 +16,13 @@ export interface AuthUser {
  */
 export async function getCurrentUser(req: NextRequest): Promise<AuthUser | null> {
   try {
+    // 개발환경 인증 우회 확인
+    const devBypass = req.headers.get('x-dev-bypass')
+    if (devBypass === 'true' && (process.env.NODE_ENV === 'development' || process.env.DEV_MODE === 'true')) {
+      console.log('🔓 Dev getCurrentUser bypass')
+      return getUserFromHeaders(req)
+    }
+
     const token = await getToken({ 
       req, 
       secret: process.env.NEXTAUTH_SECRET 

@@ -2,86 +2,11 @@
 
 import React, { useState, useRef } from 'react'
 import { Upload, Download, FileText, AlertCircle, CheckCircle, XCircle, Eye, Calendar } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
 import Link from 'next/link'
+import { useValidateTripsCSV, useImportTripsCSV, useDownloadTripTemplate } from '@/hooks/useImports'
+import { ImportResult } from '@/lib/api/imports'
 
-// Import 결과 타입 정의
-interface ImportResult {
-  total: number
-  valid: number
-  invalid: number
-  imported: number
-  errors: Array<{
-    row: number
-    error: string
-    data?: any
-  }>
-  preview?: any[]
-}
-
-interface ImportResponse {
-  message: string
-  results: ImportResult
-}
-
-// 검증 뮤테이션
-function useValidateTripsCSV() {
-  return useMutation({
-    mutationFn: async (file: File): Promise<ImportResponse> => {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('validateOnly', 'true')
-
-      const response = await fetch('/api/import/trips', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to validate CSV')
-      }
-
-      return response.json()
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
-
-// 가져오기 뮤테이션
-function useImportTripsCSV() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async (file: File): Promise<ImportResponse> => {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('validateOnly', 'false')
-
-      const response = await fetch('/api/import/trips', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to import CSV')
-      }
-
-      return response.json()
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['trips'] })
-      toast.success(data.message)
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
 
 // 파일 드래그 앤 드롭 컴포넌트 (drivers와 동일한 컴포넌트 재사용)
 function FileDropZone({ 
@@ -330,6 +255,7 @@ export default function ImportTripsPage() {
 
   const validateMutation = useValidateTripsCSV()
   const importMutation = useImportTripsCSV()
+  const downloadTemplateMutation = useDownloadTripTemplate()
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file)
@@ -341,7 +267,7 @@ export default function ImportTripsPage() {
 
     try {
       const response = await validateMutation.mutateAsync(selectedFile)
-      setValidationResults(response.results)
+      setValidationResults(response.data.results)
     } catch (error) {
       // Error handled by mutation
     }
@@ -352,7 +278,7 @@ export default function ImportTripsPage() {
 
     try {
       const response = await importMutation.mutateAsync(selectedFile)
-      setValidationResults(response.results)
+      setValidationResults(response.data.results)
     } catch (error) {
       // Error handled by mutation
     }
@@ -364,15 +290,10 @@ export default function ImportTripsPage() {
   }
 
   const downloadTemplate = () => {
-    const link = document.createElement('a')
-    link.href = '/templates/trips-template.csv'
-    link.download = '운행등록템플릿.csv'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    downloadTemplateMutation.mutate()
   }
 
-  const isLoading = validateMutation.isPending || importMutation.isPending
+  const isLoading = validateMutation.isPending || importMutation.isPending || downloadTemplateMutation.isPending
   const canImport = validationResults && validationResults.valid > 0 && validationResults.imported === 0
 
   return (

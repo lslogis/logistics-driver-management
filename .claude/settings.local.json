@@ -30,7 +30,26 @@
       "Bash(cp:*)",
       "Bash(taskkill:*)",
       "Bash(npx prisma migrate:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(docker:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(git reset:*)",
+      "Bash(npm i)",
+      "Bash(pkill:*)",
+      "Bash(npm test:*)",
+      "Bash(TEST_DATABASE_URL=\"postgresql://postgres:password@localhost:5432/logistics_test\" npx prisma migrate deploy)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:password@localhost:5432/logistics_test\" npx prisma migrate deploy)",
+      "Bash(TEST_DATABASE_URL=\"postgresql://postgres:password@localhost:5432/logistics_test\" npm test)",
+      "Bash(winget search:*)",
+      "Bash(winget install:*)",
+      "Bash(mv:*)",
+      "Bash(timeout 10 curl -s http://localhost:3000/api/health)",
+      "Bash(timeout:*)",
+      "Bash(start http://localhost:3000/trips)",
+      "Bash(start http://localhost:3000/import/drivers)",
+      "Bash(start http://localhost:3000/import/trips)",
+      "Bash(start http://localhost:3000)",
+      "Bash(start http://localhost:3000/settlements)"
     ],
     "deny": []
   }
