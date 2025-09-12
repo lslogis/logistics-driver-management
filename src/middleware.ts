@@ -8,12 +8,16 @@ const protectedPaths = [
   '/drivers',
   '/vehicles', 
   '/routes',
+  '/fixed-routes',
+  '/loading-points',
   '/trips',
   '/settlements',
   '/admin',
   '/api/drivers',
   '/api/vehicles',
   '/api/routes', 
+  '/api/fixed-routes',
+  '/api/loading-points',
   '/api/trips',
   '/api/settlements',
   '/api/import',
@@ -23,14 +27,14 @@ const protectedPaths = [
   '/api/dashboard'
 ]
 
-// 공개 경로들 (인증 불필요)
+// 공개 경로들 (인증 불필요) - 정확한 매칭을 위해 순서 중요
 const publicPaths = [
-  '/',
+  '/api/auth',
+  '/api/health',
   '/auth/signin',
   '/auth/signup', 
   '/auth/error',
-  '/api/auth',
-  '/api/health'
+  '/'  // 루트 경로는 마지막에 위치
   // 주의: /api/templates는 인증이 필요하므로 제거됨
 ]
 
@@ -53,6 +57,8 @@ const roleBasedPaths = {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
+  console.log(`🔍 [MIDDLEWARE] Processing: ${pathname} | NODE_ENV: ${process.env.NODE_ENV}`)
+  
   // 정적 파일과 Next.js 내부 경로는 건너뛰기
   if (
     pathname.startsWith('/_next') ||
@@ -60,13 +66,66 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/static') ||
     pathname.includes('.')
   ) {
+    console.log(`⏭️ [MIDDLEWARE] Skipping static file: ${pathname}`)
     return NextResponse.next()
   }
 
-  // 개발환경에서만 API 인증 우회 (NODE_ENV=development만 허용, 보안 강화)
-  if (process.env.NODE_ENV === 'development') {
+  // 공개 경로는 인증 검사 생략 (정확한 매칭)
+  let matchedPath = null
+  const isPublicPath = publicPaths.some(path => {
+    // 루트 경로는 정확히 매치
+    if (path === '/') {
+      if (pathname === '/') {
+        matchedPath = path
+        return true
+      }
+      return false
+    }
+    // 다른 경로들은 prefix 매치
+    if (pathname.startsWith(path)) {
+      matchedPath = path
+      return true
+    }
+    return false
+  })
+  console.log(`🔍 [MIDDLEWARE] Public path check: ${pathname} → ${isPublicPath} (matched: ${matchedPath})`)
+  if (isPublicPath) {
+    console.log(`🟢 [MIDDLEWARE] Public path allowed: ${pathname}`)
+    return NextResponse.next()
+  }
+
+  // 보호된 경로인지 확인
+  const isProtectedPath = protectedPaths.some(path => 
+    pathname.startsWith(path)
+  )
+  
+  console.log(`🔐 [MIDDLEWARE] Protected path check: ${pathname} → ${isProtectedPath}`)
+
+  // 개발환경에서만 인증 우회 (다중 보안 검사)
+  if (process.env.NODE_ENV === 'development' && process.env.ENABLE_DEV_BYPASS !== 'false') {
+    // API 인증 우회
     if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth')) {
-      console.log(`🔓 Dev bypass activated for: ${pathname}`)
+      console.log(`🔓 [DEV-BYPASS] API bypass activated for: ${pathname}`)
+      const requestHeaders = new Headers(request.headers)
+      // 개발환경 기본 사용자 정보 설정
+      requestHeaders.set('x-user-id', 'dev-user-001')
+      requestHeaders.set('x-user-role', 'ADMIN')
+      requestHeaders.set('x-user-name', 'Dev User')
+      requestHeaders.set('x-user-email', 'dev@example.com')
+      requestHeaders.set('x-dev-bypass', 'true')
+      
+      console.log(`🚀 [DEV-BYPASS] Headers set: bypass=true, role=ADMIN`)
+
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders
+        }
+      })
+    }
+    
+    // 페이지 인증 우회 (보호된 경로)
+    if (isProtectedPath) {
+      console.log(`🔓 Dev page bypass activated for: ${pathname}`)
       const requestHeaders = new Headers(request.headers)
       // 개발환경 기본 사용자 정보 설정
       requestHeaders.set('x-user-id', 'dev-user-001')
@@ -82,16 +141,6 @@ export async function middleware(request: NextRequest) {
       })
     }
   }
-
-  // 공개 경로는 인증 검사 생략
-  if (publicPaths.some(path => pathname.startsWith(path))) {
-    return NextResponse.next()
-  }
-
-  // 보호된 경로인지 확인
-  const isProtectedPath = protectedPaths.some(path => 
-    pathname.startsWith(path)
-  )
 
   if (!isProtectedPath) {
     return NextResponse.next()
@@ -179,12 +228,11 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * 다음 경로들을 제외한 모든 경로에서 미들웨어 실행:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Next.js 14 호환 matcher 패턴
+     * - 페이지 경로: 보호된 경로만 명시적으로 포함
+     * - API 경로: /api/auth를 제외한 모든 API 경로 포함
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/(dashboard|drivers|vehicles|routes|fixed-routes|loading-points|trips|settlements|admin)/:path*',
+    '/api/((?!auth).*)',
   ],
 }

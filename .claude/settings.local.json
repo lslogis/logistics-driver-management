@@ -63,7 +63,11 @@
       "Bash(NEXT_PUBLIC_KAKAO_API_KEY=7696cc3207e94811916d5a11d51b2f8f docker-compose up -d)",
       "mcp__ide__getDiagnostics",
       "Bash(start http://localhost:3000/drivers)",
-      "WebFetch(domain:developers.kakao.com)"
+      "WebFetch(domain:developers.kakao.com)",
+      "Bash(start http://localhost:3000/fixed-routes)",
+      "Bash(start http://localhost:3000/api/fixed-routes)",
+      "Bash(sed:*)",
+      "Bash(start http://localhost:3000/import/fixed-routes)"
     ],
     "deny": []
   }

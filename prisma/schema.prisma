@@ -8,20 +8,21 @@ datasource db {
 }
 
 model User {
-  id                   String       @id @default(cuid())
-  email                String       @unique
+  id                   String         @id @default(cuid())
+  email                String         @unique
   name                 String
   password             String?
-  role                 UserRole     @default(DISPATCHER)
-  isActive             Boolean      @default(true)
-  createdAt            DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime     @updatedAt @db.Timestamptz(6)
-  lastLogin            DateTime?    @db.Timestamptz(6)
+  role                 UserRole       @default(DISPATCHER)
+  isActive             Boolean        @default(true)
+  createdAt            DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime       @updatedAt @db.Timestamptz(6)
+  lastLogin            DateTime?      @db.Timestamptz(6)
   accounts             Account[]
   auditLogs            AuditLog[]
+  fixedRoutes          FixedRoute[]   @relation("FixedRouteCreator")
   sessions             Session[]
-  confirmedSettlements Settlement[] @relation("SettlementConfirmer")
-  settlements          Settlement[] @relation("SettlementCreator")
+  confirmedSettlements Settlement[]   @relation("SettlementConfirmer")
+  settlements          Settlement[]   @relation("SettlementCreator")
 
   @@map("users")
 }
@@ -66,22 +67,19 @@ model VerificationToken {
 
 model Driver {
   id              String          @id @default(cuid())
-  name            String          // 성함 (required)
-  phone           String          @unique // 연락처 (required, sanitized)  
-  vehicleNumber   String          // 차량번호 (required)
-  businessName    String?         // 사업상호
-  representative  String?         // 대표자
-  businessNumber  String?         // 사업번호  
-  bankName        String?         // 계좌은행
-  accountNumber   String?         // 계좌번호 (sanitized)
-  remarks         String?         // 특이사항
-  
-  // System fields
+  name            String
+  phone           String          @unique
+  vehicleNumber   String
+  businessName    String?
+  representative  String?
+  businessNumber  String?
+  bankName        String?
+  accountNumber   String?
+  remarks         String?
   isActive        Boolean         @default(true)
   createdAt       DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
-  
-  // Relations (maintain existing)
+  fixedRoutes     FixedRoute[]    @relation("DriverFixedRoutes")
   routeTemplates  RouteTemplate[] @relation("RouteDefaultDriver")
   settlements     Settlement[]    @relation("DriverSettlements")
   trips           Trip[]
@@ -116,46 +114,45 @@ model Vehicle {
 }
 
 model LoadingPoint {
-  id               String   @id @default(cuid())
-  centerName       String   // 센터명 (기존 name)
-  loadingPointName String   // 상차지명 (새로 추가)
-  lotAddress       String?  // 지번주소
-  roadAddress      String?  // 도로명주소  
-  manager1         String?  // 담당자1
-  manager2         String?  // 담당자2
-  phone1           String?  // 연락처1
-  phone2           String?  // 연락처2
-  remarks          String?  // 비고
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @db.Timestamptz(6)
-  
-  // 관계
-  routeTemplates RouteTemplate[]
-  
-  @@map("loading_points")
+  id               String          @id @default(cuid())
+  centerName       String
+  loadingPointName String
+  lotAddress       String?
+  roadAddress      String?
+  manager1         String?
+  manager2         String?
+  phone1           String?
+  phone2           String?
+  remarks          String?
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
+  fixedRoutes      FixedRoute[]
+  routeTemplates   RouteTemplate[]
+
   @@index([centerName])
   @@index([loadingPointName])
   @@index([isActive])
+  @@map("loading_points")
 }
 
 model RouteTemplate {
-  id              String       @id @default(cuid())
-  name            String       @unique
-  loadingPoint    String       // 기존 문자열 필드 유지 (하위 호환성)
-  loadingPointId  String?      // 새 LoadingPoint 외래키
+  id              String        @id @default(cuid())
+  name            String        @unique
+  loadingPoint    String
   unloadingPoint  String
   distance        Float?
-  driverFare      Decimal      @db.Decimal(12, 2)
-  billingFare     Decimal      @db.Decimal(12, 2)
+  driverFare      Decimal       @db.Decimal(12, 2)
+  billingFare     Decimal       @db.Decimal(12, 2)
   weekdayPattern  Int[]
   defaultDriverId String?
-  isActive        Boolean      @default(true)
-  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime     @updatedAt @db.Timestamptz(6)
-  defaultDriver   Driver?      @relation("RouteDefaultDriver", fields: [defaultDriverId], references: [id])
-  trips           Trip[]
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
+  loadingPointId  String?
+  defaultDriver   Driver?       @relation("RouteDefaultDriver", fields: [defaultDriverId], references: [id])
   loadingPointRef LoadingPoint? @relation(fields: [loadingPointId], references: [id])
+  trips           Trip[]
 
   @@index([name])
   @@index([loadingPoint])
@@ -264,6 +261,38 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model FixedRoute {
+  id                        String       @id @default(cuid())
+  loadingPointId            String
+  routeName                 String
+  assignedDriverId          String?
+  weekdayPattern            Int[]
+  contractType              ContractType
+  revenueMonthlyWithExpense Decimal?     @db.Decimal(12, 2)
+  revenueDaily              Decimal?     @db.Decimal(12, 2)
+  revenueMonthly            Decimal?     @db.Decimal(12, 2)
+  costMonthlyWithExpense    Decimal?     @db.Decimal(12, 2)
+  costDaily                 Decimal?     @db.Decimal(12, 2)
+  costMonthly               Decimal?     @db.Decimal(12, 2)
+  remarks                   String?
+  isActive                  Boolean      @default(true)
+  createdAt                 DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime     @updatedAt @db.Timestamptz(6)
+  createdBy                 String?
+  
+  // Relations
+  loadingPoint             LoadingPoint  @relation(fields: [loadingPointId], references: [id])
+  assignedDriver           Driver?       @relation("DriverFixedRoutes", fields: [assignedDriverId], references: [id], onDelete: SetNull)
+  creator                  User?         @relation("FixedRouteCreator", fields: [createdBy], references: [id])
+
+  @@index([loadingPointId])
+  @@index([routeName])
+  @@index([assignedDriverId])
+  @@index([contractType])
+  @@index([isActive])
+  @@map("fixed_routes")
+}
+
 enum VehicleOwnership {
   OWNED
   CHARTER
@@ -298,6 +327,12 @@ enum AuditAction {
   CONFIRM
   LOGIN
   LOGOUT
+}
+
+enum ContractType {
+  FIXED_DAILY
+  FIXED_MONTHLY
+  CONSIGNED_MONTHLY
 }
 
 enum SettlementItemType {

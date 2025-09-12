@@ -146,18 +146,21 @@ export const POST = withAuth(
       const body = await req.json()
       const data = createLoadingPointSchema.parse(body)
       
-      // 임시 해결책: Raw SQL 쿼리 실행
-      const result = await prisma.$queryRaw`
-        INSERT INTO loading_points (
-          "centerName", "loadingPointName", "lotAddress", "roadAddress", 
-          "manager1", "manager2", "phone1", "phone2", "remarks"
-        ) VALUES (
-          ${data.centerName}, ${data.loadingPointName}, ${data.lotAddress || ''}, ${data.roadAddress || ''}, 
-          ${data.manager1 || ''}, ${data.manager2 || ''}, ${data.phone1 || ''}, ${data.phone2 || ''}, ${data.remarks || ''}
-        ) RETURNING *
-      `
-      
-      const loadingPoint = result[0]
+      // Prisma ORM을 사용한 데이터 생성
+      const loadingPoint = await prisma.loadingPoint.create({
+        data: {
+          centerName: data.centerName,
+          loadingPointName: data.loadingPointName,
+          lotAddress: data.lotAddress || null,
+          roadAddress: data.roadAddress || null,
+          manager1: data.manager1 || null,
+          manager2: data.manager2 || null,
+          phone1: data.phone1 || null,
+          phone2: data.phone2 || null,
+          remarks: data.remarks || null,
+          isActive: true
+        }
+      })
       
       // 감사 로그 기록
       await createAuditLog(

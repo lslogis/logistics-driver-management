@@ -1,21 +1,22 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import React from 'react'
-import { X } from 'lucide-react'
+import { X, Calendar, User, MapPin, CreditCard } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import {
   CreateFixedRouteData,
   UpdateFixedRouteData,
   FixedRouteResponse,
-  getWeekdayName,
-  ContractType
+  ContractType,
+  ContractTypeLabels,
+  WeekdayLabels
 } from '@/lib/validations/fixedRoute'
-import DriverSelector from './DriverSelector'
-import ContractTypeSelector from './ContractTypeSelector'
-import VehicleTypeSelector from './VehicleTypeSelector'
 
-// Create Modal Component
+// Import actual hooks
+import { useLoadingPoints } from '@/hooks/useLoadingPoints'
+import { useDrivers } from '@/hooks/useDrivers'
+
+// Create Modal
 interface CreateFixedRouteModalProps {
   isOpen: boolean
   onClose: () => void
@@ -31,32 +32,35 @@ export function CreateFixedRouteModal({
 }: CreateFixedRouteModalProps) {
   const [formData, setFormData] = useState<Partial<CreateFixedRouteData>>({
     weekdayPattern: [],
-    isActive: true,
-    contractType: 'DAILY'
+    contractType: 'FIXED_DAILY',
   })
+
+  const { data: loadingPointsData, isLoading: isLoadingPointsLoading } = useLoadingPoints()
+  const { data: driversData, isLoading: isDriversLoading } = useDrivers('', 'active')
+  
+  // Extract all loading points and drivers from infinite query pages
+  const loadingPoints = loadingPointsData?.pages?.flatMap(page => page.data || []) || []
+  const drivers = driversData?.pages?.flatMap(page => page.data || []) || []
 
   if (!isOpen) return null
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Basic validation
-    if (!formData.courseName || !formData.loadingPoint || !formData.vehicleType || 
-        !formData.contractType || !formData.startDate || !formData.driverFare || 
-        !formData.billingFare || !formData.weekdayPattern?.length) {
+    // Validation
+    if (!formData.loadingPointId || !formData.routeName || !formData.contractType || !formData.weekdayPattern?.length) {
       toast.error('필수 필드를 모두 입력해주세요')
       return
     }
-    
-    if (formData.billingFare < formData.driverFare) {
-      toast.error('청구운임은 기사운임보다 크거나 같아야 합니다')
-      return
-    }
-    
-    // Monthly/Complete contract validation
-    if ((formData.contractType === 'MONTHLY' || formData.contractType === 'COMPLETE') && 
-        (!formData.monthlyBaseFare || formData.monthlyBaseFare <= 0)) {
-      toast.error('월별 및 지입 계약의 경우 월정액을 입력해주세요')
+
+    // Check contract type specific fields
+    const hasRequiredAmount = 
+      (formData.contractType === 'CONSIGNED_MONTHLY' && formData.revenueMonthlyWithExpense && formData.costMonthlyWithExpense) ||
+      (formData.contractType === 'FIXED_DAILY' && formData.revenueDaily && formData.costDaily) ||
+      (formData.contractType === 'FIXED_MONTHLY' && formData.revenueMonthly && formData.costMonthly)
+
+    if (!hasRequiredAmount) {
+      toast.error('계약유형에 맞는 금액을 입력해주세요')
       return
     }
     
@@ -80,22 +84,12 @@ export function CreateFixedRouteModal({
     }
   }
 
-  const handleReset = () => {
-    setFormData({
-      weekdayPattern: [],
-      isActive: true,
-      contractType: 'DAILY'
-    })
-  }
-
-  const isMonthlyOrComplete = formData.contractType === 'MONTHLY' || formData.contractType === 'COMPLETE'
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
+    <div className="fixed inset-0 md:left-64 z-[60] overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 py-8">
+        <div className="fixed inset-0 md:left-64 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+        <div className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all max-w-4xl w-full max-h-[85vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="flex items-center justify-between mb-4">
@@ -112,202 +106,211 @@ export function CreateFixedRouteModal({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column */}
                 <div className="space-y-4">
-                  {/* Course Name */}
+                  {/* Center Name */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      코스명 <span className="text-red-500">*</span>
+                      <MapPin className="inline h-4 w-4 mr-1" />
+                      센터명 (정산 담당) <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.loadingPointId || ''}
+                      onChange={(e) => setFormData({ ...formData, loadingPointId: e.target.value })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    >
+                      <option value="">센터를 선택하세요</option>
+                      {loadingPoints?.map((lp) => (
+                        <option key={lp.id} value={lp.id}>
+                          {lp.centerName} - {lp.loadingPointName}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-sm text-gray-500">
+                      선택한 센터에서 이 고정노선의 정산을 담당합니다
+                    </p>
+                  </div>
+
+                  {/* Route Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      노선명 (도착지) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="코스명을 입력하세요"
-                      value={formData.courseName || ''}
-                      onChange={(e) => setFormData({ ...formData, courseName: e.target.value })}
+                      value={formData.routeName || ''}
+                      onChange={(e) => setFormData({ ...formData, routeName: e.target.value })}
+                      placeholder="예: 서울-부산 정기노선"
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
                   </div>
 
-                  {/* Loading Point */}
+                  {/* Assigned Driver */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      상차지 <span className="text-red-500">*</span>
+                      <User className="inline h-4 w-4 mr-1" />
+                      배정기사
                     </label>
-                    <input
-                      type="text"
-                      placeholder="상차지를 입력하세요"
-                      value={formData.loadingPoint || ''}
-                      onChange={(e) => setFormData({ ...formData, loadingPoint: e.target.value })}
+                    <select
+                      value={formData.assignedDriverId || ''}
+                      onChange={(e) => setFormData({ ...formData, assignedDriverId: e.target.value || undefined })}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
+                    >
+                      <option value="">기사를 선택하세요 (선택사항)</option>
+                      {drivers?.map((driver) => (
+                        <option key={driver.id} value={driver.id}>
+                          {driver.name} - {driver.vehicleNumber}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* Vehicle Type */}
-                  <VehicleTypeSelector
-                    label="차종"
-                    required
-                    value={formData.vehicleType}
-                    onChange={(vehicleType) => setFormData({ ...formData, vehicleType })}
-                    placeholder="차종을 선택하세요"
-                  />
-
-                  {/* Start Date */}
+                  {/* Contract Type */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      시작일 <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <CreditCard className="inline h-4 w-4 mr-1" />
+                      계약유형 <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="date"
-                      value={formData.startDate || ''}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-
-                  {/* Distance */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">거리 (선택)</label>
-                    <input
-                      type="number"
-                      placeholder="km"
-                      min="0"
-                      max="2000"
-                      step="0.1"
-                      value={formData.distance || ''}
-                      onChange={(e) => setFormData({ ...formData, distance: e.target.value ? parseFloat(e.target.value) : undefined })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <div className="space-y-2">
+                      {Object.entries(ContractTypeLabels).map(([value, label]) => (
+                        <div key={value} className="flex items-center">
+                          <input
+                            id={`contract-${value}`}
+                            type="radio"
+                            name="contractType"
+                            value={value}
+                            checked={formData.contractType === value}
+                            onChange={(e) => setFormData({ ...formData, contractType: e.target.value as ContractType })}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          />
+                          <label htmlFor={`contract-${value}`} className="ml-2 text-sm text-gray-700">
+                            {label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Right Column */}
                 <div className="space-y-4">
-                  {/* Contract Type */}
-                  <ContractTypeSelector
-                    label="계약형태"
-                    required
-                    value={formData.contractType}
-                    onChange={(contractType) => setFormData({ ...formData, contractType })}
-                  />
-
-                  {/* Driver Assignment */}
-                  <DriverSelector
-                    label="배정 기사 (선택)"
-                    value={formData.assignedDriverId}
-                    onChange={(driverId) => setFormData({ ...formData, assignedDriverId: driverId })}
-                    placeholder="기사를 선택하세요"
-                  />
-
-                  {/* Weekday Pattern */}
+                  {/* Weekdays */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Calendar className="inline h-4 w-4 mr-1" />
                       운행요일 <span className="text-red-500">*</span>
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {[0, 1, 2, 3, 4, 5, 6].map((weekday) => (
+                    <div className="grid grid-cols-7 gap-2">
+                      {WeekdayLabels.map((day, index) => (
                         <button
-                          key={weekday}
+                          key={index}
                           type="button"
-                          onClick={() => handleWeekdayToggle(weekday)}
-                          className={`px-3 py-1 text-sm rounded ${
-                            formData.weekdayPattern?.includes(weekday)
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          onClick={() => handleWeekdayToggle(index)}
+                          className={`p-2 text-sm rounded-md border ${
+                            formData.weekdayPattern?.includes(index)
+                              ? 'bg-blue-500 text-white border-blue-500'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                           }`}
                         >
-                          {getWeekdayName(weekday)}
+                          {day}
                         </button>
                       ))}
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Fare Section - Full Width */}
-              <div className="mt-6 border-t border-gray-200 pt-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-4">운임 정보</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Amount Fields - Conditional based on contract type */}
+                  {formData.contractType === 'CONSIGNED_MONTHLY' && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">지입(월대+경비) 금액</h4>
+                      <div>
+                        <label className="block text-sm text-gray-600">매출가 (받는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.revenueMonthlyWithExpense || ''}
+                          onChange={(e) => setFormData({ ...formData, revenueMonthlyWithExpense: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600">매입가 (주는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.costMonthlyWithExpense || ''}
+                          onChange={(e) => setFormData({ ...formData, costMonthlyWithExpense: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.contractType === 'FIXED_DAILY' && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">고정(일대) 금액</h4>
+                      <div>
+                        <label className="block text-sm text-gray-600">매출가 (받는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.revenueDaily || ''}
+                          onChange={(e) => setFormData({ ...formData, revenueDaily: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600">매입가 (주는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.costDaily || ''}
+                          onChange={(e) => setFormData({ ...formData, costDaily: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.contractType === 'FIXED_MONTHLY' && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">고정(월대) 금액</h4>
+                      <div>
+                        <label className="block text-sm text-gray-600">매출가 (받는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.revenueMonthly || ''}
+                          onChange={(e) => setFormData({ ...formData, revenueMonthly: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600">매입가 (주는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.costMonthly || ''}
+                          onChange={(e) => setFormData({ ...formData, costMonthly: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Remarks */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      기사운임 <span className="text-red-500">*</span>
+                      비고
                     </label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      min="0"
-                      max="10000000"
-                      value={formData.driverFare || ''}
-                      onChange={(e) => setFormData({ ...formData, driverFare: e.target.value ? parseInt(e.target.value) : undefined })}
+                    <textarea
+                      value={formData.remarks || ''}
+                      onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                      rows={3}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
+                      placeholder="추가 정보나 특이사항을 입력하세요"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      청구운임 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      min="0"
-                      max="10000000"
-                      value={formData.billingFare || ''}
-                      onChange={(e) => setFormData({ ...formData, billingFare: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                  {/* Monthly Base Fare - Conditional */}
-                  <div className={isMonthlyOrComplete ? '' : 'opacity-50'}>
-                    <label className="block text-sm font-medium text-gray-700">
-                      월정액 {isMonthlyOrComplete && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      min="0"
-                      max="50000000"
-                      disabled={!isMonthlyOrComplete}
-                      value={formData.monthlyBaseFare || ''}
-                      onChange={(e) => setFormData({ ...formData, monthlyBaseFare: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
-                      required={isMonthlyOrComplete}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {isMonthlyOrComplete ? '월별/지입 계약 필수' : '회별 계약에서는 사용되지 않음'}
-                    </p>
                   </div>
                 </div>
-              </div>
-
-              {/* Remarks */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700">비고 (선택)</label>
-                <textarea
-                  placeholder="비고사항을 입력하세요"
-                  rows={3}
-                  value={formData.remarks || ''}
-                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  maxLength={500}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {(formData.remarks || '').length}/500자
-                </p>
-              </div>
-
-              {/* Active Status */}
-              <div className="mt-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive !== false}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">활성 상태</span>
-                </label>
               </div>
             </div>
 
@@ -315,21 +318,14 @@ export function CreateFixedRouteModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
-                {isSubmitting ? '등록 중...' : '고정노선 등록'}
-              </button>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-              >
-                초기화
+                {isSubmitting ? '등록 중...' : '등록'}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 취소
               </button>
@@ -341,7 +337,7 @@ export function CreateFixedRouteModal({
   )
 }
 
-// Edit Modal Component
+// Edit Modal
 interface EditFixedRouteModalProps {
   isOpen: boolean
   onClose: () => void
@@ -359,23 +355,29 @@ export function EditFixedRouteModal({
 }: EditFixedRouteModalProps) {
   const [formData, setFormData] = useState<Partial<UpdateFixedRouteData>>({})
 
+  const { data: loadingPointsData, isLoading: isLoadingPointsLoading } = useLoadingPoints()
+  const { data: driversData, isLoading: isDriversLoading } = useDrivers('', 'active')
+  
+  // Extract all loading points and drivers from infinite query pages
+  const loadingPoints = loadingPointsData?.pages?.flatMap(page => page.data || []) || []
+  const drivers = driversData?.pages?.flatMap(page => page.data || []) || []
+
   // Initialize form data when fixedRoute changes
   useEffect(() => {
     if (fixedRoute) {
       setFormData({
-        courseName: fixedRoute.courseName,
-        loadingPoint: fixedRoute.loadingPoint,
-        vehicleType: fixedRoute.vehicleType,
-        contractType: fixedRoute.contractType,
+        loadingPointId: fixedRoute.loadingPointId,
+        routeName: fixedRoute.routeName,
         assignedDriverId: fixedRoute.assignedDriverId || undefined,
-        startDate: fixedRoute.startDate,
         weekdayPattern: fixedRoute.weekdayPattern,
-        billingFare: parseInt(fixedRoute.billingFare),
-        driverFare: parseInt(fixedRoute.driverFare),
-        monthlyBaseFare: fixedRoute.monthlyBaseFare ? parseInt(fixedRoute.monthlyBaseFare) : undefined,
-        distance: fixedRoute.distance || undefined,
+        contractType: fixedRoute.contractType,
+        revenueMonthlyWithExpense: fixedRoute.revenueMonthlyWithExpense?.toString(),
+        revenueDaily: fixedRoute.revenueDaily?.toString(),
+        revenueMonthly: fixedRoute.revenueMonthly?.toString(),
+        costMonthlyWithExpense: fixedRoute.costMonthlyWithExpense?.toString(),
+        costDaily: fixedRoute.costDaily?.toString(),
+        costMonthly: fixedRoute.costMonthly?.toString(),
         remarks: fixedRoute.remarks || undefined,
-        isActive: fixedRoute.isActive
       })
     }
   }, [fixedRoute])
@@ -386,22 +388,19 @@ export function EditFixedRouteModal({
     e.preventDefault()
     
     // Basic validation
-    if (!formData.courseName || !formData.loadingPoint || !formData.vehicleType || 
-        !formData.contractType || !formData.startDate || !formData.driverFare || 
-        !formData.billingFare || !formData.weekdayPattern?.length) {
+    if (!formData.loadingPointId || !formData.routeName || !formData.contractType || !formData.weekdayPattern?.length) {
       toast.error('필수 필드를 모두 입력해주세요')
       return
     }
-    
-    if (formData.billingFare && formData.driverFare && formData.billingFare < formData.driverFare) {
-      toast.error('청구운임은 기사운임보다 크거나 같아야 합니다')
-      return
-    }
-    
-    // Monthly/Complete contract validation
-    if ((formData.contractType === 'MONTHLY' || formData.contractType === 'COMPLETE') && 
-        (!formData.monthlyBaseFare || formData.monthlyBaseFare <= 0)) {
-      toast.error('월별 및 지입 계약의 경우 월정액을 입력해주세요')
+
+    // Check contract type specific fields
+    const hasRequiredAmount = 
+      (formData.contractType === 'CONSIGNED_MONTHLY' && formData.revenueMonthlyWithExpense && formData.costMonthlyWithExpense) ||
+      (formData.contractType === 'FIXED_DAILY' && formData.revenueDaily && formData.costDaily) ||
+      (formData.contractType === 'FIXED_MONTHLY' && formData.revenueMonthly && formData.costMonthly)
+
+    if (!hasRequiredAmount) {
+      toast.error('계약유형에 맞는 금액을 입력해주세요')
       return
     }
     
@@ -425,14 +424,12 @@ export function EditFixedRouteModal({
     }
   }
 
-  const isMonthlyOrComplete = formData.contractType === 'MONTHLY' || formData.contractType === 'COMPLETE'
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
+    <div className="fixed inset-0 md:left-64 z-[60] overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 py-8">
+        <div className="fixed inset-0 md:left-64 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+        <div className="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all max-w-4xl w-full max-h-[85vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="flex items-center justify-between mb-4">
@@ -449,193 +446,211 @@ export function EditFixedRouteModal({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column */}
                 <div className="space-y-4">
-                  {/* Course Name */}
+                  {/* Center Name */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      코스명 <span className="text-red-500">*</span>
+                      <MapPin className="inline h-4 w-4 mr-1" />
+                      센터명 (정산 담당) <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.loadingPointId || ''}
+                      onChange={(e) => setFormData({ ...formData, loadingPointId: e.target.value })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    >
+                      <option value="">센터를 선택하세요</option>
+                      {loadingPoints?.map((lp) => (
+                        <option key={lp.id} value={lp.id}>
+                          {lp.centerName} - {lp.loadingPointName}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-sm text-gray-500">
+                      선택한 센터에서 이 고정노선의 정산을 담당합니다
+                    </p>
+                  </div>
+
+                  {/* Route Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      노선명 (도착지) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      value={formData.courseName || ''}
-                      onChange={(e) => setFormData({ ...formData, courseName: e.target.value })}
+                      value={formData.routeName || ''}
+                      onChange={(e) => setFormData({ ...formData, routeName: e.target.value })}
+                      placeholder="예: 서울-부산 정기노선"
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
                   </div>
 
-                  {/* Loading Point */}
+                  {/* Assigned Driver */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      상차지 <span className="text-red-500">*</span>
+                      <User className="inline h-4 w-4 mr-1" />
+                      배정기사
                     </label>
-                    <input
-                      type="text"
-                      value={formData.loadingPoint || ''}
-                      onChange={(e) => setFormData({ ...formData, loadingPoint: e.target.value })}
+                    <select
+                      value={formData.assignedDriverId || ''}
+                      onChange={(e) => setFormData({ ...formData, assignedDriverId: e.target.value || undefined })}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
+                    >
+                      <option value="">기사를 선택하세요 (선택사항)</option>
+                      {drivers?.map((driver) => (
+                        <option key={driver.id} value={driver.id}>
+                          {driver.name} - {driver.vehicleNumber}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* Vehicle Type */}
-                  <VehicleTypeSelector
-                    label="차종"
-                    required
-                    value={formData.vehicleType}
-                    onChange={(vehicleType) => setFormData({ ...formData, vehicleType })}
-                  />
-
-                  {/* Start Date */}
+                  {/* Contract Type */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      시작일 <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <CreditCard className="inline h-4 w-4 mr-1" />
+                      계약유형 <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="date"
-                      value={formData.startDate || ''}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-
-                  {/* Distance */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">거리</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="2000"
-                      step="0.1"
-                      value={formData.distance || ''}
-                      onChange={(e) => setFormData({ ...formData, distance: e.target.value ? parseFloat(e.target.value) : undefined })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <div className="space-y-2">
+                      {Object.entries(ContractTypeLabels).map(([value, label]) => (
+                        <div key={value} className="flex items-center">
+                          <input
+                            id={`edit-contract-${value}`}
+                            type="radio"
+                            name="contractType"
+                            value={value}
+                            checked={formData.contractType === value}
+                            onChange={(e) => setFormData({ ...formData, contractType: e.target.value as ContractType })}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          />
+                          <label htmlFor={`edit-contract-${value}`} className="ml-2 text-sm text-gray-700">
+                            {label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Right Column */}
                 <div className="space-y-4">
-                  {/* Contract Type */}
-                  <ContractTypeSelector
-                    label="계약형태"
-                    required
-                    value={formData.contractType}
-                    onChange={(contractType) => setFormData({ ...formData, contractType })}
-                  />
-
-                  {/* Driver Assignment */}
-                  <DriverSelector
-                    label="배정 기사"
-                    value={formData.assignedDriverId}
-                    onChange={(driverId) => setFormData({ ...formData, assignedDriverId: driverId })}
-                  />
-
-                  {/* Weekday Pattern */}
+                  {/* Weekdays */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Calendar className="inline h-4 w-4 mr-1" />
                       운행요일 <span className="text-red-500">*</span>
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {[0, 1, 2, 3, 4, 5, 6].map((weekday) => (
+                    <div className="grid grid-cols-7 gap-2">
+                      {WeekdayLabels.map((day, index) => (
                         <button
-                          key={weekday}
+                          key={index}
                           type="button"
-                          onClick={() => handleWeekdayToggle(weekday)}
-                          className={`px-3 py-1 text-sm rounded ${
-                            formData.weekdayPattern?.includes(weekday)
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          onClick={() => handleWeekdayToggle(index)}
+                          className={`p-2 text-sm rounded-md border ${
+                            formData.weekdayPattern?.includes(index)
+                              ? 'bg-blue-500 text-white border-blue-500'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                           }`}
                         >
-                          {getWeekdayName(weekday)}
+                          {day}
                         </button>
                       ))}
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Fare Section - Full Width */}
-              <div className="mt-6 border-t border-gray-200 pt-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-4">운임 정보</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Amount Fields - Conditional based on contract type */}
+                  {formData.contractType === 'CONSIGNED_MONTHLY' && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">지입(월대+경비) 금액</h4>
+                      <div>
+                        <label className="block text-sm text-gray-600">매출가 (받는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.revenueMonthlyWithExpense || ''}
+                          onChange={(e) => setFormData({ ...formData, revenueMonthlyWithExpense: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600">매입가 (주는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.costMonthlyWithExpense || ''}
+                          onChange={(e) => setFormData({ ...formData, costMonthlyWithExpense: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.contractType === 'FIXED_DAILY' && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">고정(일대) 금액</h4>
+                      <div>
+                        <label className="block text-sm text-gray-600">매출가 (받는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.revenueDaily || ''}
+                          onChange={(e) => setFormData({ ...formData, revenueDaily: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600">매입가 (주는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.costDaily || ''}
+                          onChange={(e) => setFormData({ ...formData, costDaily: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.contractType === 'FIXED_MONTHLY' && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">고정(월대) 금액</h4>
+                      <div>
+                        <label className="block text-sm text-gray-600">매출가 (받는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.revenueMonthly || ''}
+                          onChange={(e) => setFormData({ ...formData, revenueMonthly: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600">매입가 (주는금액) *</label>
+                        <input
+                          type="number"
+                          value={formData.costMonthly || ''}
+                          onChange={(e) => setFormData({ ...formData, costMonthly: e.target.value })}
+                          placeholder="원"
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Remarks */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      기사운임 <span className="text-red-500">*</span>
+                      비고
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="10000000"
-                      value={formData.driverFare || ''}
-                      onChange={(e) => setFormData({ ...formData, driverFare: e.target.value ? parseInt(e.target.value) : undefined })}
+                    <textarea
+                      value={formData.remarks || ''}
+                      onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                      rows={3}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
+                      placeholder="추가 정보나 특이사항을 입력하세요"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      청구운임 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="10000000"
-                      value={formData.billingFare || ''}
-                      onChange={(e) => setFormData({ ...formData, billingFare: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                  {/* Monthly Base Fare - Conditional */}
-                  <div className={isMonthlyOrComplete ? '' : 'opacity-50'}>
-                    <label className="block text-sm font-medium text-gray-700">
-                      월정액 {isMonthlyOrComplete && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="50000000"
-                      disabled={!isMonthlyOrComplete}
-                      value={formData.monthlyBaseFare || ''}
-                      onChange={(e) => setFormData({ ...formData, monthlyBaseFare: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
-                      required={isMonthlyOrComplete}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {isMonthlyOrComplete ? '월별/지입 계약 필수' : '회별 계약에서는 사용되지 않음'}
-                    </p>
                   </div>
                 </div>
-              </div>
-
-              {/* Remarks */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700">비고</label>
-                <textarea
-                  rows={3}
-                  value={formData.remarks || ''}
-                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  maxLength={500}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {(formData.remarks || '').length}/500자
-                </p>
-              </div>
-
-              {/* Active Status */}
-              <div className="mt-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive !== false}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">활성 상태</span>
-                </label>
               </div>
             </div>
 
@@ -643,14 +658,14 @@ export function EditFixedRouteModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
-                {isSubmitting ? '수정 중...' : '고정노선 수정'}
+                {isSubmitting ? '수정 중...' : '수정'}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 취소
               </button>

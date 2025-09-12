@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { CONTRACT_TYPES, ContractType, getContractTypeColor } from '@/lib/validations/fixedRoute'
-import { FileText, Calendar, Building2 } from 'lucide-react'
+import { FileText, Calendar, Building2, Truck } from 'lucide-react'
 
 interface ContractTypeSelectorProps {
   value?: ContractType
@@ -17,12 +17,12 @@ interface ContractTypeSelectorProps {
 // Contract type icons mapping
 const getContractTypeIcon = (contractType: ContractType) => {
   switch (contractType) {
-    case 'DAILY':
-      return <FileText className="h-5 w-5" />
-    case 'MONTHLY':
-      return <Calendar className="h-5 w-5" />
-    case 'COMPLETE':
+    case 'CONSIGNED_MONTHLY':
       return <Building2 className="h-5 w-5" />
+    case 'FIXED_DAILY':
+      return <FileText className="h-5 w-5" />
+    case 'FIXED_MONTHLY':
+      return <Calendar className="h-5 w-5" />
     default:
       return <FileText className="h-5 w-5" />
   }
@@ -118,9 +118,9 @@ export default function ContractTypeSelector({
                   text-xs mt-2 px-2 py-1 rounded-md inline-block
                   ${getContractTypeColor(contractType.value)}
                 `}>
-                  {contractType.value === 'DAILY' && '회별 운행 기준 정산'}
-                  {contractType.value === 'MONTHLY' && '월정액 + 추가 운행 정산'}
-                  {contractType.value === 'COMPLETE' && '월 고정 지입료'}
+                  {contractType.value === 'CONSIGNED_MONTHLY' && '월대차료 + 경비 포함'}
+                  {contractType.value === 'FIXED_DAILY' && '일일 고정 운임'}
+                  {contractType.value === 'FIXED_MONTHLY' && '월 고정 운임'}
                 </div>
               </div>
             </div>
@@ -136,9 +136,9 @@ export default function ContractTypeSelector({
       <div className="mt-3 text-xs text-gray-500 bg-gray-50 p-3 rounded-md">
         <div className="font-medium mb-2">계약형태별 설명:</div>
         <ul className="space-y-1">
-          <li><span className="font-medium text-blue-600">고정회별:</span> 일일 운행 횟수에 따라 운임 계산</li>
-          <li><span className="font-medium text-green-600">고정월별:</span> 월 기본료 + 운행 횟수에 따른 추가 운임</li>
-          <li><span className="font-medium text-purple-600">고정지입:</span> 월 단위 완전 지입 계약 (고정료 지급)</li>
+          <li><span className="font-medium text-purple-600">지입(월대+경비):</span> 월대차료와 경비 포함한 지입 계약</li>
+          <li><span className="font-medium text-blue-600">고정(일대):</span> 일일 고정 운임으로 계산</li>
+          <li><span className="font-medium text-green-600">고정(월대):</span> 월 단위 고정 운임으로 계산</li>
         </ul>
       </div>
     </div>

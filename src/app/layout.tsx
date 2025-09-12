@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import QueryProvider from '@/components/providers/QueryClientProvider'
+import SessionProvider from '@/components/providers/SessionProvider'
 import ToastProvider from '@/components/providers/ToastProvider'
 import AdminLayout from '@/components/layout/AdminLayout'
 import KakaoScript from '@/components/KakaoScript'
@@ -25,12 +26,14 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <KakaoScript />
-        <QueryProvider>
-          <AdminLayout>
-            {children}
-          </AdminLayout>
-          <ToastProvider />
-        </QueryProvider>
+        <SessionProvider>
+          <QueryProvider>
+            <AdminLayout>
+              {children}
+            </AdminLayout>
+            <ToastProvider />
+          </QueryProvider>
+        </SessionProvider>
       </body>
     </html>
   )

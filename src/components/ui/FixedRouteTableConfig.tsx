@@ -6,21 +6,20 @@ import {
   FixedRouteResponse,
   getWeekdayNames,
   getContractTypeLabel,
-  getContractTypeColor,
-  getVehicleTypeLabel
+  getContractTypeColor
 } from '@/lib/validations/fixedRoute'
 
 // Enhanced table columns for FixedRoute display
 export const getFixedRouteTableColumns = () => [
   {
-    key: 'courseName',
-    header: '코스명',
-    render: (courseName: string, route: FixedRouteResponse) => (
+    key: 'centerName',
+    header: '센터명',
+    render: (centerName: string, route: FixedRouteResponse) => (
       <div>
-        <div className="font-medium text-gray-900">{courseName}</div>
+        <div className="font-medium text-gray-900">{centerName}</div>
         <div className="text-xs text-gray-500 flex items-center mt-1">
           <MapPin className="h-3 w-3 mr-1" />
-          {route.loadingPoint}
+          {route.courseName}
         </div>
       </div>
     ),
@@ -38,13 +37,10 @@ export const getFixedRouteTableColumns = () => [
     ),
   },
   {
-    key: 'vehicleType',
-    header: '차종',
-    render: (vehicleType: string) => (
-      <div className="flex items-center space-x-2">
-        <Truck className="h-4 w-4 text-gray-400" />
-        <span className="text-sm font-medium">{getVehicleTypeLabel(vehicleType as any)}</span>
-      </div>
+    key: 'courseName',
+    header: '노선명',
+    render: (courseName: string) => (
+      <div className="text-sm font-medium text-gray-900">{courseName}</div>
     ),
   },
   {
@@ -90,44 +86,57 @@ export const getFixedRouteTableColumns = () => [
     header: '운임 정보',
     render: (value: any, route: FixedRouteResponse) => {
       const contractType = route.contractType
-      const driverFare = parseInt(route.driverFare)
-      const billingFare = parseInt(route.billingFare)
-      const monthlyBaseFare = route.monthlyBaseFare ? parseInt(route.monthlyBaseFare) : null
       
-      return (
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">기사:</span>
-            <span className="font-medium">{driverFare.toLocaleString()}원</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">청구:</span>
-            <span className="font-medium">{billingFare.toLocaleString()}원</span>
-          </div>
-          {monthlyBaseFare && (contractType === 'MONTHLY' || contractType === 'COMPLETE') && (
-            <div className="flex justify-between text-xs border-t border-gray-200 pt-1">
-              <span className="text-gray-500">월정:</span>
-              <span className="font-medium text-blue-600">{monthlyBaseFare.toLocaleString()}원</span>
+      // 계약유형별 운임 표시
+      if (contractType === 'CONSIGNED_MONTHLY') {
+        const revenue = route.revenueMonthlyWithExpense ? parseInt(route.revenueMonthlyWithExpense) : 0
+        const cost = route.costMonthlyWithExpense ? parseInt(route.costMonthlyWithExpense) : 0
+        return (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">매출:</span>
+              <span className="font-medium">{revenue.toLocaleString()}원</span>
             </div>
-          )}
-        </div>
-      )
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">매입:</span>
+              <span className="font-medium">{cost.toLocaleString()}원</span>
+            </div>
+          </div>
+        )
+      } else if (contractType === 'FIXED_DAILY') {
+        const revenue = route.revenueDaily ? parseInt(route.revenueDaily) : 0
+        const cost = route.costDaily ? parseInt(route.costDaily) : 0
+        return (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">매출:</span>
+              <span className="font-medium">{revenue.toLocaleString()}원</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">매입:</span>
+              <span className="font-medium">{cost.toLocaleString()}원</span>
+            </div>
+          </div>
+        )
+      } else if (contractType === 'FIXED_MONTHLY') {
+        const revenue = route.revenueMonthly ? parseInt(route.revenueMonthly) : 0
+        const cost = route.costMonthly ? parseInt(route.costMonthly) : 0
+        return (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">매출:</span>
+              <span className="font-medium">{revenue.toLocaleString()}원</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">매입:</span>
+              <span className="font-medium">{cost.toLocaleString()}원</span>
+            </div>
+          </div>
+        )
+      }
+      
+      return <span className="text-xs text-gray-400">-</span>
     },
-  },
-  {
-    key: 'period',
-    header: '운행 기간',
-    render: (value: any, route: FixedRouteResponse) => (
-      <div className="text-xs">
-        <div className="font-medium text-gray-900">
-          {new Date(route.startDate).toLocaleDateString('ko-KR')}
-        </div>
-        <div className="text-gray-500 mt-1">시작일</div>
-        {route.distance && (
-          <div className="text-gray-500 mt-1">{route.distance}km</div>
-        )}
-      </div>
-    ),
   },
   {
     key: 'status',
@@ -173,10 +182,10 @@ export const FixedRouteMobileCard = ({ route, actions }: {
     {/* Header */}
     <div className="flex items-start justify-between">
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-gray-900 truncate">{route.courseName}</h3>
+        <h3 className="font-medium text-gray-900 truncate">{route.centerName}</h3>
         <div className="flex items-center space-x-2 mt-1">
           <MapPin className="h-3 w-3 text-gray-400" />
-          <span className="text-sm text-gray-500 truncate">{route.loadingPoint}</span>
+          <span className="text-sm text-gray-500 truncate">{route.courseName}</span>
         </div>
       </div>
       <div className="flex items-center space-x-2 ml-2">
@@ -194,15 +203,8 @@ export const FixedRouteMobileCard = ({ route, actions }: {
       </div>
     </div>
 
-    {/* Vehicle and Driver Info */}
-    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
-      <div>
-        <div className="flex items-center space-x-1 text-xs text-gray-500 mb-1">
-          <Truck className="h-3 w-3" />
-          <span>차종</span>
-        </div>
-        <div className="text-sm font-medium">{getVehicleTypeLabel(route.vehicleType)}</div>
-      </div>
+    {/* Driver Info */}
+    <div className="pt-2 border-t border-gray-100">
       <div>
         <div className="flex items-center space-x-1 text-xs text-gray-500 mb-1">
           <User className="h-3 w-3" />
@@ -225,26 +227,45 @@ export const FixedRouteMobileCard = ({ route, actions }: {
           <span>운행 패턴</span>
         </div>
         <div className="text-sm font-medium">{getWeekdayNames(route.weekdayPattern)}</div>
-        <div className="text-xs text-gray-500 mt-1">
-          {new Date(route.startDate).toLocaleDateString('ko-KR')} 시작
-        </div>
       </div>
       <div>
         <div className="text-xs text-gray-500 mb-1">운임 정보</div>
         <div className="space-y-1">
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">기사:</span>
-            <span className="font-medium">{parseInt(route.driverFare).toLocaleString()}원</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">청구:</span>
-            <span className="font-medium">{parseInt(route.billingFare).toLocaleString()}원</span>
-          </div>
-          {route.monthlyBaseFare && (route.contractType === 'MONTHLY' || route.contractType === 'COMPLETE') && (
-            <div className="flex justify-between text-xs border-t border-gray-200 pt-1">
-              <span className="text-gray-500">월정:</span>
-              <span className="font-medium text-blue-600">{parseInt(route.monthlyBaseFare).toLocaleString()}원</span>
-            </div>
+          {route.contractType === 'CONSIGNED_MONTHLY' && (
+            <>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">매출:</span>
+                <span className="font-medium">{route.revenueMonthlyWithExpense ? parseInt(route.revenueMonthlyWithExpense).toLocaleString() : '0'}원</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">매입:</span>
+                <span className="font-medium">{route.costMonthlyWithExpense ? parseInt(route.costMonthlyWithExpense).toLocaleString() : '0'}원</span>
+              </div>
+            </>
+          )}
+          {route.contractType === 'FIXED_DAILY' && (
+            <>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">매출:</span>
+                <span className="font-medium">{route.revenueDaily ? parseInt(route.revenueDaily).toLocaleString() : '0'}원</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">매입:</span>
+                <span className="font-medium">{route.costDaily ? parseInt(route.costDaily).toLocaleString() : '0'}원</span>
+              </div>
+            </>
+          )}
+          {route.contractType === 'FIXED_MONTHLY' && (
+            <>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">매출:</span>
+                <span className="font-medium">{route.revenueMonthly ? parseInt(route.revenueMonthly).toLocaleString() : '0'}원</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">매입:</span>
+                <span className="font-medium">{route.costMonthly ? parseInt(route.costMonthly).toLocaleString() : '0'}원</span>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -253,7 +274,6 @@ export const FixedRouteMobileCard = ({ route, actions }: {
     {/* Additional Info */}
     <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-500">
       <span>운행 {route._count.trips}회</span>
-      {route.distance && <span>{route.distance}km</span>}
       <span>{new Date(route.createdAt).toLocaleDateString('ko-KR')}</span>
     </div>
 

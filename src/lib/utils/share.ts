@@ -104,6 +104,58 @@ export function formatLoadingPointInfo(loadingPoint: {
   return lines.join('\n')
 }
 
+// 고정노선 정보 텍스트 포맷
+export function formatFixedRouteInfo(fixedRoute: {
+  routeName: string
+  loadingPoint?: {
+    centerName: string
+    loadingPointName: string
+  } | null
+  assignedDriver?: {
+    name: string
+    phone: string
+  } | null
+  contractType: string
+  revenueDaily?: number
+  costDaily?: number
+  weekdayPattern?: number[]
+}) {
+  const lines = [`🛣️ 노선: ${fixedRoute.routeName}`]
+  
+  if (fixedRoute.loadingPoint) {
+    lines.push(`🏭 상차지: ${fixedRoute.loadingPoint.centerName} ${fixedRoute.loadingPoint.loadingPointName}`)
+  }
+  
+  if (fixedRoute.assignedDriver) {
+    lines.push(`👤 배정기사: ${fixedRoute.assignedDriver.name}`)
+    lines.push(`📞 연락처: ${fixedRoute.assignedDriver.phone}`)
+  }
+  
+  const contractLabels: Record<string, string> = {
+    'FIXED_DAILY': '고정(일대)',
+    'FIXED_MONTHLY': '고정(월대)',
+    'CONSIGNED_MONTHLY': '지입(월대+경비)'
+  }
+  
+  lines.push(`📄 계약형태: ${contractLabels[fixedRoute.contractType] || fixedRoute.contractType}`)
+  
+  if (fixedRoute.revenueDaily) {
+    lines.push(`💰 일매출: ${fixedRoute.revenueDaily.toLocaleString()}원`)
+  }
+  
+  if (fixedRoute.costDaily) {
+    lines.push(`💸 일비용: ${fixedRoute.costDaily.toLocaleString()}원`)
+  }
+  
+  if (fixedRoute.weekdayPattern && fixedRoute.weekdayPattern.length > 0) {
+    const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토']
+    const days = fixedRoute.weekdayPattern.map(day => weekdayLabels[day]).join(', ')
+    lines.push(`📅 운행요일: ${days}`)
+  }
+  
+  return lines.join('\n')
+}
+
 // SMS 발송 (기본 SMS 앱 연동)
 export function sendSMS(phoneNumber: string, message: string) {
   // 전화번호 정규화 (특수문자 제거)

@@ -39,10 +39,10 @@ const navigation = [
   },
   { 
     name: '고정 관리', 
-    href: '/routes', 
+    href: '/fixed-routes', 
     icon: Route,
     badge: null,
-    description: '운송 노선 설정'
+    description: '고정노선 관리'
   },
   { 
     name: '상차지 관리', 

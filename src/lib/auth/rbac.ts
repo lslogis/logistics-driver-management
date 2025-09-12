@@ -102,8 +102,13 @@ export function withAuth(
     try {
       // 개발환경 인증 우회 확인 (NODE_ENV=development만 허용, 보안 강화)
       const devBypass = req.headers.get('x-dev-bypass')
-      if (devBypass === 'true' && process.env.NODE_ENV === 'development') {
-        console.log(`🔓 Dev auth bypass for ${options.resource}:${options.action}`)
+      const headerRole = req.headers.get('x-user-role')
+      const userId = req.headers.get('x-user-id')
+      console.log(`🔍 [withAuth] Check: devBypass=${devBypass}, NODE_ENV=${process.env.NODE_ENV}, resource=${options.resource}:${options.action}`)
+      console.log(`🔍 [withAuth] Headers: userId=${userId}, role=${headerRole}`)
+      
+      if (devBypass === 'true' && process.env.NODE_ENV === 'development' && process.env.ENABLE_DEV_BYPASS !== 'false') {
+        console.log(`🔓 [DEV-BYPASS] Auth bypass approved for ${options.resource}:${options.action}`)
         // 개발환경 사용자 정보를 req에 추가
         ;(req as any).user = {
           id: req.headers.get('x-user-id') || 'dev-user-001',

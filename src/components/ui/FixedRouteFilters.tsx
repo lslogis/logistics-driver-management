@@ -4,20 +4,18 @@ import React from 'react'
 import { Filter, X } from 'lucide-react'
 import { 
   CONTRACT_TYPES, 
-  VEHICLE_TYPES, 
-  ContractType, 
-  VehicleType,
-  getContractTypeLabel,
-  getVehicleTypeLabel 
+  ContractType,
+  getContractTypeLabel
 } from '@/lib/validations/fixedRoute'
 import DriverSelector from './DriverSelector'
+import CenterNameSelector from './CenterNameSelector'
 
 interface FixedRouteFiltersProps {
   filters: {
     search: string
+    centerName: string | undefined
     isActive: boolean | undefined
     contractType: ContractType | undefined
-    vehicleType: VehicleType | undefined
     assignedDriverId: string | undefined
     weekday: number | undefined
   }
@@ -68,7 +66,7 @@ export default function FixedRouteFilters({
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* Search */}
         <div className="lg:col-span-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -76,10 +74,23 @@ export default function FixedRouteFilters({
           </label>
           <input
             type="text"
-            placeholder="코스명, 상차지로 검색..."
+            placeholder="노선명, 센터명, 기사명으로 검색..."
             value={filters.search}
             onChange={(e) => updateFilter('search', e.target.value)}
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        {/* Center Name */}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            센터명
+          </label>
+          <CenterNameSelector
+            value={filters.centerName}
+            onChange={(centerName) => updateFilter('centerName', centerName || undefined)}
+            placeholder="센터 선택"
+            className="text-sm"
           />
         </div>
 
@@ -102,24 +113,6 @@ export default function FixedRouteFilters({
           </select>
         </div>
 
-        {/* Vehicle Type */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            차종
-          </label>
-          <select
-            value={filters.vehicleType || ''}
-            onChange={(e) => updateFilter('vehicleType', e.target.value || undefined)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">전체</option>
-            {VEHICLE_TYPES.map(vt => (
-              <option key={vt.value} value={vt.value}>
-                {vt.label}
-              </option>
-            ))}
-          </select>
-        </div>
 
         {/* Weekday */}
         <div>
@@ -202,11 +195,11 @@ export default function FixedRouteFilters({
               </span>
             )}
 
-            {filters.vehicleType && (
+            {filters.centerName && (
               <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
-                차종: {getVehicleTypeLabel(filters.vehicleType)}
+                센터: {filters.centerName}
                 <button
-                  onClick={() => updateFilter('vehicleType', undefined)}
+                  onClick={() => updateFilter('centerName', undefined)}
                   className="ml-1 text-green-400 hover:text-green-600"
                 >
                   <X className="h-3 w-3" />

@@ -10,15 +10,22 @@
       "page": "/",
       "matchers": [
         {
-          "regexp": "^/.*$",
-          "originalSource": "/:path*"
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/(dashboard|drivers|vehicles|routes|fixed-routes|loading-points|trips|settlements|admin))(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(.json)?[\\/#\\?]?$",
+          "originalSource": "/(dashboard|drivers|vehicles|routes|fixed-routes|loading-points|trips|settlements|admin)/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/api(?:\\/((?!auth).*))(.json)?[\\/#\\?]?$",
+          "originalSource": "/api/((?!auth).*)"
         }
       ],
       "wasm": [],
       "assets": [],
       "env": {
-        "__NEXT_BUILD_ID": "development",
-        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "Xsdxg1V6ZcFB1WYkyFabvHzRRpMBZL+u0MU7IV1K4Ms="
+        "__NEXT_BUILD_ID": "NN16h3Qwwy-EqZmzW84mF",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "KP+MgUKkWhgvjAw4gQmY8lx0HlPOGbaTdHCkR0bmUzs=",
+        "__NEXT_PREVIEW_MODE_ID": "060a408718850eee9ec19c320c660c4c",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "03f8a8ecd92363504c1ac71eac1fe0d53e0bff37c2680fe2f000e9f3690a5c35",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "9963f15c349fe79801a28f5e7c1d5563ff343dc50f9257ed039e43c89db4fc9e"
       }
     }
   },
