@@ -70,7 +70,11 @@ export const GET = withAuth(
       
       // 데이터 조회
       const dataQuery = `
-        SELECT * FROM loading_points 
+        SELECT 
+          "id", "centerName", "loadingPointName", "lotAddress", "roadAddress", 
+          "manager1", "manager2", "phone1", "phone2", "remarks", "isActive", 
+          "createdAt", "updatedAt"
+        FROM loading_points 
         ${whereClause}
         ORDER BY "createdAt" DESC
         LIMIT ${query.limit} OFFSET ${offset}
@@ -146,10 +150,10 @@ export const POST = withAuth(
       const result = await prisma.$queryRaw`
         INSERT INTO loading_points (
           "centerName", "loadingPointName", "lotAddress", "roadAddress", 
-          "manager1", "manager2", "phone1", "phone2"
+          "manager1", "manager2", "phone1", "phone2", "remarks"
         ) VALUES (
           ${data.centerName}, ${data.loadingPointName}, ${data.lotAddress || ''}, ${data.roadAddress || ''}, 
-          ${data.manager1 || ''}, ${data.manager2 || ''}, ${data.phone1 || ''}, ${data.phone2 || ''}
+          ${data.manager1 || ''}, ${data.manager2 || ''}, ${data.phone1 || ''}, ${data.phone2 || ''}, ${data.remarks || ''}
         ) RETURNING *
       `
       

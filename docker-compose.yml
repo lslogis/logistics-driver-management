@@ -11,6 +11,8 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-prod-secret}
       - NODE_ENV=${NODE_ENV:-development}
       - TZ=Asia/Seoul
+      - NEXT_PUBLIC_KAKAO_API_KEY=7696cc3207e94811916d5a11d51b2f8f
+      - NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY=fc612feec52344ce4530071c7280c268
     depends_on:
       db:
         condition: service_healthy

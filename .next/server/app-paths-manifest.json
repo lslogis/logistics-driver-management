@@ -1,1 +1,7 @@
-{}
+{
+  "/drivers/page": "app/drivers/page.js",
+  "/vehicles/page": "app/vehicles/page.js",
+  "/routes/page": "app/routes/page.js",
+  "/loading-points/page": "app/loading-points/page.js",
+  "/import/drivers/page": "app/import/drivers/page.js"
+}

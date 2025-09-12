@@ -4,6 +4,7 @@ import './globals.css'
 import QueryProvider from '@/components/providers/QueryClientProvider'
 import ToastProvider from '@/components/providers/ToastProvider'
 import AdminLayout from '@/components/layout/AdminLayout'
+import KakaoScript from '@/components/KakaoScript'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,7 +20,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
+      <head>
+        <script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
+      </head>
       <body className={inter.className}>
+        <KakaoScript />
         <QueryProvider>
           <AdminLayout>
             {children}

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
-import { Plus, MapPin, Edit, UserX, CheckCircle, X } from 'lucide-react'
+import { Plus, MapPin, Edit, UserX, CheckCircle, X, Copy, MessageSquare, MessageCircle, Phone } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { 
   LoadingPointResponse, 
@@ -23,7 +23,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
+import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu'
 import AddressSearchInput, { SelectedAddress } from '@/components/ui/AddressSearchInput'
+import { copyToClipboard, formatLoadingPointInfo, sendSMS, shareToKakao, makePhoneCall } from '@/lib/utils/share'
 
 // Simple form component
 interface LoadingPointFormProps {
@@ -42,7 +44,8 @@ function LoadingPointForm({ loadingPoint, onSubmit, isLoading, onCancel }: Loadi
     manager1: loadingPoint?.manager1 || '',
     manager2: loadingPoint?.manager2 || '',
     phone1: loadingPoint?.phone1 || '',
-    phone2: loadingPoint?.phone2 || ''
+    phone2: loadingPoint?.phone2 || '',
+    remarks: loadingPoint?.remarks || ''
   })
 
   const handleAddressSelect = (address: SelectedAddress) => {
@@ -145,6 +148,22 @@ function LoadingPointForm({ loadingPoint, onSubmit, isLoading, onCancel }: Loadi
               placeholder="예: 010-1234-5678"
             />
           </div>
+        </div>
+
+        <div>
+          <Label htmlFor="remarks">비고</Label>
+          <textarea
+            id="remarks"
+            value={formData.remarks}
+            onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+            placeholder="특이사항이나 추가 정보를 입력하세요"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            rows={3}
+            maxLength={500}
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            {formData.remarks.length}/500자
+          </p>
         </div>
       </div>
 
@@ -300,6 +319,124 @@ export default function LoadingPointsPage() {
     }
   }
 
+  // 컨텍스트 메뉴 핸들러들
+  const handleCopyLoadingPoint = async (loadingPoint: LoadingPointResponse) => {
+    const loadingPointInfo = formatLoadingPointInfo(loadingPoint)
+    const success = await copyToClipboard(loadingPointInfo)
+    if (success) {
+      toast.success('상차지 정보가 클립보드에 복사되었습니다')
+    } else {
+      toast.error('클립보드 복사에 실패했습니다')
+    }
+  }
+
+  const handleShareToKakao = async (loadingPoint: LoadingPointResponse) => {
+    try {
+      const loadingPointInfo = formatLoadingPointInfo(loadingPoint)
+      await shareToKakao(
+        `상차지 정보 - ${loadingPoint.centerName} ${loadingPoint.loadingPointName}`,
+        loadingPointInfo
+      )
+      toast.success('카카오톡으로 공유되었습니다')
+    } catch (error) {
+      console.error('카카오톡 공유 실패:', error)
+      toast.error('카카오톡 공유에 실패했습니다')
+    }
+  }
+
+  const handleSendSMS = (loadingPoint: LoadingPointResponse) => {
+    try {
+      const phone = loadingPoint.phone1 || loadingPoint.phone2
+      if (!phone) {
+        toast.error('연락처가 없는 상차지입니다')
+        return
+      }
+      
+      const loadingPointInfo = formatLoadingPointInfo(loadingPoint)
+      sendSMS(phone, loadingPointInfo)
+      toast.success('SMS 앱이 실행되었습니다')
+    } catch (error) {
+      console.error('SMS 발송 실패:', error)
+      toast.error('SMS 발송에 실패했습니다')
+    }
+  }
+
+  const handlePhoneCall = (loadingPoint: LoadingPointResponse, phoneNumber: string) => {
+    try {
+      makePhoneCall(phoneNumber)
+    } catch (error) {
+      console.error('전화 걸기 실패:', error)
+      toast.error('전화 걸기에 실패했습니다')
+    }
+  }
+
+  // 각 상차지별 컨텍스트 메뉴 아이템 생성
+  const getContextMenuItems = (loadingPoint: LoadingPointResponse): ContextMenuItem[] => {
+    const hasPhone = !!(loadingPoint.phone1 || loadingPoint.phone2)
+    const phoneItems = []
+    
+    if (loadingPoint.phone1) {
+      phoneItems.push({
+        id: 'call1',
+        label: `전화걸기 (${loadingPoint.phone1})`,
+        icon: <Phone className="h-4 w-4" />,
+        onClick: () => handlePhoneCall(loadingPoint, loadingPoint.phone1!)
+      })
+    }
+    
+    if (loadingPoint.phone2) {
+      phoneItems.push({
+        id: 'call2',
+        label: `전화걸기 (${loadingPoint.phone2})`,
+        icon: <Phone className="h-4 w-4" />,
+        onClick: () => handlePhoneCall(loadingPoint, loadingPoint.phone2!)
+      })
+    }
+
+    return [
+      {
+        id: 'copy',
+        label: '복사하기',
+        icon: <Copy className="h-4 w-4" />,
+        onClick: () => handleCopyLoadingPoint(loadingPoint)
+      },
+      {
+        id: 'kakao',
+        label: '카톡 공유',
+        icon: <MessageCircle className="h-4 w-4" />,
+        onClick: () => handleShareToKakao(loadingPoint)
+      },
+      {
+        id: 'sms',
+        label: '문자 보내기',
+        icon: <MessageSquare className="h-4 w-4" />,
+        onClick: () => handleSendSMS(loadingPoint),
+        disabled: !hasPhone
+      },
+      ...phoneItems,
+      {
+        id: 'divider1',
+        label: '',
+        icon: null,
+        onClick: () => {},
+        divider: true
+      },
+      {
+        id: 'edit',
+        label: '수정하기',
+        icon: <Edit className="h-4 w-4" />,
+        onClick: () => setEditingLoadingPoint(loadingPoint)
+      },
+      {
+        id: 'toggle',
+        label: loadingPoint.isActive ? '비활성화' : '활성화',
+        icon: loadingPoint.isActive ? <UserX className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />,
+        onClick: () => loadingPoint.isActive ? handleDeactivate(loadingPoint.id) : handleActivate(loadingPoint.id),
+        destructive: loadingPoint.isActive
+      }
+    ]
+  }
+
   if (error) {
     return (
       <div className="p-8">
@@ -427,77 +564,92 @@ export default function LoadingPointsPage() {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">주소</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">담당자</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">연락처</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">비고</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">작업</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {loadingPointsData.map((item: LoadingPointResponse) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(item.id)}
-                      onChange={(e) => handleSelectItem(item.id, e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-medium text-gray-900">{item.centerName}</div>
-                    {!item.isActive && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
-                        비활성
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{item.loadingPointName || '-'}</td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-gray-900">
-                      {item.roadAddress && <div className="mb-1">{item.roadAddress}</div>}
-                      {item.lotAddress && <div className="text-gray-600 text-xs">{item.lotAddress}</div>}
-                      {!item.roadAddress && !item.lotAddress && '-'}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-gray-900">
-                      {item.manager1 && <div>{item.manager1}</div>}
-                      {item.manager2 && <div className="text-gray-600">{item.manager2}</div>}
-                      {!item.manager1 && !item.manager2 && '-'}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-gray-900">
-                      {item.phone1 && <div>{item.phone1}</div>}
-                      {item.phone2 && <div className="text-gray-600">{item.phone2}</div>}
-                      {!item.phone1 && !item.phone2 && '-'}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex space-x-1">
-                      <button
-                        onClick={() => setEditingLoadingPoint(item)}
-                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                        title="수정"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => item.isActive ? handleDeactivate(item.id) : handleActivate(item.id)}
-                        className={`p-1 transition-colors ${
-                          item.isActive 
-                            ? 'text-gray-400 hover:text-yellow-600' 
-                            : 'text-gray-400 hover:text-green-600'
-                        }`}
-                        title={item.isActive ? '비활성화' : '활성화'}
-                      >
-                        {item.isActive ? <UserX className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <ContextMenu key={item.id} items={getContextMenuItems(item)} asChild>
+                  <tr className="hover:bg-gray-50 cursor-context-menu">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(item.id)}
+                        onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-medium text-gray-900">{item.centerName}</div>
+                      {!item.isActive && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                          비활성
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{item.loadingPointName || '-'}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900">
+                        {item.roadAddress && <div className="mb-1">{item.roadAddress}</div>}
+                        {item.lotAddress && <div className="text-gray-600 text-xs">{item.lotAddress}</div>}
+                        {!item.roadAddress && !item.lotAddress && '-'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900">
+                        {item.manager1 && <div>{item.manager1}</div>}
+                        {item.manager2 && <div className="text-gray-600">{item.manager2}</div>}
+                        {!item.manager1 && !item.manager2 && '-'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900">
+                        {item.phone1 && <div>{item.phone1}</div>}
+                        {item.phone2 && <div className="text-gray-600">{item.phone2}</div>}
+                        {!item.phone1 && !item.phone2 && '-'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500" title={item.remarks || ''}>
+                      <div className="max-w-32 truncate">
+                        {item.remarks || '-'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingLoadingPoint(item)
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="수정"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            item.isActive ? handleDeactivate(item.id) : handleActivate(item.id)
+                          }}
+                          className={`p-1 transition-colors ${
+                            item.isActive 
+                              ? 'text-gray-400 hover:text-yellow-600' 
+                              : 'text-gray-400 hover:text-green-600'
+                          }`}
+                          title={item.isActive ? '비활성화' : '활성화'}
+                        >
+                          {item.isActive ? <UserX className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </ContextMenu>
               ))}
               {loadingPointsData.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                     <MapPin className="h-16 w-16 mx-auto text-gray-300 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">등록된 상차지가 없습니다</h3>
                     <p className="text-gray-500 mb-4">새로운 상차지를 등록해보세요.</p>

@@ -38,11 +38,11 @@ const navigation = [
     description: '운송기사 등록 및 관리'
   },
   { 
-    name: '차량 관리', 
-    href: '/vehicles', 
-    icon: Truck,
+    name: '고정 관리', 
+    href: '/routes', 
+    icon: Route,
     badge: null,
-    description: '차량 정보 및 배정'
+    description: '운송 노선 설정'
   },
   { 
     name: '상차지 관리', 
@@ -52,11 +52,11 @@ const navigation = [
     description: '상차지 등록 및 관리'
   },
   { 
-    name: '고정 관리', 
-    href: '/routes', 
-    icon: Route,
+    name: '차량 관리', 
+    href: '/vehicles', 
+    icon: Truck,
     badge: null,
-    description: '운송 노선 설정'
+    description: '차량 정보 및 배정'
   },
   { 
     name: '운행 관리', 

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Excel File Support Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Excel File Support Test</h1>
+    <p>This test verifies that the frontend now accepts Excel files alongside CSV files.</p>
+    
+    <div>
+        <h2>Test File Upload Input</h2>
+        <input type="file" id="testInput" accept=".csv,.xlsx,.xls" />
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Simulate the file validation function from useImports.ts
+        function validateFile(file) {
+            const fileName = file.name.toLowerCase()
+            const supportedExtensions = ['.csv', '.xlsx', '.xls']
+            const supportedMimeTypes = [
+                'text/csv',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-excel'
+            ]
+            
+            const hasValidExtension = supportedExtensions.some(ext => fileName.endsWith(ext))
+            const hasValidMimeType = supportedMimeTypes.includes(file.type)
+            
+            if (!hasValidExtension && !hasValidMimeType) {
+                return { isValid: false, error: 'CSV 또는 Excel 파일만 업로드 가능합니다 (.csv, .xlsx, .xls)' }
+            }
+
+            const maxSize = 10 * 1024 * 1024 // 10MB
+            if (file.size > maxSize) {
+                return { isValid: false, error: '파일 크기는 10MB 이하여야 합니다.' }
+            }
+
+            if (file.size === 0) {
+                return { isValid: false, error: '빈 파일은 업로드할 수 없습니다.' }
+            }
+
+            return { isValid: true }
+        }
+
+        function getFileFormat(file) {
+            const fileName = file.name.toLowerCase()
+            if (fileName.endsWith('.xlsx')) return 'Excel (.xlsx)'
+            if (fileName.endsWith('.xls')) return 'Excel (.xls)'
+            if (fileName.endsWith('.csv')) return 'CSV'
+            return 'Unknown'
+        }
+
+        document.getElementById('testInput').addEventListener('change', function(e) {
+            const resultsDiv = document.getElementById('results')
+            resultsDiv.innerHTML = ''
+
+            if (e.target.files && e.target.files.length > 0) {
+                const file = e.target.files[0]
+                const validation = validateFile(file)
+                const format = getFileFormat(file)
+
+                const result = document.createElement('div')
+                result.className = validation.isValid ? 'result success' : 'result error'
+                result.innerHTML = `
+                    <strong>File:</strong> ${file.name}<br>
+                    <strong>Format:</strong> ${format}<br>
+                    <strong>Size:</strong> ${(file.size / 1024).toFixed(1)} KB<br>
+                    <strong>MIME Type:</strong> ${file.type}<br>
+                    <strong>Valid:</strong> ${validation.isValid ? 'Yes' : 'No'}
+                    ${validation.error ? `<br><strong>Error:</strong> ${validation.error}` : ''}
+                `
+                resultsDiv.appendChild(result)
+            }
+        })
+    </script>
+</body>
+</html>

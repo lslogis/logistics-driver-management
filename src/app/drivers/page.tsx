@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, User, Building, CreditCard, Upload, Phone, Edit, Trash2, Car, UserX, X, CheckCircle } from 'lucide-react'
+import { Plus, User, Building, CreditCard, Upload, Phone, Edit, Trash2, Car, UserX, X, CheckCircle, Copy, MessageSquare, MessageCircle } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { DriverResponse, CreateDriverData, UpdateDriverData } from '@/lib/validations/driver'
 import ManagementPageLayout from '@/components/layout/ManagementPageLayout'
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
+import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu'
+import { copyToClipboard, formatDriverInfo, sendSMS, shareToKakao, makePhoneCall } from '@/lib/utils/share'
 import { 
   useDrivers,
   useCreateDriver,
@@ -318,6 +320,111 @@ export default function DriversPage() {
     }
   }
 
+  // 컨텍스트 메뉴 핸들러들
+  const handleCopyDriver = async (driver: DriverResponse) => {
+    const driverInfo = formatDriverInfo(driver)
+    const success = await copyToClipboard(driverInfo)
+    if (success) {
+      toast.success('기사 정보가 클립보드에 복사되었습니다')
+    } else {
+      toast.error('클립보드 복사에 실패했습니다')
+    }
+  }
+
+  const handleShareToKakao = async (driver: DriverResponse) => {
+    try {
+      const driverInfo = formatDriverInfo(driver)
+      await shareToKakao(
+        `기사 정보 - ${driver.name}`,
+        driverInfo
+      )
+      toast.success('카카오톡으로 공유되었습니다')
+    } catch (error) {
+      console.error('카카오톡 공유 실패:', error)
+      toast.error('카카오톡 공유에 실패했습니다')
+    }
+  }
+
+  const handleSendSMS = (driver: DriverResponse) => {
+    try {
+      if (!driver.phone) {
+        toast.error('연락처가 없는 기사입니다')
+        return
+      }
+      
+      const driverInfo = formatDriverInfo(driver)
+      sendSMS(driver.phone, driverInfo)
+      toast.success('SMS 앱이 실행되었습니다')
+    } catch (error) {
+      console.error('SMS 발송 실패:', error)
+      toast.error('SMS 발송에 실패했습니다')
+    }
+  }
+
+  const handlePhoneCall = (driver: DriverResponse) => {
+    try {
+      if (!driver.phone) {
+        toast.error('연락처가 없는 기사입니다')
+        return
+      }
+      
+      makePhoneCall(driver.phone)
+    } catch (error) {
+      console.error('전화 걸기 실패:', error)
+      toast.error('전화 걸기에 실패했습니다')
+    }
+  }
+
+  // 각 기사별 컨텍스트 메뉴 아이템 생성
+  const getContextMenuItems = (driver: DriverResponse): ContextMenuItem[] => [
+    {
+      id: 'copy',
+      label: '복사하기',
+      icon: <Copy className="h-4 w-4" />,
+      onClick: () => handleCopyDriver(driver)
+    },
+    {
+      id: 'kakao',
+      label: '카톡 공유',
+      icon: <MessageCircle className="h-4 w-4" />,
+      onClick: () => handleShareToKakao(driver)
+    },
+    {
+      id: 'sms',
+      label: '문자 보내기',
+      icon: <MessageSquare className="h-4 w-4" />,
+      onClick: () => handleSendSMS(driver),
+      disabled: !driver.phone
+    },
+    {
+      id: 'call',
+      label: '전화 걸기',
+      icon: <Phone className="h-4 w-4" />,
+      onClick: () => handlePhoneCall(driver),
+      disabled: !driver.phone
+    },
+    {
+      id: 'divider1',
+      label: '',
+      icon: null,
+      onClick: () => {},
+      divider: true
+    },
+    {
+      id: 'edit',
+      label: '수정하기',
+      icon: <Edit className="h-4 w-4" />,
+      onClick: () => setEditingDriver(driver)
+    },
+    {
+      id: 'toggle',
+      label: driver.isActive ? '비활성화' : '활성화',
+      icon: driver.isActive ? <UserX className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />,
+      onClick: () => driver.isActive ? handleDeactivate(driver.id) : handleActivate(driver.id),
+      destructive: driver.isActive
+    }
+  ]
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-96">
@@ -465,67 +572,76 @@ export default function DriversPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {driversData.map((driver: DriverResponse) => (
-                <tr key={driver.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(driver.id)}
-                      onChange={(e) => handleSelectItem(driver.id, e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-medium text-gray-900">{driver.name}</div>
-                    {!driver.isActive && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
-                        비활성
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {driver.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {driver.vehicleNumber || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {driver.businessName || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {driver.representative || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {driver.bankName || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {driver.accountNumber || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500" title={driver.remarks || ''}>
-                    {driver.remarks || '-'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex space-x-1">
-                      <button
-                        onClick={() => setEditingDriver(driver)}
-                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                        title="수정"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => driver.isActive ? handleDeactivate(driver.id) : handleActivate(driver.id)}
-                        className={`p-1 transition-colors ${
-                          driver.isActive 
-                            ? 'text-gray-400 hover:text-yellow-600' 
-                            : 'text-gray-400 hover:text-green-600'
-                        }`}
-                        title={driver.isActive ? '비활성화' : '활성화'}
-                      >
-                        {driver.isActive ? <UserX className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <ContextMenu key={driver.id} items={getContextMenuItems(driver)} asChild>
+                  <tr className="hover:bg-gray-50 cursor-context-menu">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(driver.id)}
+                        onChange={(e) => handleSelectItem(driver.id, e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-medium text-gray-900">{driver.name}</div>
+                      {!driver.isActive && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                          비활성
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {driver.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {driver.vehicleNumber || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {driver.businessName || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {driver.representative || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {driver.bankName || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {driver.accountNumber || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500" title={driver.remarks || ''}>
+                      {driver.remarks || '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingDriver(driver)
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="수정"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            driver.isActive ? handleDeactivate(driver.id) : handleActivate(driver.id)
+                          }}
+                          className={`p-1 transition-colors ${
+                            driver.isActive 
+                              ? 'text-gray-400 hover:text-yellow-600' 
+                              : 'text-gray-400 hover:text-green-600'
+                          }`}
+                          title={driver.isActive ? '비활성화' : '활성화'}
+                        >
+                          {driver.isActive ? <UserX className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </ContextMenu>
               ))}
               {driversData.length === 0 && !isLoading && (
                 <tr>

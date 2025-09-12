@@ -43,6 +43,11 @@ export const createLoadingPointSchema = z.object({
     .max(20, '연락처2는 20자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
+    
+  remarks: z.string()
+    .max(500, '비고는 500자 이내로 입력해주세요')
+    .optional()
+    .or(z.literal('')),
   
   isActive: z.boolean().default(true)
 }).transform((data) => {
@@ -54,7 +59,8 @@ export const createLoadingPointSchema = z.object({
     manager1: data.manager1 === '' ? null : data.manager1,
     manager2: data.manager2 === '' ? null : data.manager2,
     phone1: data.phone1 === '' ? null : data.phone1,
-    phone2: data.phone2 === '' ? null : data.phone2
+    phone2: data.phone2 === '' ? null : data.phone2,
+    remarks: data.remarks === '' ? null : data.remarks
   }
 })
 
@@ -101,6 +107,11 @@ export const updateLoadingPointSchema = z.object({
     .max(20, '연락처2는 20자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
+    
+  remarks: z.string()
+    .max(500, '비고는 500자 이내로 입력해주세요')
+    .optional()
+    .or(z.literal('')),
   
   isActive: z.boolean().optional()
 }).transform((data) => {
@@ -112,7 +123,8 @@ export const updateLoadingPointSchema = z.object({
     manager1: data.manager1 === '' ? null : data.manager1,
     manager2: data.manager2 === '' ? null : data.manager2,
     phone1: data.phone1 === '' ? null : data.phone1,
-    phone2: data.phone2 === '' ? null : data.phone2
+    phone2: data.phone2 === '' ? null : data.phone2,
+    remarks: data.remarks === '' ? null : data.remarks
   }
 })
 
@@ -152,6 +164,7 @@ export interface LoadingPointResponse {
   manager2: string | null
   phone1: string | null
   phone2: string | null
+  remarks: string | null
   isActive: boolean
   createdAt: string
   updatedAt: string

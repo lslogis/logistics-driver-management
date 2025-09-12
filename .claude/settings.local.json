@@ -50,7 +50,20 @@
       "Bash(start http://localhost:3000/import/trips)",
       "Bash(start http://localhost:3000)",
       "Bash(start http://localhost:3000/settlements)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(start http://localhost:3001/import/drivers)",
+      "Bash(start http://localhost:3001/drivers)",
+      "Bash(npx prisma db push:*)",
+      "Bash(true)",
+      "Bash(rg:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(npx prisma db pull:*)",
+      "Bash(start http://localhost:3001/loading-points)",
+      "Bash(start http://localhost:3000/loading-points)",
+      "Bash(NEXT_PUBLIC_KAKAO_API_KEY=7696cc3207e94811916d5a11d51b2f8f docker-compose up -d)",
+      "mcp__ide__getDiagnostics",
+      "Bash(start http://localhost:3000/drivers)",
+      "WebFetch(domain:developers.kakao.com)"
     ],
     "deny": []
   }

@@ -125,6 +125,7 @@ model LoadingPoint {
   manager2         String?  // 담당자2
   phone1           String?  // 연락처1
   phone2           String?  // 연락처2
+  remarks          String?  // 비고
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @db.Timestamptz(6)

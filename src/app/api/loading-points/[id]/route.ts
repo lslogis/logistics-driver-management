@@ -99,6 +99,7 @@ export const PUT = withAuth(
           "manager2" = ${data.manager2 || ''},
           "phone1" = ${data.phone1 || ''},
           "phone2" = ${data.phone2 || ''},
+          "remarks" = ${data.remarks || ''},
           "updatedAt" = NOW()
         WHERE id = ${id}
         RETURNING *
