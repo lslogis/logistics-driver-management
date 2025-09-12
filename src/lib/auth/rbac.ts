@@ -54,6 +54,11 @@ export const permissions = {
     execute: [UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT]
   },
   
+  // 템플릿 다운로드
+  templates: {
+    read: [UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT]
+  },
+  
   // 감사 로그
   audit: {
     read: [UserRole.ADMIN]
@@ -95,9 +100,9 @@ export function withAuth(
 ) {
   return async (req: NextRequest, context: { params?: any } = {}) => {
     try {
-      // 개발환경 인증 우회 확인
+      // 개발환경 인증 우회 확인 (NODE_ENV=development만 허용, 보안 강화)
       const devBypass = req.headers.get('x-dev-bypass')
-      if (devBypass === 'true' && (process.env.NODE_ENV === 'development' || process.env.DEV_MODE === 'true')) {
+      if (devBypass === 'true' && process.env.NODE_ENV === 'development') {
         console.log(`🔓 Dev auth bypass for ${options.resource}:${options.action}`)
         // 개발환경 사용자 정보를 req에 추가
         ;(req as any).user = {

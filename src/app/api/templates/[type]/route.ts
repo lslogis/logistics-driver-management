@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import Papa from 'papaparse'
+import { withAuth } from '@/lib/auth/rbac'
+import { getCurrentUser } from '@/lib/auth/server'
 
 // 지원하는 템플릿 타입
 const TEMPLATE_TYPES = ['drivers', 'vehicles', 'routes', 'trips'] as const
 type TemplateType = typeof TEMPLATE_TYPES[number]
+
+// CSV Injection 방지 함수
+function sanitizeForCSV(value: string | number): string {
+  if (typeof value === 'number') {
+    return value.toString()
+  }
+  
+  const str = value.toString()
+  // =, +, -, @ 문자로 시작하는 경우 앞에 ' 추가하여 공식 실행 방지
+  if (/^[=+\-@]/.test(str)) {
+    return `'${str}`
+  }
+  
+  return str
+}
 
 // 템플릿 메타데이터
 const TEMPLATE_INFO: Record<TemplateType, { filename: string; description: string }> = {
@@ -26,36 +42,202 @@ const TEMPLATE_INFO: Record<TemplateType, { filename: string; description: strin
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { type: string } }
-) {
-  try {
-    const type = params.type as TemplateType
+// 템플릿 데이터 생성 함수들 (9-column structure)
+function generateDriversTemplate() {
+  const headers = ['성함', '연락처', '차량번호', '사업상호', '대표자', '사업번호', '계좌은행', '계좌번호', '특이사항']
+  const data = [
+    {
+      '성함': sanitizeForCSV('홍길동'),
+      '연락처': sanitizeForCSV('010-1234-5678'),
+      '차량번호': sanitizeForCSV('12가3456'),
+      '사업상호': sanitizeForCSV('길동운송'),
+      '대표자': sanitizeForCSV('홍길동'),
+      '사업번호': sanitizeForCSV('123-45-67890'),
+      '계좌은행': sanitizeForCSV('국민은행'),
+      '계좌번호': sanitizeForCSV('123456-78-901234'),
+      '특이사항': sanitizeForCSV('샘플 데이터')
+    },
+    {
+      '성함': sanitizeForCSV('김철수'),
+      '연락처': sanitizeForCSV('010-9876-5432'),
+      '차량번호': sanitizeForCSV('34나5678'),
+      '사업상호': sanitizeForCSV(''),
+      '대표자': sanitizeForCSV(''),
+      '사업번호': sanitizeForCSV(''),
+      '계좌은행': sanitizeForCSV('신한은행'),
+      '계좌번호': sanitizeForCSV('987-654-321098'),
+      '특이사항': sanitizeForCSV('')
+    }
+  ]
+  return Papa.unparse({ fields: headers, data })
+}
 
-    // 템플릿 타입 검증
-    if (!TEMPLATE_TYPES.includes(type)) {
+function generateVehiclesTemplate() {
+  const headers = ['차량번호', '차종', '톤수', '소유구분', '배정기사전화번호', '적재량', '연식', '비고']
+  const data = [
+    {
+      '차량번호': sanitizeForCSV('12가3456'),
+      '차종': sanitizeForCSV('탑차'),
+      '톤수': sanitizeForCSV('5'),
+      '소유구분': sanitizeForCSV('고정'),
+      '배정기사전화번호': sanitizeForCSV('010-1234-5678'),
+      '적재량': sanitizeForCSV('5000'),
+      '연식': sanitizeForCSV('2020'),
+      '비고': sanitizeForCSV('샘플 데이터')
+    },
+    {
+      '차량번호': sanitizeForCSV('78나9012'),
+      '차종': sanitizeForCSV('냉동차'),
+      '톤수': sanitizeForCSV('3.5'),
+      '소유구분': sanitizeForCSV('용차'),
+      '배정기사전화번호': sanitizeForCSV('010-9876-5432'),
+      '적재량': sanitizeForCSV('3500'),
+      '연식': sanitizeForCSV('2019'),
+      '비고': sanitizeForCSV('냉동 기능 포함')
+    }
+  ]
+  return Papa.unparse({ fields: headers, data })
+}
+
+function generateRoutesTemplate() {
+  const headers = ['노선명', '상차지', '하차지', '거리(km)', '기사운임', '청구운임', '운행요일', '기본배정기사전화번호', '비고']
+  const data = [
+    {
+      '노선명': sanitizeForCSV('서울-부산 정기'),
+      '상차지': sanitizeForCSV('서울역'),
+      '하차지': sanitizeForCSV('부산역'),
+      '거리(km)': sanitizeForCSV('417'),
+      '기사운임': sanitizeForCSV('150000'),
+      '청구운임': sanitizeForCSV('180000'),
+      '운행요일': sanitizeForCSV('월,화,수,목,금'),
+      '기본배정기사전화번호': sanitizeForCSV('010-1234-5678'),
+      '비고': sanitizeForCSV('정기 노선')
+    },
+    {
+      '노선명': sanitizeForCSV('인천공항-김포공항'),
+      '상차지': sanitizeForCSV('인천국제공항'),
+      '하차지': sanitizeForCSV('김포국제공항'),
+      '거리(km)': sanitizeForCSV('47'),
+      '기사운임': sanitizeForCSV('80000'),
+      '청구운임': sanitizeForCSV('100000'),
+      '운행요일': sanitizeForCSV('월,수,금'),
+      '기본배정기사전화번호': sanitizeForCSV('010-9876-5432'),
+      '비고': sanitizeForCSV('공항 셔틀')
+    }
+  ]
+  return Papa.unparse({ fields: headers, data })
+}
+
+function generateTripsTemplate() {
+  const headers = ['날짜', '기사전화번호', '차량번호', '노선명', '상차지', '하차지', '기사요금', '청구요금', '상태', '차감액', '결행사유', '대차기사전화번호', '대차요금', '비고']
+  const data = [
+    {
+      '날짜': sanitizeForCSV('2025-01-15'),
+      '기사전화번호': sanitizeForCSV('010-1234-5678'),
+      '차량번호': sanitizeForCSV('12가1234'),
+      '노선명': sanitizeForCSV('서울-부산 정기'),
+      '상차지': sanitizeForCSV('서울역'),
+      '하차지': sanitizeForCSV('부산역'),
+      '기사요금': sanitizeForCSV(150000),
+      '청구요금': sanitizeForCSV(180000),
+      '상태': sanitizeForCSV('예정'),
+      '차감액': sanitizeForCSV(''),
+      '결행사유': sanitizeForCSV(''),
+      '대차기사전화번호': sanitizeForCSV(''),
+      '대차요금': sanitizeForCSV(''),
+      '비고': sanitizeForCSV('샘플 데이터')
+    },
+    {
+      '날짜': sanitizeForCSV('2025-01-16'),
+      '기사전화번호': sanitizeForCSV('010-9876-5432'),
+      '차량번호': sanitizeForCSV('34나5678'),
+      '노선명': sanitizeForCSV(''),
+      '상차지': sanitizeForCSV('인천공항'),
+      '하차지': sanitizeForCSV('김포공항'),
+      '기사요금': sanitizeForCSV(80000),
+      '청구요금': sanitizeForCSV(100000),
+      '상태': sanitizeForCSV('완료'),
+      '차감액': sanitizeForCSV(''),
+      '결행사유': sanitizeForCSV(''),
+      '대차기사전화번호': sanitizeForCSV(''),
+      '대차요금': sanitizeForCSV(''),
+      '비고': sanitizeForCSV('커스텀 노선 예시')
+    }
+  ]
+  return Papa.unparse({ fields: headers, data })
+}
+
+export const GET = withAuth(
+  async (request: NextRequest, context: { params?: { type: string } } = {}) => {
+    const { params } = context
+    if (!params?.type) {
       return NextResponse.json(
         { 
-          error: 'Invalid template type', 
-          message: `지원하지 않는 템플릿 타입입니다. 지원 타입: ${TEMPLATE_TYPES.join(', ')}` 
+          ok: false,
+          error: {
+            code: 'MISSING_PARAMS',
+            message: '템플릿 타입이 지정되지 않았습니다'
+          }
         },
         { status: 400 }
       )
     }
-
-    const templateInfo = TEMPLATE_INFO[type]
-    const templatePath = join(process.cwd(), 'public', 'templates', templateInfo.filename)
-
     try {
-      // CSV 파일 읽기
-      const csvContent = readFileSync(templatePath, 'utf-8')
+      const user = await getCurrentUser(request)
+      if (!user) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: 'UNAUTHORIZED',
+              message: '로그인이 필요합니다'
+            }
+          },
+          { status: 401 }
+        )
+      }
+
+      const type = params.type as TemplateType
+
+      // 템플릿 타입 검증
+      if (!TEMPLATE_TYPES.includes(type)) {
+        return NextResponse.json(
+          { 
+            ok: false,
+            error: {
+              code: 'INVALID_TEMPLATE_TYPE',
+              message: `지원하지 않는 템플릿 타입입니다. 지원 타입: ${TEMPLATE_TYPES.join(', ')}`
+            }
+          },
+          { status: 400 }
+        )
+      }
+
+      // 템플릿 생성
+      let csvContent: string
+      
+      switch (type) {
+        case 'drivers':
+          csvContent = generateDriversTemplate()
+          break
+        case 'vehicles':
+          csvContent = generateVehiclesTemplate()
+          break
+        case 'routes':
+          csvContent = generateRoutesTemplate()
+          break
+        case 'trips':
+          csvContent = generateTripsTemplate()
+          break
+        default:
+          throw new Error('지원하지 않는 템플릿 타입입니다')
+      }
 
       // 한글 지원을 위한 BOM 추가
       const csvWithBOM = '\uFEFF' + csvContent
 
       // 다운로드 응답 생성
-      return new NextResponse(csvWithBOM, {
+      return new Response(csvWithBOM, {
         status: 200,
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -64,56 +246,111 @@ export async function GET(
         }
       })
 
-    } catch (fileError) {
-      console.error('Template file read error:', fileError)
+    } catch (error) {
+      console.error('Template download error:', error)
       return NextResponse.json(
         { 
-          error: 'Template file not found', 
-          message: '템플릿 파일을 찾을 수 없습니다.' 
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: '템플릿 다운로드 중 오류가 발생했습니다.'
+          }
         },
-        { status: 404 }
+        { status: 500 }
       )
     }
+  },
+  { resource: 'templates', action: 'read' }
+)
 
-  } catch (error) {
-    console.error('Template download error:', error)
-    return NextResponse.json(
-      { 
-        error: 'Internal server error', 
-        message: '템플릿 다운로드 중 오류가 발생했습니다.' 
-      },
-      { status: 500 }
-    )
-  }
-}
+// 템플릿 목록 조회 (OPTIONS /api/templates/[type])
+export const OPTIONS = withAuth(
+  async (request: NextRequest, context: { params?: { type: string } } = {}) => {
+    const { params } = context
+    if (!params?.type) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'MISSING_PARAMS',
+            message: '템플릿 타입이 지정되지 않았습니다'
+          }
+        },
+        { status: 400 }
+      )
+    }
+    try {
+      const user = await getCurrentUser(request)
+      if (!user) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: 'UNAUTHORIZED',
+              message: '로그인이 필요합니다'
+            }
+          },
+          { status: 401 }
+        )
+      }
 
-// 템플릿 목록 조회 (GET /api/templates)
-export async function OPTIONS() {
-  return NextResponse.json({
-    templates: Object.entries(TEMPLATE_INFO).map(([type, info]) => ({
-      type,
-      filename: info.filename,
-      description: info.description,
-      downloadUrl: `/api/templates/${type}`,
-      fields: getTemplateFields(type as TemplateType)
-    }))
-  })
-}
+      const type = params.type as TemplateType
+
+      if (!TEMPLATE_TYPES.includes(type)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: 'INVALID_TEMPLATE_TYPE',
+              message: `지원하지 않는 템플릿 타입입니다. 지원 타입: ${TEMPLATE_TYPES.join(', ')}`
+            }
+          },
+          { status: 400 }
+        )
+      }
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          type,
+          filename: TEMPLATE_INFO[type].filename,
+          description: TEMPLATE_INFO[type].description,
+          downloadUrl: `/api/templates/${type}`,
+          fields: getTemplateFields(type)
+        }
+      })
+
+    } catch (error) {
+      console.error('Template info error:', error)
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: '템플릿 정보 조회 중 오류가 발생했습니다.'
+          }
+        },
+        { status: 500 }
+      )
+    }
+  },
+  { resource: 'templates', action: 'read' }
+)
 
 // 템플릿별 필드 정보 반환
 function getTemplateFields(type: TemplateType): Array<{field: string, required: boolean, description: string}> {
   switch (type) {
     case 'drivers':
       return [
-        { field: '이름', required: true, description: '기사명' },
-        { field: '연락처', required: true, description: '휴대폰 번호 (010-1234-5678)' },
-        { field: '이메일', required: false, description: '이메일 주소' },
-        { field: '사업자번호', required: false, description: '사업자등록번호 (123-45-67890)' },
-        { field: '상호명', required: false, description: '회사/상호명' },
-        { field: '대표자명', required: false, description: '대표자 이름' },
-        { field: '은행명', required: false, description: '계좌 은행명' },
-        { field: '계좌번호', required: false, description: '계좌번호' },
-        { field: '비고', required: false, description: '추가 정보' }
+        { field: '성함', required: true, description: '기사명 (필수)' },
+        { field: '연락처', required: true, description: '휴대폰 번호 (필수, 010-1234-5678)' },
+        { field: '차량번호', required: true, description: '차량번호 (필수, 12가3456)' },
+        { field: '사업상호', required: false, description: '사업상호/회사명' },
+        { field: '대표자', required: false, description: '대표자 이름' },
+        { field: '사업번호', required: false, description: '사업자등록번호 (123-45-67890)' },
+        { field: '계좌은행', required: false, description: '계좌 은행명' },
+        { field: '계좌번호', required: false, description: '계좌번호 (특수문자 자동 제거됨)' },
+        { field: '특이사항', required: false, description: '비고/추가 정보' }
       ]
 
     case 'vehicles':

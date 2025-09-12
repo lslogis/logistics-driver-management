@@ -90,9 +90,13 @@ function ActionButton({ action, item }: { action: TableAction; item: any }) {
       title={action.label}
       aria-label={action.label}
     >
-      {React.cloneElement(action.icon as React.ReactElement, {
-        className: 'h-3.5 w-3.5'
-      })}
+      {React.isValidElement(action.icon) ? (
+        React.cloneElement(action.icon as React.ReactElement, {
+          className: 'h-3.5 w-3.5'
+        })
+      ) : (
+        <span className="h-3.5 w-3.5 block">{action.icon}</span>
+      )}
     </button>
   )
 }

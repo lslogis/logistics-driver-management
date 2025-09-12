@@ -1,163 +1,28 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, User, Building, CreditCard, Upload, Phone, Edit, Trash2, Car, UserX, X } from 'lucide-react'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Plus, User, Building, CreditCard, Upload, Phone, Edit, Trash2, Car, UserX, X, CheckCircle } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { DriverResponse, CreateDriverData, UpdateDriverData } from '@/lib/validations/driver'
 import ManagementPageLayout from '@/components/layout/ManagementPageLayout'
-import { DataTable, commonActions } from '@/components/ui/DataTable'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
-import { ExportButton } from '@/components/ExportButton'
-import { useExportDrivers } from '@/hooks/useImports'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog'
+import { 
+  useDrivers,
+  useCreateDriver,
+  useUpdateDriver,
+  useActivateDriver,
+  useDeactivateDriver,
+  useHardDeleteDriver,
+  useBulkActivateDrivers,
+  useBulkDeactivateDrivers,
+  useBulkDeleteDrivers,
+  useExportDrivers
+} from '@/hooks/useDrivers'
 
-// 기사 목록 조회 - 무한 스크롤
-function useDrivers(search?: string) {
-  return useInfiniteQuery({
-    queryKey: ['drivers', search],
-    initialPageParam: 1,
-    queryFn: async ({ pageParam }: { pageParam: number }) => {
-      const params = new URLSearchParams({
-        page: pageParam.toString(),
-        limit: '50',
-        ...(search && { search })
-      })
-      
-      const response = await fetch(`/api/drivers?${params}`)
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to fetch drivers')
-      }
-      
-      return result.data
-    },
-    getNextPageParam: (lastPage: any) => {
-      if (lastPage.pagination.page < lastPage.pagination.totalPages) {
-        return lastPage.pagination.page + 1
-      }
-      return undefined
-    },
-    staleTime: 30000, // 30초 동안 fresh
-    retry: 2
-  })
-}
-
-// 기사 생성 뮤테이션
-function useCreateDriver() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async (data: CreateDriverData) => {
-      const response = await fetch('/api/drivers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to create driver')
-      }
-      
-      return result.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['drivers'] })
-      toast.success('기사가 등록되었습니다')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
-
-// 기사 수정 뮤테이션
-function useUpdateDriver() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateDriverData }) => {
-      const response = await fetch(`/api/drivers/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to update driver')
-      }
-      
-      return result.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['drivers'] })
-      toast.success('기사 정보가 수정되었습니다')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
-
-// 기사 비활성화 뮤테이션 (기존 DELETE API 사용)
-function useDeactivateDriver() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/drivers/${id}`, {
-        method: 'DELETE'
-      })
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to deactivate driver')
-      }
-      
-      return result.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['drivers'] })
-      toast.success('기사가 비활성화되었습니다')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
-
-// 기사 완전 삭제 뮤테이션 (새로 추가)
-function useHardDeleteDriver() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/drivers/${id}?hard=true`, {
-        method: 'DELETE'
-      })
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to delete driver')
-      }
-      
-      return result.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['drivers'] })
-      toast.success('기사가 완전히 삭제되었습니다')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    }
-  })
-}
 
 // 기사 폼 컴포넌트
 interface DriverFormProps {
@@ -308,6 +173,7 @@ function DriverForm({ driver, onSubmit, isLoading, onCancel }: DriverFormProps) 
 // 메인 DriversPage 컴포넌트
 export default function DriversPage() {
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('') // 'active', 'inactive', '' (전체)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingDriver, setEditingDriver] = useState<DriverResponse | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -319,11 +185,12 @@ export default function DriversPage() {
     fetchNextPage, 
     hasNextPage, 
     isFetchingNextPage 
-  } = useDrivers(searchTerm)
+  } = useDrivers(searchTerm, statusFilter)
   
   // Flatten infinite query data
   const driversData = data?.pages?.flatMap((page: any) => page.drivers) || []
-  const totalCount = data?.pages?.[0]?.pagination?.total || 0
+  // 모든 페이지에서 동일한 totalCount를 사용 (가장 최신 페이지의 totalCount)
+  const totalCount = data?.pages?.[data?.pages?.length - 1]?.pagination?.total || data?.pages?.[0]?.pagination?.total || 0
   
   // Infinite scroll handler
   const handleScroll = useCallback(() => {
@@ -342,8 +209,12 @@ export default function DriversPage() {
 
   const createMutation = useCreateDriver()
   const updateMutation = useUpdateDriver()
+  const activateMutation = useActivateDriver()
   const deactivateMutation = useDeactivateDriver()
   const hardDeleteMutation = useHardDeleteDriver()
+  const bulkActivateMutation = useBulkActivateDrivers()
+  const bulkDeactivateMutation = useBulkDeactivateDrivers()
+  const bulkDeleteMutation = useBulkDeleteDrivers()
   const exportMutation = useExportDrivers()
 
   const handleCreateSubmit = (data: CreateDriverData) => {
@@ -363,6 +234,10 @@ export default function DriversPage() {
     )
   }
 
+  const handleActivate = (id: string) => {
+    activateMutation.mutate(id)
+  }
+
   const handleDeactivate = (id: string) => {
     if (window.confirm('정말로 이 기사를 비활성화하시겠습니까?')) {
       deactivateMutation.mutate(id)
@@ -375,30 +250,71 @@ export default function DriversPage() {
     }
   }
 
-  // 대량 작업 핸들러들
+  const handleBulkActivate = (ids: string[]) => {
+    // 비활성화 상태인 항목만 필터링
+    const inactiveIds = ids.filter(id => {
+      const item = driversData.find(item => item.id === id)
+      return item && !item.isActive
+    })
+    
+    if (inactiveIds.length === 0) {
+      toast.error('활성화할 수 있는 항목이 없습니다. (이미 모두 활성화되었거나 선택된 항목이 없습니다)')
+      return
+    }
+    
+    if (inactiveIds.length < ids.length) {
+      toast.warning(`${ids.length}개 중 ${inactiveIds.length}개만 활성화됩니다. (나머지는 이미 활성화 상태)`)
+    }
+    
+    bulkActivateMutation.mutate(inactiveIds, {
+      onSuccess: () => setSelectedIds([])
+    })
+  }
+
   const handleBulkDeactivate = (ids: string[]) => {
-    if (window.confirm(`선택된 ${ids.length}개 기사를 비활성화하시겠습니까?`)) {
-      Promise.all(ids.map(id => deactivateMutation.mutateAsync(id)))
-        .then(() => {
-          setSelectedIds([])
-          toast.success(`${ids.length}개 기사가 비활성화되었습니다`)
-        })
-        .catch(() => {
-          toast.error('일부 기사 비활성화에 실패했습니다')
-        })
+    // 활성화 상태인 항목만 필터링
+    const activeIds = ids.filter(id => {
+      const item = driversData.find(item => item.id === id)
+      return item && item.isActive
+    })
+    
+    if (activeIds.length === 0) {
+      toast.error('비활성화할 수 있는 항목이 없습니다. (이미 모두 비활성화되었거나 선택된 항목이 없습니다)')
+      return
+    }
+    
+    const confirmMessage = activeIds.length < ids.length 
+      ? `${ids.length}개 중 ${activeIds.length}개만 비활성화됩니다. (나머지는 이미 비활성화 상태)\n계속하시겠습니까?`
+      : `선택된 ${activeIds.length}개 기사를 비활성화하시겠습니까?`
+    
+    if (window.confirm(confirmMessage)) {
+      bulkDeactivateMutation.mutate(activeIds, {
+        onSuccess: () => setSelectedIds([])
+      })
     }
   }
 
   const handleBulkHardDelete = (ids: string[]) => {
-    if (window.confirm(`선택된 ${ids.length}개 기사를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
-      Promise.all(ids.map(id => hardDeleteMutation.mutateAsync(id)))
-        .then(() => {
-          setSelectedIds([])
-          toast.success(`${ids.length}개 기사가 완전히 삭제되었습니다`)
-        })
-        .catch(() => {
-          toast.error('일부 기사 삭제에 실패했습니다')
-        })
+    if (window.confirm(`선택된 ${ids.length}개 기사를 완전히 삭제하시겠습니까?`)) {
+      bulkDeleteMutation.mutate(ids, {
+        onSuccess: () => setSelectedIds([])
+      })
+    }
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(driversData.map(item => item.id))
+    } else {
+      setSelectedIds([])
+    }
+  }
+
+  const handleSelectItem = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds([...selectedIds, id])
+    } else {
+      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id))
     }
   }
 
@@ -422,104 +338,17 @@ export default function DriversPage() {
     )
   }
 
-  // Define table columns - 새로운 9컬럼 구조
-  const columns = [
-    {
-      key: 'name',
-      header: '성함',
-      width: '12%',
-      render: (value: any, driver: DriverResponse) => (
-        <div className="flex items-center justify-center">
-          <div>
-            <p className="font-medium text-gray-900">{driver.name}</p>
-            {!driver.isActive && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                비활성
-              </span>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'phone',
-      header: '연락처',
-      width: '12%',
-      render: (value: any, driver: DriverResponse) => (
-        <div className="text-sm text-gray-900">
-          {driver.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
-        </div>
-      ),
-    },
-    {
-      key: 'vehicleNumber',
-      header: '차량번호',
-      width: '10%',
-      render: (value: any, driver: DriverResponse) => (
-        <div className="text-sm text-gray-900 whitespace-nowrap">
-          {driver.vehicleNumber || '-'}
-        </div>
-      ),
-    },
-    {
-      key: 'business',
-      header: '사업상호',
-      width: '15%',
-      render: (value: any, driver: DriverResponse) => (
-        <div className="text-sm text-gray-900">
-          {driver.businessName || '-'}
-        </div>
-      ),
-    },
-    {
-      key: 'representative',
-      header: '대표자',
-      width: '10%',
-      render: (value: any, driver: DriverResponse) => (
-        <div className="text-sm text-gray-900">
-          {driver.representative || '-'}
-        </div>
-      ),
-    },
-    {
-      key: 'bankName',
-      header: '계좌은행',
-      width: '10%',
-      render: (value: any, driver: DriverResponse) => (
-        <div className="text-sm text-gray-900">
-          {driver.bankName || '-'}
-        </div>
-      ),
-    },
-    {
-      key: 'accountNumber',
-      header: '계좌번호',
-      width: '15%',
-      render: (value: any, driver: DriverResponse) => (
-        <div className="text-sm text-gray-900">
-          {driver.accountNumber || '-'}
-        </div>
-      ),
-    },
-    {
-      key: 'remarks',
-      header: '특이사항',
-      width: '16%',
-      render: (value: any, driver: DriverResponse) => (
-        <div className="text-sm text-gray-500" title={driver.remarks || ''}>
-          {driver.remarks || '-'}
-        </div>
-      ),
-    },
-  ]
-
-  // Define table actions - only edit button
-  const actions = [
-    commonActions.edit(
-      (driver: DriverResponse) => setEditingDriver(driver),
-      () => true
-    ),
-  ]
+  const isAllSelected = driversData.length > 0 && selectedIds.length === driversData.length
+  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < driversData.length
+  
+  // 선택된 항목들의 상태 분석
+  const selectedItems = driversData.filter(item => selectedIds.includes(item.id))
+  const selectedActiveCount = selectedItems.filter(item => item.isActive).length
+  const selectedInactiveCount = selectedItems.filter(item => !item.isActive).length
+  
+  // 버튼 활성화 상태 계산
+  const canActivate = selectedInactiveCount > 0
+  const canDeactivate = selectedActiveCount > 0
 
   return (
     <ManagementPageLayout
@@ -550,43 +379,170 @@ export default function DriversPage() {
           onChange: setSearchTerm,
           placeholder: '성함, 연락처, 차량번호, 사업상호, 대표자, 계좌번호로 검색...',
         },
+        {
+          label: '상태',
+          type: 'select',
+          value: statusFilter,
+          onChange: setStatusFilter,
+          options: [
+            { value: '', label: '전체' },
+            { value: 'active', label: '활성' },
+            { value: 'inactive', label: '비활성' }
+          ]
+        },
       ]}
       isLoading={isLoading}
       error={error ? String(error) : undefined}
     >
-      <DataTable
-          data={driversData}
-          columns={columns}
-          actions={actions}
-          selectable={true}
-          selectedIds={selectedIds}
-          onSelectionChange={setSelectedIds}
-          getItemId={(driver) => driver.id}
-        bulkActions={[
-          {
-            icon: <UserX className="h-4 w-4" />,
-            label: '선택된 항목 비활성화',
-            onClick: handleBulkDeactivate,
-            variant: 'warning'
-          },
-          {
-            icon: <X className="h-4 w-4" />,
-            label: '선택된 항목 완전삭제',
-            onClick: handleBulkHardDelete,
-            variant: 'danger'
-          }
-        ]}
-        emptyState={{
-          icon: <User />,
-          title: '등록된 기사가 없습니다',
-          description: '새로운 기사를 등록해보세요.',
-          action: {
-            label: '기사 등록',
-            onClick: () => setIsCreateModalOpen(true),
-          },
-        }}
-        isLoading={isLoading}
-      />
+      {/* Bulk Actions */}
+      {selectedIds.length > 0 && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-900">
+              {selectedIds.length}개 항목 선택됨
+            </span>
+            <div className="flex space-x-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleBulkActivate(selectedIds)}
+                leftIcon={<CheckCircle className="h-4 w-4" />}
+                disabled={!canActivate}
+                title={!canActivate ? '활성화할 수 있는 항목이 없습니다' : `${selectedInactiveCount}개 항목을 활성화합니다`}
+              >
+                활성화 {selectedInactiveCount > 0 && `(${selectedInactiveCount})`}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleBulkDeactivate(selectedIds)}
+                leftIcon={<UserX className="h-4 w-4" />}
+                disabled={!canDeactivate}
+                title={!canDeactivate ? '비활성화할 수 있는 항목이 없습니다' : `${selectedActiveCount}개 항목을 비활성화합니다`}
+              >
+                비활성화 {selectedActiveCount > 0 && `(${selectedActiveCount})`}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleBulkHardDelete(selectedIds)}
+                leftIcon={<X className="h-4 w-4" />}
+              >
+                완전삭제
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Simple Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isIndeterminate
+                    }}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">성함</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">연락처</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">차량번호</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">사업상호</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">대표자</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">계좌은행</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">계좌번호</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">특이사항</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">작업</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {driversData.map((driver: DriverResponse) => (
+                <tr key={driver.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(driver.id)}
+                      onChange={(e) => handleSelectItem(driver.id, e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-medium text-gray-900">{driver.name}</div>
+                    {!driver.isActive && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                        비활성
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {driver.phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {driver.vehicleNumber || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {driver.businessName || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {driver.representative || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {driver.bankName || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {driver.accountNumber || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500" title={driver.remarks || ''}>
+                    {driver.remarks || '-'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => setEditingDriver(driver)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="수정"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => driver.isActive ? handleDeactivate(driver.id) : handleActivate(driver.id)}
+                        className={`p-1 transition-colors ${
+                          driver.isActive 
+                            ? 'text-gray-400 hover:text-yellow-600' 
+                            : 'text-gray-400 hover:text-green-600'
+                        }`}
+                        title={driver.isActive ? '비활성화' : '활성화'}
+                      >
+                        {driver.isActive ? <UserX className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {driversData.length === 0 && !isLoading && (
+                <tr>
+                  <td colSpan={10} className="px-4 py-12 text-center text-gray-500">
+                    <User className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">등록된 기사가 없습니다</h3>
+                    <p className="text-gray-500 mb-4">새로운 기사를 등록해보세요.</p>
+                    <Button onClick={() => setIsCreateModalOpen(true)}>
+                      기사 등록
+                    </Button>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
       
       {/* Infinite scroll loading indicator and manual load more */}
       {isFetchingNextPage && (

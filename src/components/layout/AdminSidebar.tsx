@@ -18,7 +18,8 @@ import {
   Activity,
   TrendingUp,
   Settings,
-  HelpCircle
+  HelpCircle,
+  Building2
 } from 'lucide-react'
 
 const navigation = [
@@ -44,7 +45,14 @@ const navigation = [
     description: '차량 정보 및 배정'
   },
   { 
-    name: '노선 관리', 
+    name: '상차지 관리', 
+    href: '/loading-points', 
+    icon: Building2,
+    badge: null,
+    description: '상차지 등록 및 관리'
+  },
+  { 
+    name: '고정 관리', 
     href: '/routes', 
     icon: Route,
     badge: null,
@@ -66,7 +74,7 @@ const navigation = [
   },
   {
     name: '데이터 가져오기',
-    href: '/import/drivers',
+    href: '/import',
     icon: Upload,
     badge: null,
     description: 'CSV 파일 업로드'
@@ -93,12 +101,12 @@ export default function AdminSidebar() {
       "flex h-full flex-col fixed inset-y-0 z-50 transition-all duration-300 ease-out",
       "bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-950",
       "border-r border-neutral-800/50 shadow-2xl",
-      collapsed ? "w-20" : "w-72"
+      collapsed ? "w-16" : "w-64"
     )}>
       {/* Header with Logo */}
       <div className={cn(
         "flex shrink-0 items-center border-b border-neutral-800/50 relative",
-        collapsed ? "h-20 px-4 justify-center" : "h-20 px-6 justify-between"
+        collapsed ? "h-16 px-3 justify-center" : "h-16 px-4 justify-between"
       )}>
         {/* Logo and Brand */}
         <div className={cn(

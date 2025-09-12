@@ -57,7 +57,7 @@ const inputVariants = cva(
 )
 
 export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement>,
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
     VariantProps<typeof inputVariants> {
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
@@ -176,37 +176,37 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = "Input"
 
 // Textarea component using similar design patterns
-const textareaVariants = cva([
-  inputVariants(),
-  "min-h-[80px] py-3 resize-vertical",
-])
+const textareaVariants = cva(
+  [
+    "flex w-full rounded-lg border bg-white px-4 py-3 text-sm font-medium",
+    "placeholder:text-neutral-500 placeholder:font-normal",
+    "transition-all duration-200 ease-out",
+    "focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500",
+    "disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-neutral-50",
+    "dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100",
+    "dark:placeholder:text-neutral-400 dark:disabled:bg-neutral-900",
+    "dark:focus:border-brand-400 dark:focus:ring-brand-400/20",
+    "min-h-[80px] py-3 resize-vertical",
+    "border-neutral-300 hover:border-neutral-400",
+    "shadow-sm hover:shadow-md focus:shadow-md",
+  ]
+)
 
 export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement>,
-    VariantProps<typeof inputVariants> {
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: string
   success?: string
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, variant, size, error, success, ...props }, ref) => {
-    const [internalVariant, setInternalVariant] = React.useState(variant)
-    
-    React.useEffect(() => {
-      if (error) {
-        setInternalVariant('error')
-      } else if (success) {
-        setInternalVariant('success')
-      } else {
-        setInternalVariant(variant || 'default')
-      }
-    }, [error, success, variant])
-
+  ({ className, error, success, ...props }, ref) => {
     return (
       <div className="relative">
         <textarea
           className={cn(
-            textareaVariants({ variant: internalVariant, size }),
+            textareaVariants(),
+            error && "border-danger-300 bg-danger-50 focus:border-danger-500 focus:ring-danger-500/20",
+            success && "border-success-300 bg-success-50 focus:border-success-500 focus:ring-success-500/20",
             className
           )}
           ref={ref}

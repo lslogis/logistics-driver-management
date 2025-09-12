@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Plus, Search, Eye, Download, Lock, DollarSign, Calendar, User, FileText } from 'lucide-react'
+import { DollarSign, Plus, Eye, Download, Lock, Calendar, User, FileText } from 'lucide-react'
 import { toast } from 'react-hot-toast'
-import { SettlementResponse, getSettlementStatusName, getSettlementStatusColor, canEditSettlement, canConfirmSettlement, formatYearMonth } from '@/lib/validations/settlement'
+import { SettlementResponse, getSettlementStatusName, getSettlementStatusColor, canConfirmSettlement, formatYearMonth } from '@/lib/validations/settlement'
 import { useSettlements, usePreviewSettlement, useFinalizeSettlement, useExportSettlements, useCreateSettlement } from '@/hooks/useSettlements'
-import Link from 'next/link'
+import ManagementPageLayout from '@/components/layout/ManagementPageLayout'
+import { DataTable, commonActions } from '@/components/ui/DataTable'
 
 // 상태 배지 컴포넌트
 function StatusBadge({ status }: { status: SettlementResponse['status'] }) {
@@ -235,285 +236,243 @@ export default function SettlementsPage() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-blue-600" />
-              <h1 className="ml-3 text-xl font-bold text-gray-900">
-                정산 관리
-              </h1>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Link
-                href="/"
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                메인으로
-              </Link>
-              <button
-                onClick={() => {
-                  if (!selectedMonth || !selectedDriverId) {
-                    toast.error('빠른 정산 처리 섹션에서 월과 기사 ID를 입력해주세요')
-                    return
-                  }
-                  createMutation.mutate({ driverId: selectedDriverId, yearMonth: selectedMonth })
-                }}
-                disabled={!selectedMonth || !selectedDriverId || createMutation.isPending}
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {createMutation.isPending ? '생성 중...' : '정산 생성'}
-              </button>
+  // Define table columns
+  const columns = [
+    {
+      key: 'info',
+      header: '기본 정보',
+      render: (value: any, settlement: SettlementResponse) => (
+        <div>
+          <div className="flex items-center mb-2">
+            <User className="h-4 w-4 mr-1 text-gray-400" />
+            <span className="font-medium text-gray-900">{settlement.driver.name}</span>
+            <div className="ml-3">
+              <StatusBadge status={settlement.status} />
             </div>
           </div>
+          <div className="flex items-center text-sm text-gray-600 mb-1">
+            <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+            {formatYearMonth(settlement.yearMonth)}
+          </div>
+          <div className="text-sm text-gray-500">
+            {settlement.driver.phone}
+          </div>
         </div>
-      </header>
+      ),
+    },
+    {
+      key: 'summary',
+      header: '정산 요약',
+      render: (value: any, settlement: SettlementResponse) => (
+        <div className="space-y-1">
+          <div className="text-sm">
+            <span className="text-gray-500">운행: </span>
+            <span className="font-medium">{settlement.totalTrips}회</span>
+          </div>
+          <div className="text-sm">
+            <span className="text-gray-500">기본요금: </span>
+            <span className="font-medium">{formatCurrency(settlement.totalBaseFare)}</span>
+          </div>
+          <div className="text-sm">
+            <span className="text-gray-500">공제액: </span>
+            <span className="font-medium text-red-600">{formatCurrency(settlement.totalDeductions)}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'finalAmount',
+      header: '최종 정산액',
+      render: (finalAmount: string) => (
+        <div className="font-bold text-lg text-blue-600">
+          {formatCurrency(finalAmount)}
+        </div>
+      ),
+    },
+    {
+      key: 'dates',
+      header: '일자',
+      render: (value: any, settlement: SettlementResponse) => (
+        <div className="text-xs text-gray-500">
+          <div>생성: {new Date(settlement.createdAt).toLocaleDateString('ko-KR')}</div>
+          {settlement.confirmedAt && (
+            <div className="mt-1">확정: {new Date(settlement.confirmedAt).toLocaleDateString('ko-KR')}</div>
+          )}
+        </div>
+      ),
+    },
+  ]
 
-      {/* 메인 콘텐츠 */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* 빠른 정산 섹션 */}
-        <div className="mb-6 bg-blue-50 border border-blue-200 p-4 rounded-lg">
-          <h2 className="text-lg font-medium text-blue-900 mb-3">빠른 정산 처리</h2>
-          <div className="flex items-end space-x-4">
-            <div className="flex-1">
-              <label htmlFor="quickMonth" className="block text-sm font-medium text-blue-700 mb-1">
-                정산월 선택
-              </label>
-              <input
-                type="month"
-                id="quickMonth"
-                className="block w-full px-3 py-2 border border-blue-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                max={new Date().toISOString().slice(0, 7)}
-              />
-            </div>
-            <div className="flex-1">
-              <label htmlFor="quickDriver" className="block text-sm font-medium text-blue-700 mb-1">
-                기사 ID (선택사항)
-              </label>
-              <input
-                type="text"
-                id="quickDriver"
-                className="block w-full px-3 py-2 border border-blue-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="기사 ID 입력..."
-                value={selectedDriverId}
-                onChange={(e) => setSelectedDriverId(e.target.value)}
-              />
-            </div>
+  // Define table actions
+  const actions = [
+    {
+      icon: <Eye />,
+      label: '미리보기',
+      onClick: (settlement: SettlementResponse) => handlePreview(settlement.driver.id, settlement.yearMonth),
+    },
+    {
+      icon: <Lock />,
+      label: '확정',
+      onClick: () => toast('정산 확정은 미리보기에서 가능합니다'),
+      variant: 'success' as const,
+      show: (settlement: SettlementResponse) => canConfirmSettlement(settlement.status),
+    },
+    {
+      icon: <Download />,
+      label: '내보내기',
+      onClick: (settlement: SettlementResponse) => handleExport(settlement.yearMonth),
+    },
+  ]
+
+  return (
+    <ManagementPageLayout
+      title="정산 관리"
+      subtitle="기사별 월별 정산을 처리합니다"
+      icon={<DollarSign />}
+      totalCount={settlementsData?.pagination?.total}
+      countLabel="건"
+      primaryAction={{
+        label: '정산 생성',
+        onClick: () => {
+          if (!selectedMonth || !selectedDriverId) {
+            toast.error('검색 필터에서 월과 기사 ID를 입력해주세요')
+            return
+          }
+          createMutation.mutate({ driverId: selectedDriverId, yearMonth: selectedMonth })
+        },
+        loading: createMutation.isPending,
+        disabled: !selectedMonth || !selectedDriverId,
+        icon: <Plus className="h-4 w-4" />,
+      }}
+      searchFilters={[
+        {
+          label: '기사명 검색',
+          type: 'text',
+          value: searchTerm,
+          onChange: setSearchTerm,
+          placeholder: '기사명으로 검색...',
+        },
+        {
+          label: '정산월',
+          type: 'month',
+          value: yearMonth,
+          onChange: setYearMonth,
+        },
+        {
+          label: '상태',
+          type: 'select',
+          value: selectedStatus,
+          onChange: setSelectedStatus,
+          options: [
+            { value: 'DRAFT', label: '임시저장' },
+            { value: 'CONFIRMED', label: '확정' },
+            { value: 'PAID', label: '지급완료' },
+          ],
+        },
+      ]}
+      quickActions={[
+        {
+          label: '미리보기',
+          onClick: () => {
+            if (!selectedMonth) {
+              toast.error('정산월을 선택해주세요')
+              return
+            }
+            if (!selectedDriverId) {
+              toast.error('기사 ID를 입력해주세요')
+              return
+            }
+            handlePreview(selectedDriverId, selectedMonth)
+          },
+          variant: 'primary',
+        },
+        {
+          label: '엑셀 내보내기',
+          onClick: () => {
+            if (!yearMonth) {
+              toast.error('정산월을 선택해주세요')
+              return
+            }
+            handleExport(yearMonth)
+          },
+        },
+      ]}
+      isLoading={isLoading}
+      error={error instanceof Error ? error.message : undefined}
+    >
+      {/* 빠른 정산 섹션 */}
+      <div className="mb-6 bg-blue-50 border border-blue-200 p-6 rounded-lg">
+        <h2 className="text-lg font-semibold text-blue-900 mb-4">빠른 정산 처리</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="quickMonth" className="block text-sm font-medium text-blue-700 mb-1">
+              정산월 선택
+            </label>
+            <input
+              type="month"
+              id="quickMonth"
+              className="block w-full px-3 py-2 border border-blue-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              max={new Date().toISOString().slice(0, 7)}
+            />
+          </div>
+          <div>
+            <label htmlFor="quickDriver" className="block text-sm font-medium text-blue-700 mb-1">
+              기사 ID
+            </label>
+            <input
+              type="text"
+              id="quickDriver"
+              className="block w-full px-3 py-2 border border-blue-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="기사 ID 입력..."
+              value={selectedDriverId}
+              onChange={(e) => setSelectedDriverId(e.target.value)}
+            />
+          </div>
+          <div className="flex items-end">
             <button
               onClick={() => {
-                if (!selectedMonth) {
-                  toast.error('정산월을 선택해주세요')
-                  return
-                }
-                if (!selectedDriverId) {
-                  toast.error('기사 ID를 입력해주세요')
+                if (!selectedMonth || !selectedDriverId) {
+                  toast.error('월과 기사 ID를 모두 입력해주세요')
                   return
                 }
                 handlePreview(selectedDriverId, selectedMonth)
               }}
               disabled={!selectedMonth || !selectedDriverId || previewMutation.isPending}
-              className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {previewMutation.isPending ? '조회 중...' : '정산 미리보기 → 확정'}
+              {previewMutation.isPending ? '조회 중...' : '미리보기 → 확정'}
             </button>
           </div>
-          <p className="mt-2 text-sm text-blue-600">
-            월을 선택하고 기사 ID를 입력한 후 미리보기를 통해 바로 정산을 확정할 수 있습니다.
-          </p>
         </div>
+        <p className="mt-3 text-sm text-blue-600">
+          월을 선택하고 기사 ID를 입력한 후 미리보기를 통해 바로 정산을 확정할 수 있습니다.
+        </p>
+      </div>
 
-        {/* 검색 및 필터 */}
-        <div className="mb-6 bg-white p-4 rounded-lg shadow">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-                검색
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  id="search"
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="기사명으로 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor="yearMonth" className="block text-sm font-medium text-gray-700 mb-1">
-                정산월
-              </label>
-              <input
-                type="month"
-                id="yearMonth"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                value={yearMonth}
-                onChange={(e) => setYearMonth(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                상태
-              </label>
-              <select
-                id="status"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
-                <option value="">전체</option>
-                <option value="DRAFT">임시저장</option>
-                <option value="CONFIRMED">확정</option>
-                <option value="PAID">지급완료</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={() => yearMonth && handleExport(yearMonth)}
-                disabled={!yearMonth || exportMutation.isPending}
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                엑셀 내보내기
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 정산 목록 */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          {isLoading ? (
-            <div className="p-8 text-center">
-              <div className="text-gray-500">로딩 중...</div>
-            </div>
-          ) : !settlementsData?.settlements?.length ? (
-            <div className="p-8 text-center">
-              <FileText className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">등록된 정산이 없습니다</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                새로운 정산을 생성하거나 미리보기를 확인해보세요.
-              </p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-200">
-              {settlementsData.settlements.map((settlement: SettlementResponse) => (
-                <li key={settlement.id} className="px-6 py-4 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      {/* 첫 번째 줄: 기사명, 정산월, 상태 */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center text-sm font-medium text-gray-900">
-                            <User className="h-4 w-4 mr-1 text-gray-400" />
-                            {settlement.driver.name}
-                          </div>
-                          <div className="flex items-center text-sm text-gray-600">
-                            <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                            {formatYearMonth(settlement.yearMonth)}
-                          </div>
-                          <StatusBadge status={settlement.status} />
-                        </div>
-                        <div className="text-right text-xs text-gray-500">
-                          <p>생성: {new Date(settlement.createdAt).toLocaleDateString('ko-KR')}</p>
-                          {settlement.confirmedAt && (
-                            <p>확정: {new Date(settlement.confirmedAt).toLocaleDateString('ko-KR')}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 두 번째 줄: 정산 요약 */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
-                        <div className="text-sm">
-                          <span className="text-gray-500">운행: </span>
-                          <span className="font-medium">{settlement.totalTrips}회</span>
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-gray-500">기본요금: </span>
-                          <span className="font-medium">{formatCurrency(settlement.totalBaseFare)}</span>
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-gray-500">공제액: </span>
-                          <span className="font-medium text-red-600">{formatCurrency(settlement.totalDeductions)}</span>
-                        </div>
-                        <div className="text-sm">
-                          <span className="text-gray-500">최종: </span>
-                          <span className="font-bold text-blue-600">{formatCurrency(settlement.finalAmount)}</span>
-                        </div>
-                      </div>
-
-                      {/* 연락처 */}
-                      <div className="text-sm text-gray-500">
-                        {settlement.driver.phone}
-                      </div>
-                    </div>
-
-                    {/* 액션 버튼 */}
-                    <div className="flex items-center space-x-2 ml-4">
-                      <button
-                        onClick={() => handlePreview(settlement.driver.id, settlement.yearMonth)}
-                        className="p-2 text-gray-400 hover:text-blue-600"
-                        title="미리보기"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      {canConfirmSettlement(settlement.status) && (
-                        <button
-                          onClick={() => toast('정산 확정은 미리보기에서 가능합니다')}
-                          className="p-2 text-gray-400 hover:text-green-600"
-                          title="확정"
-                        >
-                          <Lock className="h-4 w-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleExport(settlement.yearMonth)}
-                        className="p-2 text-gray-400 hover:text-purple-600"
-                        title="개별 내보내기"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* 페이지네이션 */}
-        {settlementsData?.pagination && settlementsData.pagination.totalPages > 1 && (
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6 rounded-md shadow">
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  총 <span className="font-medium">{settlementsData.pagination.total}</span>개 중{' '}
-                  <span className="font-medium">
-                    {(settlementsData.pagination.page - 1) * settlementsData.pagination.limit + 1}
-                  </span>{' '}
-                  -{' '}
-                  <span className="font-medium">
-                    {Math.min(
-                      settlementsData.pagination.page * settlementsData.pagination.limit,
-                      settlementsData.pagination.total
-                    )}
-                  </span>{' '}
-                  개 표시
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+      <DataTable
+        data={settlementsData?.settlements || []}
+        columns={columns}
+        actions={actions}
+        pagination={settlementsData?.pagination}
+        emptyState={{
+          icon: <FileText />,
+          title: '등록된 정산이 없습니다',
+          description: '새로운 정산을 생성하거나 미리보기를 확인해보세요.',
+          action: {
+            label: '정산 생성',
+            onClick: () => {
+              if (!selectedMonth || !selectedDriverId) {
+                toast.error('검색 필터에서 월과 기사 ID를 먼저 입력해주세요')
+                return
+              }
+              createMutation.mutate({ driverId: selectedDriverId, yearMonth: selectedMonth })
+            },
+          },
+        }}
+        isLoading={isLoading}
+      />
 
       {/* 미리보기 모달 */}
       <PreviewModal
@@ -523,6 +482,6 @@ export default function SettlementsPage() {
         onConfirm={handleConfirmSettlement}
         isConfirming={finalizeMutation.isPending}
       />
-    </div>
+    </ManagementPageLayout>
   )
 }

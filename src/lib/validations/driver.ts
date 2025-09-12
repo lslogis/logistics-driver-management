@@ -1,46 +1,54 @@
 import { z } from 'zod'
+import { sanitizePhone, sanitizeAccountNumber, validatePhone } from '@/lib/utils/data-processing'
 
-// 기사 생성 스키마
+// 기사 생성 스키마 (9-column Excel structure)
 export const createDriverSchema = z.object({
+  // Required fields (성함, 연락처, 차량번호)
   name: z.string()
-    .min(1, '이름을 입력해주세요')
-    .max(50, '이름은 50자 이내로 입력해주세요'),
+    .min(1, '성함을 입력해주세요')
+    .max(50, '성함은 50자 이내로 입력해주세요'),
   
   phone: z.string()
-    .regex(/^010-\d{4}-\d{4}$/, '휴대폰 번호는 010-0000-0000 형식으로 입력해주세요'),
+    .min(1, '연락처를 입력해주세요')
+    .transform((phone) => sanitizePhone(phone))
+    .refine((phone) => validatePhone(phone).isValid, {
+      message: '유효하지 않은 연락처 형식입니다 (010-0000-0000 형식으로 입력해주세요)'
+    }),
   
-  email: z.string()
-    .email('올바른 이메일 주소를 입력해주세요')
+  vehicleNumber: z.string()
+    .min(1, '차량번호를 입력해주세요')
+    .max(20, '차량번호는 20자 이내로 입력해주세요')
+    .transform((value) => value.trim()),
+  
+  // Optional fields
+  businessName: z.string()
+    .max(100, '사업상호는 100자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
   
-  businessNumber: z.string()
-    .regex(/^\d{3}-\d{2}-\d{5}$/, '사업자등록번호는 000-00-00000 형식으로 입력해주세요')
-    .optional()
-    .or(z.literal('')),
-  
-  companyName: z.string()
-    .max(100, '상호명은 100자 이내로 입력해주세요')
-    .optional()
-    .or(z.literal('')),
-  
-  representativeName: z.string()
+  representative: z.string()
     .max(50, '대표자명은 50자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
   
+  businessNumber: z.string()
+    .max(50, '사업번호는 50자 이내로 입력해주세요')
+    .optional()
+    .or(z.literal('')),
+  
   bankName: z.string()
-    .max(50, '은행명은 50자 이내로 입력해주세요')
+    .max(50, '계좌은행명은 50자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
   
   accountNumber: z.string()
     .max(50, '계좌번호는 50자 이내로 입력해주세요')
+    .transform((account) => account ? sanitizeAccountNumber(account) : account)
     .optional()
     .or(z.literal('')),
   
   remarks: z.string()
-    .max(500, '비고는 500자 이내로 입력해주세요')
+    .max(500, '특이사항은 500자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
   
@@ -49,10 +57,9 @@ export const createDriverSchema = z.object({
   // 빈 문자열을 null로 변환
   return {
     ...data,
-    email: data.email === '' ? null : data.email,
+    businessName: data.businessName === '' ? null : data.businessName,
+    representative: data.representative === '' ? null : data.representative,
     businessNumber: data.businessNumber === '' ? null : data.businessNumber,
-    companyName: data.companyName === '' ? null : data.companyName,
-    representativeName: data.representativeName === '' ? null : data.representativeName,
     bankName: data.bankName === '' ? null : data.bankName,
     accountNumber: data.accountNumber === '' ? null : data.accountNumber,
     remarks: data.remarks === '' ? null : data.remarks
@@ -62,46 +69,52 @@ export const createDriverSchema = z.object({
 // 기사 수정 스키마 (모든 필드 선택적)
 export const updateDriverSchema = z.object({
   name: z.string()
-    .min(1, '이름을 입력해주세요')
-    .max(50, '이름은 50자 이내로 입력해주세요')
+    .min(1, '성함을 입력해주세요')
+    .max(50, '성함은 50자 이내로 입력해주세요')
     .optional(),
     
   phone: z.string()
-    .regex(/^010-\d{4}-\d{4}$/, '휴대폰 번호는 010-0000-0000 형식으로 입력해주세요')
+    .min(1, '연락처를 입력해주세요')
+    .transform((phone) => sanitizePhone(phone))
+    .refine((phone) => validatePhone(phone).isValid, {
+      message: '유효하지 않은 연락처 형식입니다 (010-0000-0000 형식으로 입력해주세요)'
+    })
     .optional(),
   
-  email: z.string()
-    .email('올바른 이메일 주소를 입력해주세요')
+  vehicleNumber: z.string()
+    .min(1, '차량번호를 입력해주세요')
+    .max(20, '차량번호는 20자 이내로 입력해주세요')
+    .transform((value) => value.trim())
+    .optional(),
+  
+  businessName: z.string()
+    .max(100, '사업상호는 100자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
   
-  businessNumber: z.string()
-    .regex(/^\d{3}-\d{2}-\d{5}$/, '사업자등록번호는 000-00-00000 형식으로 입력해주세요')
-    .optional()
-    .or(z.literal('')),
-  
-  companyName: z.string()
-    .max(100, '상호명은 100자 이내로 입력해주세요')
-    .optional()
-    .or(z.literal('')),
-  
-  representativeName: z.string()
+  representative: z.string()
     .max(50, '대표자명은 50자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
   
+  businessNumber: z.string()
+    .max(50, '사업번호는 50자 이내로 입력해주세요')
+    .optional()
+    .or(z.literal('')),
+  
   bankName: z.string()
-    .max(50, '은행명은 50자 이내로 입력해주세요')
+    .max(50, '계좌은행명은 50자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
   
   accountNumber: z.string()
     .max(50, '계좌번호는 50자 이내로 입력해주세요')
+    .transform((account) => account ? sanitizeAccountNumber(account) : account)
     .optional()
     .or(z.literal('')),
   
   remarks: z.string()
-    .max(500, '비고는 500자 이내로 입력해주세요')
+    .max(500, '특이사항은 500자 이내로 입력해주세요')
     .optional()
     .or(z.literal('')),
   
@@ -110,10 +123,9 @@ export const updateDriverSchema = z.object({
   // 빈 문자열을 null로 변환
   return {
     ...data,
-    email: data.email === '' ? null : data.email,
+    businessName: data.businessName === '' ? null : data.businessName,
+    representative: data.representative === '' ? null : data.representative,
     businessNumber: data.businessNumber === '' ? null : data.businessNumber,
-    companyName: data.companyName === '' ? null : data.companyName,
-    representativeName: data.representativeName === '' ? null : data.representativeName,
     bankName: data.bankName === '' ? null : data.bankName,
     accountNumber: data.accountNumber === '' ? null : data.accountNumber,
     remarks: data.remarks === '' ? null : data.remarks
@@ -125,6 +137,7 @@ export const getDriversQuerySchema = z.object({
   page: z.string().transform(val => parseInt(val) || 1),
   limit: z.string().transform(val => Math.min(parseInt(val) || 10, 100)),
   search: z.string().optional(),
+  status: z.enum(['active', 'inactive']).optional(),
   isActive: z.string()
     .transform(val => val === 'true' ? true : val === 'false' ? false : undefined)
     .optional(),
@@ -142,10 +155,10 @@ export interface DriverResponse {
   id: string
   name: string
   phone: string
-  email: string | null
+  vehicleNumber: string
+  businessName: string | null
+  representative: string | null
   businessNumber: string | null
-  companyName: string | null
-  representativeName: string | null
   bankName: string | null
   accountNumber: string | null
   remarks: string | null

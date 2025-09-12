@@ -8,7 +8,7 @@ export class DriverService {
    * 기사 목록 조회 (검색, 필터링, 페이지네이션)
    */
   async getDrivers(query: GetDriversQuery): Promise<DriversListResponse> {
-    const { page, limit, search, isActive, sortBy, sortOrder } = query
+    const { page, limit, search, status, isActive, sortBy, sortOrder } = query
 
     // 검색 조건 구성
     const where: any = {}
@@ -17,11 +17,21 @@ export class DriverService {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
-        { companyName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } }
+        { vehicleNumber: { contains: search, mode: 'insensitive' } },
+        { businessName: { contains: search, mode: 'insensitive' } },
+        { representative: { contains: search, mode: 'insensitive' } },
+        { accountNumber: { contains: search } }
       ]
     }
 
+    // status 매개변수 처리
+    if (status === 'active') {
+      where.isActive = true
+    } else if (status === 'inactive') {
+      where.isActive = false
+    }
+
+    // 기존 isActive 매개변수 지원 (하위호환)
     if (isActive !== undefined) {
       where.isActive = isActive
     }
@@ -39,7 +49,20 @@ export class DriverService {
       orderBy,
       skip: (page - 1) * limit,
       take: limit,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        vehicleNumber: true,
+        businessName: true,
+        representative: true,
+        businessNumber: true,
+        bankName: true,
+        accountNumber: true,
+        remarks: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             vehicles: true,
@@ -226,6 +249,57 @@ export class DriverService {
   }
 
   /**
+   * 기사 완전 삭제 (하드 삭제)
+   */
+  async hardDeleteDriver(id: string): Promise<void> {
+    const existingDriver = await this.prisma.driver.findUnique({
+      where: { id }
+    })
+
+    if (!existingDriver) {
+      throw new Error('기사를 찾을 수 없습니다')
+    }
+
+    // 하드 삭제 - DB에서 완전 제거
+    await this.prisma.driver.delete({
+      where: { id }
+    })
+  }
+
+  /**
+   * 기사 활성화
+   */
+  async activateDriver(id: string): Promise<DriverResponse> {
+    const driver = await this.prisma.driver.findUnique({
+      where: { id }
+    })
+
+    if (!driver) {
+      throw new Error('기사를 찾을 수 없습니다')
+    }
+
+    if (driver.isActive) {
+      throw new Error('이미 활성화된 기사입니다')
+    }
+
+    const updatedDriver = await this.prisma.driver.update({
+      where: { id },
+      data: { isActive: true },
+      include: {
+        _count: {
+          select: {
+            vehicles: true,
+            trips: true,
+            settlements: true
+          }
+        }
+      }
+    })
+
+    return this.formatDriverResponse(updatedDriver)
+  }
+
+  /**
    * 기사 활성화/비활성화
    */
   async toggleDriverStatus(id: string): Promise<DriverResponse> {
@@ -286,10 +360,10 @@ export class DriverService {
       id: driver.id,
       name: driver.name,
       phone: driver.phone,
-      email: driver.email,
+      vehicleNumber: driver.vehicleNumber,
+      businessName: driver.businessName,
+      representative: driver.representative,
       businessNumber: driver.businessNumber,
-      companyName: driver.companyName,
-      representativeName: driver.representativeName,
       bankName: driver.bankName,
       accountNumber: driver.accountNumber,
       remarks: driver.remarks,

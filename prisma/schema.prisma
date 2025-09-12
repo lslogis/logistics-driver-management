@@ -65,27 +65,32 @@ model VerificationToken {
 }
 
 model Driver {
-  id                 String          @id @default(cuid())
-  name               String
-  phone              String          @unique
-  email              String?
-  businessNumber     String?
-  companyName        String?
-  representativeName String?
-  bankName           String?
-  accountNumber      String?
-  remarks            String?
-  isActive           Boolean         @default(true)
-  createdAt          DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime        @updatedAt @db.Timestamptz(6)
-  routeTemplates     RouteTemplate[] @relation("RouteDefaultDriver")
-  settlements        Settlement[]    @relation("DriverSettlements")
-  trips              Trip[]
-  substituteTrips    Trip[]          @relation("SubstituteDriver")
-  vehicles           Vehicle[]
+  id              String          @id @default(cuid())
+  name            String          // 성함 (required)
+  phone           String          @unique // 연락처 (required, sanitized)  
+  vehicleNumber   String          // 차량번호 (required)
+  businessName    String?         // 사업상호
+  representative  String?         // 대표자
+  businessNumber  String?         // 사업번호  
+  bankName        String?         // 계좌은행
+  accountNumber   String?         // 계좌번호 (sanitized)
+  remarks         String?         // 특이사항
+  
+  // System fields
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+  
+  // Relations (maintain existing)
+  routeTemplates  RouteTemplate[] @relation("RouteDefaultDriver")
+  settlements     Settlement[]    @relation("DriverSettlements")
+  trips           Trip[]
+  substituteTrips Trip[]          @relation("SubstituteDriver")
+  vehicles        Vehicle[]
 
   @@index([name])
   @@index([phone])
+  @@index([vehicleNumber])
   @@index([isActive])
   @@map("drivers")
 }
@@ -110,24 +115,50 @@ model Vehicle {
   @@map("vehicles")
 }
 
+model LoadingPoint {
+  id               String   @id @default(cuid())
+  centerName       String   // 센터명 (기존 name)
+  loadingPointName String   // 상차지명 (새로 추가)
+  lotAddress       String?  // 지번주소
+  roadAddress      String?  // 도로명주소  
+  manager1         String?  // 담당자1
+  manager2         String?  // 담당자2
+  phone1           String?  // 연락처1
+  phone2           String?  // 연락처2
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(6)
+  
+  // 관계
+  routeTemplates RouteTemplate[]
+  
+  @@map("loading_points")
+  @@index([centerName])
+  @@index([loadingPointName])
+  @@index([isActive])
+}
+
 model RouteTemplate {
-  id              String   @id @default(cuid())
-  name            String   @unique
-  loadingPoint    String
+  id              String       @id @default(cuid())
+  name            String       @unique
+  loadingPoint    String       // 기존 문자열 필드 유지 (하위 호환성)
+  loadingPointId  String?      // 새 LoadingPoint 외래키
   unloadingPoint  String
   distance        Float?
-  driverFare      Decimal  @db.Decimal(12, 2)
-  billingFare     Decimal  @db.Decimal(12, 2)
+  driverFare      Decimal      @db.Decimal(12, 2)
+  billingFare     Decimal      @db.Decimal(12, 2)
   weekdayPattern  Int[]
   defaultDriverId String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
-  defaultDriver   Driver?  @relation("RouteDefaultDriver", fields: [defaultDriverId], references: [id])
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(6)
+  defaultDriver   Driver?      @relation("RouteDefaultDriver", fields: [defaultDriverId], references: [id])
   trips           Trip[]
+  loadingPointRef LoadingPoint? @relation(fields: [loadingPointId], references: [id])
 
   @@index([name])
   @@index([loadingPoint])
+  @@index([loadingPointId])
   @@index([defaultDriverId])
   @@index([isActive])
   @@map("route_templates")

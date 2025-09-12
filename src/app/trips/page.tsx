@@ -1,11 +1,14 @@
 'use client'
 
 import React, { useState } from 'react'
-import Link from 'next/link'
-import { Plus, Search, Edit, Trash2, Calendar, User, Truck, Route, MapPin, DollarSign, Upload, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
+import { Calendar, Plus, Upload, CheckCircle, RefreshCw, Edit, Trash2, User, Truck } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { TripResponse, CreateTripData, UpdateTripData, getTripStatusName, getTripStatusColor, canEditTrip, canDeleteTrip } from '@/lib/validations/trip'
 import { useTrips, useCreateTrip, useUpdateTrip, useDeleteTrip, useUpdateTripStatus, useCompleteTrip } from '@/hooks/useTrips'
+import ManagementPageLayout from '@/components/layout/ManagementPageLayout'
+import { DataTable, commonActions } from '@/components/ui/DataTable'
+import { ExportButton } from '@/components/ExportButton'
+import { useExportTrips } from '@/hooks/useImports'
 
 // 상태 배지 컴포넌트
 function StatusBadge({ status }: { status: TripResponse['status'] }) {
@@ -619,6 +622,7 @@ export default function TripsPage() {
   const deleteMutation = useDeleteTrip()
   const statusMutation = useUpdateTripStatus()
   const completeMutation = useCompleteTrip()
+  const exportMutation = useExportTrips()
 
   const handleEdit = (trip: TripResponse) => {
     setEditingTrip(trip)
@@ -675,294 +679,197 @@ export default function TripsPage() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-blue-600" />
-              <h1 className="ml-3 text-xl font-bold text-gray-900">운행 관리</h1>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Link 
-                href="/" 
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                메인으로
-              </Link>
-              <Link
-                href="/import/trips"
-                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                CSV 가져오기
-              </Link>
-              <button
-                onClick={() => setCreateModalOpen(true)}
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                운행 등록
-              </button>
-            </div>
+  // Define table columns
+  const columns = [
+    {
+      key: 'date',
+      header: '날짜',
+      render: (date: string) => (
+        <div className="text-sm text-gray-900">
+          {formatDate(date)}
+        </div>
+      ),
+    },
+    {
+      key: 'driver',
+      header: '기사/차량',
+      render: (value: any, trip: TripResponse) => (
+        <div>
+          <div className="flex items-center mb-1">
+            <User className="h-3 w-3 mr-1 text-gray-400" />
+            <span className="font-medium text-gray-900">{trip.driver.name}</span>
+          </div>
+          <div className="text-xs text-gray-500">{trip.driver.phone}</div>
+          <div className="flex items-center text-xs text-gray-400 mt-1">
+            <Truck className="h-3 w-3 mr-1" />
+            <span>{trip.vehicle.plateNumber} ({trip.vehicle.vehicleType})</span>
           </div>
         </div>
-      </header>
-
-      {/* 메인 콘텐츠 */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* 검색 및 필터 */}
-        <div className="mb-6 bg-white p-4 rounded-lg shadow">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-                검색
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  id="search"
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md"
-                  placeholder="기사명, 차량번호, 노선으로 검색..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="dateFrom" className="block text-sm font-medium text-gray-700 mb-1">
-                시작일
-              </label>
-              <input
-                type="date"
-                id="dateFrom"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="dateTo" className="block text-sm font-medium text-gray-700 mb-1">
-                종료일
-              </label>
-              <input
-                type="date"
-                id="dateTo"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                상태
-              </label>
-              <select
-                id="status"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as 'SCHEDULED' | 'COMPLETED' | 'ABSENCE' | 'SUBSTITUTE' | '')}
-              >
-                <option value="">전체</option>
-                <option value="SCHEDULED">예정</option>
-                <option value="COMPLETED">완료</option>
-                <option value="ABSENCE">결행</option>
-                <option value="SUBSTITUTE">대차</option>
-              </select>
+      ),
+    },
+    {
+      key: 'route',
+      header: '노선',
+      render: (value: any, trip: TripResponse) => (
+        trip.routeTemplate ? (
+          <div>
+            <div className="font-medium text-gray-900">{trip.routeTemplate.name}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {trip.routeTemplate.loadingPoint} → {trip.routeTemplate.unloadingPoint}
             </div>
           </div>
-        </div>
-
-        {/* 운행 목록 */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          {isLoading ? (
-            <div className="p-8 text-center">
-              <div className="text-gray-500">로딩 중...</div>
+        ) : trip.customRoute ? (
+          <div>
+            <div className="font-medium text-gray-900">커스텀</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {trip.customRoute.loadingPoint} → {trip.customRoute.unloadingPoint}
             </div>
-          ) : !data?.trips?.length ? (
-            <div className="p-8 text-center">
-              <div className="text-gray-500">등록된 운행이 없습니다</div>
+          </div>
+        ) : (
+          <span className="text-gray-400">-</span>
+        )
+      ),
+    },
+    {
+      key: 'fare',
+      header: '운임',
+      render: (value: any, trip: TripResponse) => (
+        <div>
+          <div className="font-medium text-gray-900">기사: {formatCurrency(trip.driverFare)}</div>
+          <div className="text-gray-500 text-sm">청구: {formatCurrency(trip.billingFare)}</div>
+          {trip.deductionAmount && (
+            <div className="text-xs text-red-600 mt-1">
+              차감: {formatCurrency(trip.deductionAmount)}
             </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        날짜
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        기사/차량
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        노선
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        운임 (기사/청구)
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        상태
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        작업
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {data.trips.map((trip: any) => (
-                      <tr key={trip.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDate(trip.date)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div>
-                            <div className="font-medium">{trip.driver.name}</div>
-                            <div className="text-gray-500">{trip.driver.phone}</div>
-                            <div className="text-xs text-gray-400">
-                              {trip.vehicle.plateNumber} ({trip.vehicle.vehicleType})
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {trip.routeTemplate ? (
-                            <div>
-                              <div className="font-medium">{trip.routeTemplate.name}</div>
-                              <div className="text-xs text-gray-500">
-                                {trip.routeTemplate.loadingPoint} → {trip.routeTemplate.unloadingPoint}
-                              </div>
-                            </div>
-                          ) : trip.customRoute ? (
-                            <div>
-                              <div className="font-medium">커스텀</div>
-                              <div className="text-xs text-gray-500">
-                                {trip.customRoute.loadingPoint} → {trip.customRoute.unloadingPoint}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div>
-                            <div className="font-medium">{formatCurrency(trip.driverFare)}</div>
-                            <div className="text-gray-500">{formatCurrency(trip.billingFare)}</div>
-                            {trip.deductionAmount && (
-                              <div className="text-xs text-red-600">
-                                차감: {formatCurrency(trip.deductionAmount)}
-                              </div>
-                            )}
-                            {trip.substituteFare && (
-                              <div className="text-xs text-orange-600">
-                                대차: {formatCurrency(trip.substituteFare)}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <StatusBadge status={trip.status} />
-                          {trip.absenceReason && (
-                            <div className="text-xs text-red-600 mt-1">
-                              {trip.absenceReason}
-                            </div>
-                          )}
-                          {trip.substituteDriver && (
-                            <div className="text-xs text-orange-600 mt-1">
-                              대차: {trip.substituteDriver.name}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          {trip.status === 'SCHEDULED' && (
-                            <button
-                              onClick={() => handleComplete(trip.id)}
-                              className="text-green-600 hover:text-green-900"
-                              title="완료"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleStatusChange(trip)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="상태 변경"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </button>
-                          {canEditTrip(trip.status) && (
-                            <button
-                              onClick={() => handleEdit(trip)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="수정"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                          )}
-                          {canDeleteTrip(trip.status) && (
-                            <button
-                              onClick={() => handleDelete(trip.id, trip.status)}
-                              className="text-red-600 hover:text-red-900"
-                              title="삭제"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* 페이지네이션 */}
-              {data.pagination && (
-                <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-700">
-                      총 <span className="font-medium">{data.pagination.total}</span>개 중{' '}
-                      <span className="font-medium">
-                        {((data.pagination.page - 1) * data.pagination.limit) + 1}
-                      </span>
-                      -{' '}
-                      <span className="font-medium">
-                        {Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)}
-                      </span>
-                      개 표시
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setPage(page - 1)}
-                        disabled={page <= 1}
-                        className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        이전
-                      </button>
-                      <span className="px-3 py-1 text-sm">
-                        {page} / {data.pagination.totalPages}
-                      </span>
-                      <button
-                        onClick={() => setPage(page + 1)}
-                        disabled={page >= data.pagination.totalPages}
-                        className="px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        다음
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+          )}
+          {trip.substituteFare && (
+            <div className="text-xs text-orange-600 mt-1">
+              대차: {formatCurrency(trip.substituteFare)}
+            </div>
           )}
         </div>
-      </main>
+      ),
+    },
+    {
+      key: 'status',
+      header: '상태',
+      render: (value: any, trip: TripResponse) => (
+        <div>
+          <StatusBadge status={trip.status} />
+          {trip.absenceReason && (
+            <div className="text-xs text-red-600 mt-1">
+              {trip.absenceReason}
+            </div>
+          )}
+          {trip.substituteDriver && (
+            <div className="text-xs text-orange-600 mt-1">
+              대차: {trip.substituteDriver.name}
+            </div>
+          )}
+        </div>
+      ),
+    },
+  ]
+
+  // Define table actions
+  const actions = [
+    {
+      icon: <CheckCircle />,
+      label: '완료 처리',
+      onClick: (trip: TripResponse) => handleComplete(trip.id),
+      variant: 'success' as const,
+      show: (trip: TripResponse) => trip.status === 'SCHEDULED',
+    },
+    {
+      icon: <RefreshCw />,
+      label: '상태 변경',
+      onClick: (trip: TripResponse) => handleStatusChange(trip),
+    },
+    commonActions.edit(
+      (trip: TripResponse) => handleEdit(trip),
+      (trip: TripResponse) => canEditTrip(trip.status)
+    ),
+    commonActions.delete(
+      (trip: TripResponse) => handleDelete(trip.id, trip.status),
+      (trip: TripResponse) => canDeleteTrip(trip.status)
+    ),
+  ]
+
+  return (
+    <ManagementPageLayout
+      title="운행 관리"
+      subtitle="운행 일정을 등록하고 관리합니다"
+      icon={<Calendar />}
+      totalCount={data?.pagination?.total}
+      countLabel="건"
+      primaryAction={{
+        label: '운행 등록',
+        onClick: () => setCreateModalOpen(true),
+        icon: <Plus className="h-4 w-4" />,
+      }}
+      secondaryActions={[{
+        label: 'CSV 가져오기',
+        href: '/import/trips',
+        icon: <Upload className="h-4 w-4" />,
+      }]}
+      exportAction={{
+        label: '목록 내보내기',
+        onClick: (format) => exportMutation.mutate(format),
+        loading: exportMutation.isPending,
+      }}
+      searchFilters={[
+        {
+          label: '검색',
+          type: 'text',
+          value: search,
+          onChange: setSearch,
+          placeholder: '기사명, 차량번호, 노선으로 검색...',
+        },
+        {
+          label: '시작일',
+          type: 'date',
+          value: dateFrom,
+          onChange: setDateFrom,
+        },
+        {
+          label: '종료일',
+          type: 'date',
+          value: dateTo,
+          onChange: setDateTo,
+        },
+        {
+          label: '상태',
+          type: 'select',
+          value: status,
+          onChange: setStatus,
+          options: [
+            { value: 'SCHEDULED', label: '예정' },
+            { value: 'COMPLETED', label: '완료' },
+            { value: 'ABSENCE', label: '결행' },
+            { value: 'SUBSTITUTE', label: '대차' },
+          ],
+        },
+      ]}
+      isLoading={isLoading}
+      error={error instanceof Error ? error.message : undefined}
+    >
+      <DataTable
+        data={data?.trips || []}
+        columns={columns}
+        actions={actions}
+        pagination={data?.pagination}
+        onPageChange={setPage}
+        emptyState={{
+          icon: <Calendar />,
+          title: '등록된 운행이 없습니다',
+          description: '새로운 운행을 등록해보세요.',
+          action: {
+            label: '운행 등록',
+            onClick: () => setCreateModalOpen(true),
+          },
+        }}
+        isLoading={isLoading}
+      />
 
       {/* 모달 컴포넌트들 */}
       <CreateTripModal
@@ -1004,6 +911,6 @@ export default function TripsPage() {
         }}
         isSubmitting={statusMutation.isPending}
       />
-    </div>
+    </ManagementPageLayout>
   )
 }

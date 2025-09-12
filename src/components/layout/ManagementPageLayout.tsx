@@ -263,7 +263,6 @@ export function ManagementPageLayout({
                         value={filter.value || ''}
                         onChange={(e) => filter.onChange(e.target.value)}
                       >
-                        <option value="">전체</option>
                         {filter.options?.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}

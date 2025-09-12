@@ -5,7 +5,8 @@
 @tailwind utilities;
 
 @layer base {
-  * {
+  *, *::before, *::after {
+    box-sizing: border-box;
     border-color: var(--color-border);
   }
 
@@ -107,6 +108,28 @@
   }
 }
 
+@layer utilities {
+  /* 강제 전체 너비 사용 - 모든 제약 해제 */
+  .force-full-width {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+  
+  .force-full-width * {
+    box-sizing: border-box !important;
+  }
+  
+  /* Tailwind container 오버라이드 */
+  .container {
+    width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+
 @layer components {
   /* 공통 버튼 스타일 */
   .btn {
@@ -152,7 +175,7 @@
   
   /* 레이아웃 관련 */
   .container {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply max-w-none w-full px-1 sm:px-2 lg:px-3;
   }
   
   .page-header {

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { TripStatus } from '@prisma/client'
+import { parseImportFile, validateFileSize, validateHeaders, generateCSV } from '@/lib/services/import.service'
 
 // 템플릿 헤더 정의
 const REQUIRED_HEADERS = ['날짜', '기사전화번호', '차량번호', '기사요금', '청구요금']
@@ -99,47 +100,46 @@ export const POST = withAuth(
         }, { status: 400 })
       }
 
-      if (!file.name.toLowerCase().endsWith('.csv')) {
+      // 파일 형식 검증 (CSV, Excel 지원)
+      const allowedTypes = ['.csv', '.xlsx', '.xls']
+      const fileExt = file.name.toLowerCase()
+      if (!allowedTypes.some(type => fileExt.endsWith(type))) {
         return NextResponse.json({
           ok: false,
           error: {
             code: 'INVALID_FILE_TYPE',
-            message: 'CSV 파일만 업로드 가능합니다'
+            message: 'CSV 또는 Excel 파일만 업로드 가능합니다 (.csv, .xlsx, .xls)'
           }
         }, { status: 400 })
       }
 
-      if (file.size > 50 * 1024 * 1024) { // 50MB 제한 (trips는 대용량 가능)
+      // 파일 크기 검증 (trips는 대용량 허용)
+      const fileSizeError = validateFileSize(file, 50)
+      if (fileSizeError) {
         return NextResponse.json({
           ok: false,
           error: {
             code: 'FILE_TOO_LARGE',
-            message: '파일 크기는 50MB 이하여야 합니다'
+            message: fileSizeError
           }
         }, { status: 400 })
       }
 
-      // CSV 내용 읽기 및 파싱
-      const csvContent = await file.text()
-      
-      const parseResult = Papa.parse(csvContent, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: (header) => header.trim()
-      })
+      // 파일 파싱 (CSV/Excel 자동 감지)
+      const parseResult = await parseImportFile(file)
 
       if (parseResult.errors.length > 0) {
         return NextResponse.json({
           ok: false,
           error: {
-            code: 'CSV_PARSE_ERROR',
-            message: 'CSV 파일을 파싱할 수 없습니다',
+            code: 'FILE_PARSE_ERROR',
+            message: '파일을 파싱할 수 없습니다',
             details: parseResult.errors
           }
         }, { status: 400 })
       }
 
-      const rows = parseResult.data as any[]
+      const rows = parseResult.data
       
       if (rows.length === 0) {
         return NextResponse.json({
@@ -152,15 +152,14 @@ export const POST = withAuth(
       }
 
       // 헤더 검증
-      const headers = Object.keys(rows[0])
-      const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h))
-      
-      if (missingHeaders.length > 0) {
+      const headerErrors = validateHeaders(rows, REQUIRED_HEADERS)
+      if (headerErrors.length > 0) {
+        const headers = rows.length > 0 ? Object.keys(rows[0]) : []
         return NextResponse.json({
           ok: false,
           error: {
             code: 'MISSING_HEADERS',
-            message: `필수 헤더가 없습니다: ${missingHeaders.join(', ')}`,
+            message: headerErrors[0],
             details: {
               required: REQUIRED_HEADERS,
               found: headers,
@@ -544,10 +543,8 @@ export const POST = withAuth(
 export const GET = withAuth(
   async (req: NextRequest) => {
     try {
-      // CSV 템플릿 생성
-      const csvContent = Papa.unparse({
-        fields: TEMPLATE_HEADERS,
-        data: [
+      // CSV 템플릿 생성 (CSV Injection 보호 적용)
+      const csvContent = generateCSV(TEMPLATE_HEADERS, [
           {
             '날짜': '2025-01-15',
             '기사전화번호': '010-1234-5678',
@@ -580,8 +577,7 @@ export const GET = withAuth(
             '대차요금': '',
             '비고': '커스텀 노선 예시'
           }
-        ]
-      })
+      ])
 
       // BOM 추가 (Excel에서 한글 인식을 위해)
       const BOM = '\uFEFF'

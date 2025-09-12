@@ -439,7 +439,7 @@ export class SettlementApiService {
             id: true,
             name: true,
             phone: true,
-            companyName: true,
+            businessName: true,
             businessNumber: true
           }
         },
@@ -451,11 +451,11 @@ export class SettlementApiService {
     })
 
     // Excel 생성 (stub - 실제 구현은 xlsx 라이브러리 필요)
-    const excelData = settlements.map(settlement => ({
-      기사명: settlement.driver.name,
-      전화번호: settlement.driver.phone,
-      회사명: settlement.driver.companyName || '',
-      사업자번호: settlement.driver.businessNumber || '',
+    const excelData = settlements.map((settlement: any) => ({
+      기사명: settlement.driver?.name || '',
+      전화번호: settlement.driver?.phone || '',
+      사업상호: settlement.driver?.businessName || '',
+      사업자번호: settlement.driver?.businessNumber || '',
       정산월: settlement.yearMonth,
       총운행수: settlement.totalTrips,
       기본요금: Number(settlement.totalBaseFare),

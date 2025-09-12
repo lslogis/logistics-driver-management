@@ -17,12 +17,7 @@ export default function AdminLayout({
   title,
   subtitle 
 }: AdminLayoutProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed)
-  }
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
@@ -44,22 +39,14 @@ export default function AdminLayout({
         "md:translate-x-0 transition-transform duration-300 ease-out",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
-        <AdminSidebar 
-          collapsed={sidebarCollapsed} 
-          onToggleCollapse={toggleSidebar}
-        />
+        <AdminSidebar />
       </div>
       
       {/* Main content */}
-      <div className={cn(
-        "flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-out",
-        sidebarCollapsed ? "md:ml-20" : "md:ml-72",
-        "ml-0" // Mobile: full width
-      )}>
+      <div className="flex-1 flex flex-col overflow-hidden ml-0 md:ml-64">
         {/* Header */}
         <AdminHeader 
           onToggleSidebar={toggleMobileMenu}
-          sidebarCollapsed={sidebarCollapsed}
           title={title}
           subtitle={subtitle}
         />
@@ -69,16 +56,11 @@ export default function AdminLayout({
           {/* Background Pattern */}
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.02] dark:opacity-[0.05] pointer-events-none" />
           
-          {/* Content Container */}
-          <div className="relative z-10 min-h-full">
-            <div className={cn(
-              "p-6 space-y-6",
-              "max-w-none", // Allow content to use full width
-              // Add some breathing room on ultra-wide screens
-              "2xl:px-8 2xl:py-8"
-            )}>
+          {/* Content Container - Maximized width */}
+          <div className="relative z-10 min-h-full w-full">
+            <div className="w-full min-h-full">
               {/* Page Animation Container */}
-              <div className="animate-fade-in">
+              <div className="animate-fade-in w-full">
                 {children}
               </div>
             </div>

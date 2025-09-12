@@ -5,27 +5,36 @@ import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { createDriverSchema } from '@/lib/validations/driver'
+import { parseImportFile, validateFileSize, validateHeaders, generateCSV } from '@/lib/services/import.service'
+import { sanitizeDriverImportData, validateRequiredFields } from '@/lib/utils/data-processing'
 
-// 템플릿 헤더 정의
-const REQUIRED_HEADERS = ['이름', '전화번호']
-const TEMPLATE_HEADERS = ['이름', '전화번호', '이메일', '사업자등록번호', '회사명', '대표자명', '은행명', '계좌번호', '비고']
+// 템플릿 헤더 정의 (9-column structure)
+const REQUIRED_HEADERS = ['성함', '연락처', '차량번호']
+const TEMPLATE_HEADERS = ['성함', '연락처', '차량번호', '사업상호', '대표자', '사업번호', '계좌은행', '계좌번호', '특이사항']
 
-// CSV 데이터를 Driver 객체로 변환
+// CSV 데이터를 Driver 객체로 변환 (9-column structure)
 function csvRowToDriver(row: any) {
-  const data: any = {}
+  // 유연한 헤더 매핑을 사용하여 표준 헤더로 변환
+  const { mapRowHeaders } = require('@/lib/services/import.service')
+  const mappedRow = mapRowHeaders(row)
   
-  // 헤더 매핑
-  if (row['이름']) data.name = row['이름'].trim()
-  if (row['전화번호']) data.phone = row['전화번호'].trim()
-  if (row['이메일']) data.email = row['이메일'].trim() || undefined
-  if (row['사업자등록번호']) data.businessNumber = row['사업자등록번호'].trim() || undefined
-  if (row['회사명']) data.companyName = row['회사명'].trim() || undefined
-  if (row['대표자명']) data.representativeName = row['대표자명'].trim() || undefined
-  if (row['은행명']) data.bankName = row['은행명'].trim() || undefined
-  if (row['계좌번호']) data.accountNumber = row['계좌번호'].trim() || undefined
-  if (row['비고']) data.remarks = row['비고'].trim() || undefined
+  const rawData: any = {}
   
-  return data
+  // 헤더 매핑 (유연한 매칭 후 표준 헤더 사용)
+  if (mappedRow['성함']) rawData.name = String(mappedRow['성함']).trim()
+  if (mappedRow['연락처']) rawData.phone = String(mappedRow['연락처']).trim()  
+  if (mappedRow['차량번호']) rawData.vehicleNumber = String(mappedRow['차량번호']).trim()
+  if (mappedRow['사업상호']) rawData.businessName = String(mappedRow['사업상호']).trim() || undefined
+  if (mappedRow['대표자']) rawData.representative = String(mappedRow['대표자']).trim() || undefined
+  if (mappedRow['사업번호']) rawData.businessNumber = String(mappedRow['사업번호']).trim() || undefined
+  if (mappedRow['계좌은행']) rawData.bankName = String(mappedRow['계좌은행']).trim() || undefined
+  if (mappedRow['계좌번호']) rawData.accountNumber = String(mappedRow['계좌번호']).trim() || undefined
+  if (mappedRow['특이사항']) rawData.remarks = String(mappedRow['특이사항']).trim() || undefined
+  
+  // 데이터 정제 (연락처, 계좌번호 특수문자 제거)
+  const sanitizedData = sanitizeDriverImportData(rawData)
+  
+  return sanitizedData
 }
 
 /**
@@ -60,48 +69,46 @@ export const POST = withAuth(
         }, { status: 400 })
       }
 
-      if (!file.name.toLowerCase().endsWith('.csv')) {
+      // 파일 형식 검증 (CSV, Excel 지원)
+      const allowedTypes = ['.csv', '.xlsx', '.xls']
+      const fileExt = file.name.toLowerCase()
+      if (!allowedTypes.some(type => fileExt.endsWith(type))) {
         return NextResponse.json({
           ok: false,
           error: {
             code: 'INVALID_FILE_TYPE',
-            message: 'CSV 파일만 업로드 가능합니다'
+            message: 'CSV 또는 Excel 파일만 업로드 가능합니다 (.csv, .xlsx, .xls)'
           }
         }, { status: 400 })
       }
 
-      if (file.size > 10 * 1024 * 1024) { // 10MB 제한
+      // 파일 크기 검증
+      const fileSizeError = validateFileSize(file, 10)
+      if (fileSizeError) {
         return NextResponse.json({
           ok: false,
           error: {
             code: 'FILE_TOO_LARGE',
-            message: '파일 크기는 10MB 이하여야 합니다'
+            message: fileSizeError
           }
         }, { status: 400 })
       }
 
-      // CSV 내용 읽기 및 파싱
-      const csvContent = await file.text()
-      
-      // Papa.parse를 사용한 CSV 파싱
-      const parseResult = Papa.parse(csvContent, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: (header) => header.trim()
-      })
+      // 파일 파싱 (CSV/Excel 자동 감지)
+      const parseResult = await parseImportFile(file)
 
       if (parseResult.errors.length > 0) {
         return NextResponse.json({
           ok: false,
           error: {
-            code: 'CSV_PARSE_ERROR',
-            message: 'CSV 파일을 파싱할 수 없습니다',
+            code: 'FILE_PARSE_ERROR',
+            message: '파일을 파싱할 수 없습니다',
             details: parseResult.errors
           }
         }, { status: 400 })
       }
 
-      const rows = parseResult.data as any[]
+      const rows = parseResult.data
       
       if (rows.length === 0) {
         return NextResponse.json({
@@ -114,15 +121,14 @@ export const POST = withAuth(
       }
 
       // 헤더 검증
-      const headers = Object.keys(rows[0])
-      const missingHeaders = REQUIRED_HEADERS.filter(h => !headers.includes(h))
-      
-      if (missingHeaders.length > 0) {
+      const headerErrors = validateHeaders(rows, REQUIRED_HEADERS)
+      if (headerErrors.length > 0) {
+        const headers = rows.length > 0 ? Object.keys(rows[0]) : []
         return NextResponse.json({
           ok: false,
           error: {
             code: 'MISSING_HEADERS',
-            message: `필수 헤더가 없습니다: ${missingHeaders.join(', ')}`,
+            message: headerErrors[0],
             details: {
               required: REQUIRED_HEADERS,
               found: headers,
@@ -181,6 +187,11 @@ export const POST = withAuth(
                   ]
                 }
               ]
+            },
+            select: {
+              id: true,
+              name: true,
+              phone: true
             }
           })
           
@@ -353,34 +364,31 @@ export const POST = withAuth(
 export const GET = withAuth(
   async (req: NextRequest) => {
     try {
-      // CSV 템플릿 생성
-      const csvContent = Papa.unparse({
-        fields: TEMPLATE_HEADERS,
-        data: [
-          {
-            '이름': '홍길동',
-            '전화번호': '010-1234-5678',
-            '이메일': 'hong@example.com',
-            '사업자등록번호': '123-45-67890',
-            '회사명': '길동운송',
-            '대표자명': '홍길동',
-            '은행명': '국민은행',
-            '계좌번호': '123456-78-901234',
-            '비고': '샘플 데이터'
-          },
-          {
-            '이름': '김철수',
-            '전화번호': '010-9876-5432',
-            '이메일': '',
-            '사업자등록번호': '',
-            '회사명': '',
-            '대표자명': '',
-            '은행명': '신한은행',
-            '계좌번호': '987-654-321098',
-            '비고': ''
-          }
-        ]
-      })
+      // CSV 템플릿 생성 (9-column structure, CSV Injection 보호 적용)
+      const csvContent = generateCSV(TEMPLATE_HEADERS, [
+        {
+          '성함': '홍길동',
+          '연락처': '010-1234-5678',
+          '차량번호': '12가3456',
+          '사업상호': '길동운송',
+          '대표자': '홍길동',
+          '사업번호': '123-45-67890',
+          '계좌은행': '국민은행',
+          '계좌번호': '123456-78-901234',
+          '특이사항': '샘플 데이터'
+        },
+        {
+          '성함': '김철수',
+          '연락처': '010-9876-5432',
+          '차량번호': '34나5678',
+          '사업상호': '',
+          '대표자': '',
+          '사업번호': '',
+          '계좌은행': '신한은행',
+          '계좌번호': '987-654-321098',
+          '특이사항': ''
+        }
+      ])
 
       // BOM 추가 (Excel에서 한글 인식을 위해)
       const BOM = '\uFEFF'

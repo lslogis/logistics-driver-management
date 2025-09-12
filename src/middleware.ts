@@ -18,6 +18,7 @@ const protectedPaths = [
   '/api/settlements',
   '/api/import',
   '/api/export',
+  '/api/templates',
   '/api/audit',
   '/api/dashboard'
 ]
@@ -29,8 +30,8 @@ const publicPaths = [
   '/auth/signup', 
   '/auth/error',
   '/api/auth',
-  '/api/health',
-  '/api/templates'
+  '/api/health'
+  // 주의: /api/templates는 인증이 필요하므로 제거됨
 ]
 
 // 역할별 접근 제한 경로
@@ -62,8 +63,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 개발환경에서 API 인증 우회 (NODE_ENV=development 또는 DEV_MODE=true)
-  if (process.env.NODE_ENV === 'development' || process.env.DEV_MODE === 'true') {
+  // 개발환경에서만 API 인증 우회 (NODE_ENV=development만 허용, 보안 강화)
+  if (process.env.NODE_ENV === 'development') {
     if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth')) {
       console.log(`🔓 Dev bypass activated for: ${pathname}`)
       const requestHeaders = new Headers(request.headers)

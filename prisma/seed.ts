@@ -50,82 +50,100 @@ async function main() {
     {
       name: '김철수',
       phone: '010-1234-5678',
-      email: 'kim@example.com',
+      vehicleNumber: '12가3456',
+      businessName: '철수운송',
+      representative: '김철수',
       businessNumber: '123-45-67890',
-      companyName: '철수운송',
       bankName: '국민은행',
       accountNumber: '123456-78-901234'
     },
     {
       name: '이영희',
       phone: '010-2345-6789',
-      email: 'lee@example.com',
+      vehicleNumber: '23나4567',
+      businessName: '영희물류',
+      representative: '이영희',
       businessNumber: '234-56-78901',
-      companyName: '영희물류',
       bankName: '신한은행',
       accountNumber: '234567-89-012345'
     },
     {
       name: '박민수',
       phone: '010-3456-7890',
+      vehicleNumber: '34다5678',
+      businessName: '민수택배',
+      representative: '박민수',
       businessNumber: '345-67-89012',
-      companyName: '민수택배',
       bankName: '우리은행',
       accountNumber: '345678-90-123456'
     },
     {
       name: '최정훈',
       phone: '010-4567-8901',
+      vehicleNumber: '45라6789',
+      businessName: '정훈로지스',
+      representative: '최정훈',
       businessNumber: '456-78-90123',
-      companyName: '정훈로지스',
       bankName: '하나은행',
       accountNumber: '456789-01-234567'
     },
     {
       name: '한상민',
       phone: '010-5678-9012',
+      vehicleNumber: '56마7890',
+      businessName: '상민운수',
+      representative: '한상민',
       businessNumber: '567-89-01234',
-      companyName: '상민운수',
       bankName: '기업은행',
       accountNumber: '567890-12-345678'
     },
     {
       name: '윤서진',
       phone: '010-6789-0123',
+      vehicleNumber: '67바8901',
+      businessName: '서진화물',
+      representative: '윤서진',
       businessNumber: '678-90-12345',
-      companyName: '서진화물',
       bankName: '농협은행',
       accountNumber: '678901-23-456789'
     },
     {
       name: '강동원',
       phone: '010-7890-1234',
+      vehicleNumber: '78사9012',
+      businessName: '동원배송',
+      representative: '강동원',
       businessNumber: '789-01-23456',
-      companyName: '동원배송',
       bankName: '카카오뱅크',
       accountNumber: '3333-01-1234567'
     },
     {
       name: '송혜교',
       phone: '010-8901-2345',
+      vehicleNumber: '89아0123',
+      businessName: '혜교퀵서비스',
+      representative: '송혜교',
       businessNumber: '890-12-34567',
-      companyName: '혜교퀵서비스',
       bankName: '토스뱅크',
       accountNumber: '1000-1234-567890'
     },
     {
       name: '정우성',
       phone: '010-9012-3456',
+      vehicleNumber: '90자1234',
+      businessName: '우성글로벌',
+      representative: '정우성',
       businessNumber: '901-23-45678',
-      companyName: '우성글로벌',
       bankName: '수협은행',
       accountNumber: '789012-34-567890'
     },
     {
       name: '김태희',
       phone: '010-0123-4567',
+      vehicleNumber: '01차2345',
+      businessName: '태희익스프레스',
+      representative: '김태희',
       businessNumber: '012-34-56789',
-      companyName: '태희익스프레스',
       bankName: '신협',
       accountNumber: '890123-45-678901'
     }

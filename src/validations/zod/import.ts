@@ -1,16 +1,16 @@
 import { z } from 'zod';
 
-// Driver import schema
+// Driver import schema (9-column structure)
 export const driverImportSchema = z.object({
   name: z.string().min(1).max(100),
   phone: z.string()
     .min(10)
     .max(20)
     .regex(/^[0-9\-\+\(\)\s]+$/, 'Invalid phone format'),
-  email: z.string().email().optional().nullable(),
+  vehicleNumber: z.string().min(1).max(20),
+  businessName: z.string().max(100).optional().nullable(),
+  representative: z.string().max(100).optional().nullable(),
   businessNumber: z.string().max(50).optional().nullable(),
-  companyName: z.string().max(100).optional().nullable(),
-  representativeName: z.string().max(100).optional().nullable(),
   bankName: z.string().max(50).optional().nullable(),
   accountNumber: z.string().max(50).optional().nullable(),
   remarks: z.string().max(500).optional().nullable(),
