@@ -67,7 +67,8 @@
       "Bash(start http://localhost:3000/fixed-routes)",
       "Bash(start http://localhost:3000/api/fixed-routes)",
       "Bash(sed:*)",
-      "Bash(start http://localhost:3000/import/fixed-routes)"
+      "Bash(start http://localhost:3000/import/fixed-routes)",
+      "Bash(git restore:*)"
     ],
     "deny": []
   }

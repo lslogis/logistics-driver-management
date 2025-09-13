@@ -23,7 +23,7 @@ export const getLoadingPointColumns = (): TableColumn<LoadingPointItem>[] => [
     key: 'centerName',
     header: '센터명',
     render: (item) => (
-      <div>
+      <div className="text-center">
         <div className="text-sm font-medium text-gray-900">{item.centerName}</div>
         {!item.isActive && (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
@@ -37,7 +37,7 @@ export const getLoadingPointColumns = (): TableColumn<LoadingPointItem>[] => [
     key: 'loadingPointName',
     header: '상차지명',
     render: (item) => (
-      <div className="text-sm text-gray-900">
+      <div className="text-sm text-gray-900 text-center">
         {item.loadingPointName || '-'}
       </div>
     )
@@ -46,7 +46,7 @@ export const getLoadingPointColumns = (): TableColumn<LoadingPointItem>[] => [
     key: 'address',
     header: '주소',
     render: (item) => (
-      <div className="text-sm text-gray-900">
+      <div className="text-sm text-gray-900 text-center">
         {item.roadAddress && <div className="mb-1">{item.roadAddress}</div>}
         {item.lotAddress && <div className="text-gray-600 text-xs">{item.lotAddress}</div>}
         {!item.roadAddress && !item.lotAddress && '-'}
@@ -57,7 +57,7 @@ export const getLoadingPointColumns = (): TableColumn<LoadingPointItem>[] => [
     key: 'managers',
     header: '담당자',
     render: (item) => (
-      <div className="text-sm text-gray-900">
+      <div className="text-sm text-gray-900 text-center">
         {item.manager1 && <div>{item.manager1}</div>}
         {item.manager2 && <div className="text-gray-600">{item.manager2}</div>}
         {!item.manager1 && !item.manager2 && '-'}
@@ -68,7 +68,7 @@ export const getLoadingPointColumns = (): TableColumn<LoadingPointItem>[] => [
     key: 'phones',
     header: '연락처',
     render: (item) => (
-      <div className="text-sm text-gray-900">
+      <div className="text-sm text-gray-900 text-center">
         {item.phone1 && <div>{item.phone1}</div>}
         {item.phone2 && <div className="text-gray-600">{item.phone2}</div>}
         {!item.phone1 && !item.phone2 && '-'}
@@ -79,8 +79,8 @@ export const getLoadingPointColumns = (): TableColumn<LoadingPointItem>[] => [
     key: 'remarks',
     header: '비고',
     render: (item) => (
-      <div className="text-sm text-gray-500" title={item.remarks || ''}>
-        <div className="max-w-32 truncate">
+      <div className="text-sm text-gray-500 text-center" title={item.remarks || ''}>
+        <div className="max-w-32 truncate mx-auto">
           {item.remarks || '-'}
         </div>
       </div>
@@ -107,7 +107,7 @@ export const getLoadingPointContextMenuItems = (
   if (loadingPoint.phone1) {
     phoneItems.push({
       id: 'call1',
-      label: `전화걸기 (${loadingPoint.phone1})`,
+      label: loadingPoint.contactName ? `${loadingPoint.contactName}님께 전화1` : '전화1',
       icon: <Phone className="h-4 w-4" />,
       onClick: () => handlers.onPhoneCall(loadingPoint, loadingPoint.phone1!)
     })
@@ -116,7 +116,7 @@ export const getLoadingPointContextMenuItems = (
   if (loadingPoint.phone2) {
     phoneItems.push({
       id: 'call2',
-      label: `전화걸기 (${loadingPoint.phone2})`,
+      label: loadingPoint.contactName ? `${loadingPoint.contactName}님께 전화2` : '전화2',
       icon: <Phone className="h-4 w-4" />,
       onClick: () => handlers.onPhoneCall(loadingPoint, loadingPoint.phone2!)
     })

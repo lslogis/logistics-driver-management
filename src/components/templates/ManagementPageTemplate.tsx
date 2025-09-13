@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect, ReactNode } from 'react'
+import React, { useState, useCallback, useEffect, ReactNode, useMemo } from 'react'
 import { CheckCircle, UserX, X, Edit } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ManagementPageLayout from '@/components/layout/ManagementPageLayout'
@@ -28,11 +28,12 @@ export interface ActionButton {
   icon?: ReactNode
   href?: string
   active?: boolean
+  loading?: boolean
 }
 
 export interface SearchFilter {
   label: string
-  type: 'text' | 'select'
+  type: 'text' | 'select' | 'date'
   value: string
   onChange: (value: string) => void
   placeholder?: string
@@ -76,11 +77,7 @@ export interface TemplateProps<T extends BaseItem, TCreate = any, TUpdate = any>
   // Actions
   primaryAction: ActionButton
   secondaryActions?: ActionButton[]
-  exportAction?: {
-    label: string
-    onClick: (format: string) => void
-    loading: boolean
-  }
+  exportAction?: ActionButton
   
   // Search and filters
   searchFilters: SearchFilter[]
@@ -160,6 +157,12 @@ export default function ManagementPageTemplate<T extends BaseItem, TCreate = any
 }: TemplateProps<T, TCreate, TUpdate>) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
+  // Clear selections when search filters change
+  const filterValues = useMemo(() => searchFilters.map(f => f.value).join(','), [searchFilters])
+  useEffect(() => {
+    setSelectedIds([])
+  }, [filterValues])
+
   // Infinite scroll handler
   const handleScroll = useCallback(() => {
     if (fetchNextPage && hasNextPage && !isFetchingNextPage) {
@@ -207,7 +210,14 @@ export default function ManagementPageTemplate<T extends BaseItem, TCreate = any
     }
     
     if (inactiveIds.length < ids.length) {
-      toast.warning(`${ids.length}개 중 ${inactiveIds.length}개만 활성화됩니다. (나머지는 이미 활성화 상태)`)
+      toast(`${ids.length}개 중 ${inactiveIds.length}개만 활성화됩니다. (나머지는 이미 활성화 상태)`, {
+        icon: '⚠️',
+        style: {
+          backgroundColor: '#fef3c7',
+          color: '#92400e',
+          border: '1px solid #f59e0b'
+        }
+      })
     }
     
     bulkActions.activate(inactiveIds)
@@ -361,13 +371,13 @@ export default function ManagementPageTemplate<T extends BaseItem, TCreate = any
                 {columns.map((column) => (
                   <th 
                     key={column.key}
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-900"
+                    className="px-4 py-3 text-center text-sm font-semibold text-gray-900"
                     style={{ width: column.width }}
                   >
                     {column.header}
                   </th>
                 ))}
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">작업</th>
+                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900">작업</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -389,7 +399,7 @@ export default function ManagementPageTemplate<T extends BaseItem, TCreate = any
                       </td>
                     ))}
                     <td className="px-4 py-3">
-                      <div className="flex space-x-1">
+                      <div className="flex justify-center space-x-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()

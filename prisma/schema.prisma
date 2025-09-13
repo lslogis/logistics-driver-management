@@ -8,21 +8,21 @@ datasource db {
 }
 
 model User {
-  id                   String         @id @default(cuid())
-  email                String         @unique
+  id                   String       @id @default(cuid())
+  email                String       @unique
   name                 String
   password             String?
-  role                 UserRole       @default(DISPATCHER)
-  isActive             Boolean        @default(true)
-  createdAt            DateTime       @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime       @updatedAt @db.Timestamptz(6)
-  lastLogin            DateTime?      @db.Timestamptz(6)
+  role                 UserRole     @default(DISPATCHER)
+  isActive             Boolean      @default(true)
+  createdAt            DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime     @updatedAt @db.Timestamptz(6)
+  lastLogin            DateTime?    @db.Timestamptz(6)
   accounts             Account[]
   auditLogs            AuditLog[]
-  fixedRoutes          FixedRoute[]   @relation("FixedRouteCreator")
+  fixed_routes         FixedRoute[]
   sessions             Session[]
-  confirmedSettlements Settlement[]   @relation("SettlementConfirmer")
-  settlements          Settlement[]   @relation("SettlementCreator")
+  confirmedSettlements Settlement[] @relation("SettlementConfirmer")
+  settlements          Settlement[] @relation("SettlementCreator")
 
   @@map("users")
 }
@@ -69,9 +69,6 @@ model Driver {
   id              String          @id @default(cuid())
   name            String
   phone           String          @unique
-  vehicleNumber   String
-  businessName    String?
-  representative  String?
   businessNumber  String?
   bankName        String?
   accountNumber   String?
@@ -79,7 +76,10 @@ model Driver {
   isActive        Boolean         @default(true)
   createdAt       DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
-  fixedRoutes     FixedRoute[]    @relation("DriverFixedRoutes")
+  vehicleNumber   String
+  businessName    String?
+  representative  String?
+  fixed_routes    FixedRoute[]
   routeTemplates  RouteTemplate[] @relation("RouteDefaultDriver")
   settlements     Settlement[]    @relation("DriverSettlements")
   trips           Trip[]
@@ -115,6 +115,9 @@ model Vehicle {
 
 model LoadingPoint {
   id               String          @id @default(cuid())
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
   centerName       String
   loadingPointName String
   lotAddress       String?
@@ -124,10 +127,7 @@ model LoadingPoint {
   phone1           String?
   phone2           String?
   remarks          String?
-  isActive         Boolean         @default(true)
-  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
-  fixedRoutes      FixedRoute[]
+  fixed_routes     FixedRoute[]
   routeTemplates   RouteTemplate[]
 
   @@index([centerName])
@@ -277,19 +277,17 @@ model FixedRoute {
   remarks                   String?
   isActive                  Boolean      @default(true)
   createdAt                 DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt                 DateTime     @updatedAt @db.Timestamptz(6)
+  updatedAt                 DateTime     @db.Timestamptz(6)
   createdBy                 String?
-  
-  // Relations
-  loadingPoint             LoadingPoint  @relation(fields: [loadingPointId], references: [id])
-  assignedDriver           Driver?       @relation("DriverFixedRoutes", fields: [assignedDriverId], references: [id], onDelete: SetNull)
-  creator                  User?         @relation("FixedRouteCreator", fields: [createdBy], references: [id])
+  drivers                   Driver?      @relation(fields: [assignedDriverId], references: [id])
+  users                     User?        @relation(fields: [createdBy], references: [id])
+  loading_points            LoadingPoint @relation(fields: [loadingPointId], references: [id])
 
-  @@index([loadingPointId])
-  @@index([routeName])
   @@index([assignedDriverId])
   @@index([contractType])
   @@index([isActive])
+  @@index([loadingPointId])
+  @@index([routeName])
   @@map("fixed_routes")
 }
 
@@ -325,6 +323,8 @@ enum AuditAction {
   IMPORT
   EXPORT
   CONFIRM
+  ACTIVATE
+  DEACTIVATE
   LOGIN
   LOGOUT
 }

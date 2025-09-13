@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import AddressSearchInput, { SelectedAddress } from '@/components/ui/AddressSearchInput'
 
 export interface LoadingPointFormProps {
-  loadingPoint?: LoadingPointResponse
+  loadingPoint?: LoadingPointResponse | null
   onSubmit: (data: any) => void
   isLoading: boolean
   onCancel: () => void
@@ -58,6 +58,7 @@ export default function LoadingPointForm({ loadingPoint, onSubmit, isLoading, on
               value={formData.centerName}
               onChange={(e) => setFormData({ ...formData, centerName: e.target.value })}
               placeholder="예: 서울물류센터"
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             />
           </div>
           <div>
@@ -71,6 +72,7 @@ export default function LoadingPointForm({ loadingPoint, onSubmit, isLoading, on
               value={formData.loadingPointName}
               onChange={(e) => setFormData({ ...formData, loadingPointName: e.target.value })}
               placeholder="예: A동 1층"
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             />
           </div>
         </div>
@@ -92,21 +94,9 @@ export default function LoadingPointForm({ loadingPoint, onSubmit, isLoading, on
               value={formData.manager1}
               onChange={(e) => setFormData({ ...formData, manager1: e.target.value })}
               placeholder="예: 김담당"
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             />
           </div>
-          <div>
-            <Label htmlFor="manager2">담당자2</Label>
-            <Input
-              type="text"
-              id="manager2"
-              value={formData.manager2}
-              onChange={(e) => setFormData({ ...formData, manager2: e.target.value })}
-              placeholder="예: 박부담당"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="phone1">연락처1</Label>
             <Input
@@ -115,6 +105,21 @@ export default function LoadingPointForm({ loadingPoint, onSubmit, isLoading, on
               value={formData.phone1}
               onChange={(e) => setFormData({ ...formData, phone1: e.target.value })}
               placeholder="예: 02-1234-5678"
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="manager2">담당자2</Label>
+            <Input
+              type="text"
+              id="manager2"
+              value={formData.manager2}
+              onChange={(e) => setFormData({ ...formData, manager2: e.target.value })}
+              placeholder="예: 박부담당"
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             />
           </div>
           <div>
@@ -125,6 +130,7 @@ export default function LoadingPointForm({ loadingPoint, onSubmit, isLoading, on
               value={formData.phone2}
               onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
               placeholder="예: 010-1234-5678"
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             />
           </div>
         </div>
@@ -136,7 +142,7 @@ export default function LoadingPointForm({ loadingPoint, onSubmit, isLoading, on
             value={formData.remarks}
             onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
             placeholder="특이사항이나 추가 정보를 입력하세요"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 resize-none"
             rows={3}
             maxLength={500}
           />

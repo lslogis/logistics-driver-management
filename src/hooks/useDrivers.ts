@@ -8,16 +8,21 @@ export function useDrivers(search?: string, status?: string) {
   return useInfiniteQuery({
     queryKey: ['drivers', search, status],
     initialPageParam: 1,
+    // 항상 활성화 - 검색어가 없으면 전체 목록 조회
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const params = new URLSearchParams({
         page: pageParam.toString(),
         limit: '50',
-        ...(search && { search }),
+        ...(search && search.trim() && { search: search.trim() }),
         ...(status && { status })
       })
       
+      console.log('기사 API 호출:', `/api/drivers?${params}`)
+      
       const response = await fetch(`/api/drivers?${params}`)
       const result = await response.json()
+      
+      console.log('기사 API 응답:', result)
       
       if (!response.ok) {
         throw new Error(result.error?.message || 'Failed to fetch drivers')

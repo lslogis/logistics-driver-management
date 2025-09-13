@@ -150,7 +150,7 @@ export default function ImportPage() {
               
               return (
                 <div
-                  key={module.href}
+                  key={module.type}
                   className={`${colors.bg} ${colors.border} border rounded-lg p-6 transition-all duration-200 hover:shadow-lg`}
                 >
                   <div className="flex items-center justify-between mb-4">

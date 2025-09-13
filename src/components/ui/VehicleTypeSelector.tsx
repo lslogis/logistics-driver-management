@@ -147,29 +147,25 @@ export default function VehicleTypeSelector({
 // Helper function to get vehicle type description
 const getVehicleTypeDescription = (vehicleType: VehicleType): string => {
   switch (vehicleType) {
-    case '5TON':
-      return '5톤 화물차'
-    case '8TON':
-      return '8톤 화물차'
-    case '11TON':
-      return '11톤 화물차'
-    case '15TON':
-      return '15톤 화물차'
-    case '25TON':
-      return '25톤 대형 화물차'
-    case 'TRAILER':
-      return '트레일러 (견인차)'
-    case 'CARGO':
-      return '카고트럭'
-    case 'WING':
-      return '윙바디 (적재함)'
-    case 'REFRIGERATED':
-      return '냉동/냉장 화물차'
-    case 'TANK':
-      return '탱크로리 (액체 운반)'
+    case 'TRUCK_1T':
+      return '1톤 트럭'
+    case 'TRUCK_2_5T':
+      return '2.5톤 트럭'
+    case 'TRUCK_3T':
+      return '3톤 트럭'
+    case 'TRUCK_5T':
+      return '5톤 트럭'
+    case 'TRUCK_8T':
+      return '8톤 트럭'
+    case 'TRUCK_11T':
+      return '11톤 트럭'
+    case 'VAN':
+      return '승합차'
+    case 'SEDAN':
+      return '승용차'
     case 'OTHER':
-      return '기타 차종'
+      return '기타'
     default:
-      return '차종 정보'
+      return '알 수 없는 차종'
   }
 }

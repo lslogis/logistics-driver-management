@@ -58,7 +58,7 @@ export const GET = withAuth(
       
       // 전체 개수 조회
       const countQuery = `SELECT COUNT(*) as count FROM loading_points ${whereClause}`
-      const countResult = await prisma.$queryRawUnsafe(countQuery, ...queryValues)
+      const countResult = await prisma.$queryRawUnsafe(countQuery, ...queryValues) as any[]
       const totalCount = Number(countResult[0].count)
       
       console.log('Loading Points API:', {

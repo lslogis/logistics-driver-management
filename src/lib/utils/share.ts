@@ -33,11 +33,11 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 // 기사 정보 텍스트 포맷
 export function formatDriverInfo(driver: {
   name: string
-  phone?: string
-  vehicleNumber?: string
-  businessName?: string
-  bankName?: string
-  accountNumber?: string
+  phone?: string | null
+  vehicleNumber?: string | null
+  businessName?: string | null
+  bankName?: string | null
+  accountNumber?: string | null
 }) {
   const lines = [`👤 기사: ${driver.name}`]
   
@@ -116,9 +116,9 @@ export function formatFixedRouteInfo(fixedRoute: {
     phone: string
   } | null
   contractType: string
-  revenueDaily?: number
-  costDaily?: number
-  weekdayPattern?: number[]
+  revenueDaily?: number | null
+  costDaily?: number | null
+  weekdayPattern?: number[] | null
 }) {
   const lines = [`🛣️ 노선: ${fixedRoute.routeName}`]
   
@@ -151,6 +151,105 @@ export function formatFixedRouteInfo(fixedRoute: {
     const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토']
     const days = fixedRoute.weekdayPattern.map(day => weekdayLabels[day]).join(', ')
     lines.push(`📅 운행요일: ${days}`)
+  }
+  
+  return lines.join('\n')
+}
+
+// 운행 정보 텍스트 포맷
+export function formatTripInfo(trip: {
+  date: string
+  status: string
+  driver: {
+    name: string
+    phone: string
+  }
+  vehicle: {
+    plateNumber: string
+    vehicleType: string
+  }
+  routeTemplate?: {
+    name: string
+    loadingPoint: string
+    unloadingPoint: string
+  } | null
+  customRoute?: {
+    loadingPoint: string
+    unloadingPoint: string
+  } | null
+  driverFare: string
+  billingFare: string
+  deductionAmount?: string
+  substituteFare?: string
+  substituteDriver?: {
+    name: string
+  } | null
+  absenceReason?: string
+  remarks?: string
+}) {
+  const formatCurrency = (amount: string) => {
+    return new Intl.NumberFormat('ko-KR', {
+      style: 'currency',
+      currency: 'KRW'
+    }).format(parseInt(amount))
+  }
+
+  const statusLabels: Record<string, string> = {
+    'SCHEDULED': '예정',
+    'COMPLETED': '완료',
+    'ABSENCE': '결행',
+    'SUBSTITUTE': '대차'
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      weekday: 'short'
+    })
+  }
+
+  const lines = [
+    `🚛 운행 정보`,
+    `📅 운행일: ${formatDate(trip.date)}`,
+    `📊 상태: ${statusLabels[trip.status] || trip.status}`
+  ]
+  
+  lines.push(`👤 기사: ${trip.driver.name}`)
+  lines.push(`📞 연락처: ${trip.driver.phone}`)
+  lines.push(`🚗 차량: ${trip.vehicle.plateNumber} (${trip.vehicle.vehicleType})`)
+  
+  if (trip.routeTemplate) {
+    lines.push(`🛣️ 노선: ${trip.routeTemplate.name}`)
+    lines.push(`📍 경로: ${trip.routeTemplate.loadingPoint} → ${trip.routeTemplate.unloadingPoint}`)
+  } else if (trip.customRoute) {
+    lines.push(`🛣️ 노선: 커스텀`)
+    lines.push(`📍 경로: ${trip.customRoute.loadingPoint} → ${trip.customRoute.unloadingPoint}`)
+  }
+  
+  lines.push(`💰 기사요금: ${formatCurrency(trip.driverFare)}`)
+  lines.push(`💳 청구요금: ${formatCurrency(trip.billingFare)}`)
+  
+  if (trip.deductionAmount) {
+    lines.push(`💸 차감액: ${formatCurrency(trip.deductionAmount)}`)
+  }
+  
+  if (trip.substituteFare) {
+    lines.push(`🔄 대차요금: ${formatCurrency(trip.substituteFare)}`)
+  }
+  
+  if (trip.substituteDriver) {
+    lines.push(`🔄 대차기사: ${trip.substituteDriver.name}`)
+  }
+  
+  if (trip.absenceReason) {
+    lines.push(`❌ 결행사유: ${trip.absenceReason}`)
+  }
+  
+  if (trip.remarks) {
+    lines.push(`📝 비고: ${trip.remarks}`)
   }
   
   return lines.join('\n')
@@ -324,12 +423,4 @@ export function checkKakaoStatus() {
 // 전역에 디버깅 함수 추가 (개발환경에서만)
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).checkKakaoStatus = checkKakaoStatus
-  (window as any).testKakaoShare = async () => {
-    try {
-      await shareToKakao('테스트', '카카오톡 공유 테스트입니다')
-      console.log('테스트 공유 성공')
-    } catch (error) {
-      console.error('테스트 공유 실패:', error)
-    }
-  }
 }

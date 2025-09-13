@@ -7,7 +7,17 @@ import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
  * POST /api/loading-points/[id]/activate - 상차지 활성화
  */
 export const POST = withAuth(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, context: { params?: any } = {}) => {
+    const { params } = context
+    if (!params?.id) {
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'MISSING_ID',
+          message: '상차지 ID가 필요합니다'
+        }
+      }, { status: 400 })
+    }
     try {
       const user = await getCurrentUser(req)
       if (!user) {
@@ -25,7 +35,7 @@ export const POST = withAuth(
       // 기존 상차지 조회 (Raw SQL)
       const existingResult = await prisma.$queryRaw`
         SELECT * FROM loading_points WHERE id = ${id} LIMIT 1
-      `
+      ` as any[]
       
       if (!existingResult[0]) {
         return NextResponse.json({
@@ -72,5 +82,5 @@ export const POST = withAuth(
       }, { status: 500 })
     }
   },
-  { resource: 'routes', action: 'update' }
+  { resource: 'loading-points', action: 'update' }
 )

@@ -143,7 +143,7 @@ export async function requireDispatchPermission(req: NextRequest): Promise<AuthU
  */
 export async function createAuditLog(
   user: AuthUser,
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'IMPORT' | 'EXPORT' | 'CONFIRM',
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'IMPORT' | 'EXPORT' | 'CONFIRM' | 'ACTIVATE' | 'DEACTIVATE',
   entityType: string,
   entityId: string,
   changes?: any,

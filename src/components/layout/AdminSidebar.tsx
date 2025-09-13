@@ -45,6 +45,13 @@ const navigation = [
     description: '고정노선 관리'
   },
   { 
+    name: '용차 관리', 
+    href: '/trips', 
+    icon: Truck,
+    badge: 'NEW',
+    description: '일일 운행 기록'
+  },
+  { 
     name: '상차지 관리', 
     href: '/loading-points', 
     icon: Building2,
@@ -52,18 +59,11 @@ const navigation = [
     description: '상차지 등록 및 관리'
   },
   { 
-    name: '차량 관리', 
+    name: '하차지 관리', 
     href: '/vehicles', 
-    icon: Truck,
+    icon: MapPin,
     badge: null,
     description: '차량 정보 및 배정'
-  },
-  { 
-    name: '운행 관리', 
-    href: '/trips', 
-    icon: MapPin,
-    badge: 'NEW',
-    description: '일일 운행 기록'
   },
   { 
     name: '정산 관리', 

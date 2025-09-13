@@ -50,7 +50,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Kakao API proxy error:', error)
     return NextResponse.json(
-      { error: 'Failed to search address', details: error.message },
+      { 
+        error: 'Failed to search address', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
       { status: 500 }
     )
   }

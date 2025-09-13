@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        <script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
+        <script src="https://developers.kakao.com/sdk/js/kakao.js" async></script>
       </head>
       <body className={inter.className}>
         <KakaoScript />

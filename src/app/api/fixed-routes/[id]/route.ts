@@ -1,245 +1,231 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ZodError } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { FixedRouteService } from '@/lib/services/fixed-route.service'
+import { withAuth } from '@/lib/auth/rbac'
+import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { UpdateFixedRouteSchema } from '@/lib/validations/fixedRoute'
-import { getCurrentUser } from '@/lib/auth/server'
 
-// GET /api/fixed-routes/[id] - 고정노선 상세 조회
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const user = await getCurrentUser(request)
-    
-    if (!user) {
-      return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: '로그인이 필요합니다' } }, { status: 401 })
-    }
+const fixedRouteService = new FixedRouteService(prisma)
 
-    const { id } = params
+export const runtime = 'nodejs'
 
-    const routeTemplate = await prisma.routeTemplate.findUnique({
-      where: { id },
-      include: {
-        loadingPointRef: {
-          select: {
-            id: true,
-            centerName: true,
-            loadingPointName: true,
+/**
+ * GET /api/fixed-routes/[id] - 고정노선 상세 조회
+ */
+export const GET = withAuth(
+  async (req: NextRequest, context: { params?: any }) => {
+    try {
+      const { id } = context.params || {}
+      
+      const fixedRoute = await fixedRouteService.getFixedRouteById(id)
+      
+      if (!fixedRoute) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '고정노선을 찾을 수 없습니다'
           }
+        }, { status: 404 })
+      }
+      
+      return NextResponse.json({ ok: true, data: fixedRoute })
+    } catch (error) {
+      console.error('Failed to get fixed route:', error)
+      
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '고정노선 조회 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
+    }
+  },
+  { resource: 'fixed_routes', action: 'read' }
+)
+
+/**
+ * PUT /api/fixed-routes/[id] - 고정노선 수정
+ */
+export const PUT = withAuth(
+  async (req: NextRequest, context: { params?: any }) => {
+    try {
+      const user = await getCurrentUser(req)
+      if (!user) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '로그인이 필요합니다'
+          }
+        }, { status: 401 })
+      }
+
+      const { id } = context.params || {}
+      
+      // 기존 데이터 조회 (감사 로그용)
+      const existingRoute = await fixedRouteService.getFixedRouteById(id)
+      if (!existingRoute) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '고정노선을 찾을 수 없습니다'
+          }
+        }, { status: 404 })
+      }
+
+      // 요청 데이터 검증
+      const body = await req.json()
+      const data = UpdateFixedRouteSchema.parse(body)
+      
+      // 고정노선 수정
+      const updatedRoute = await fixedRouteService.updateFixedRoute(id, data)
+      
+      // 감사 로그 기록
+      await createAuditLog(
+        user,
+        'UPDATE',
+        'FixedRoute',
+        id,
+        {
+          before: existingRoute,
+          after: data,
+          changed: Object.keys(data)
         },
-        defaultDriver: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            vehicleNumber: true,
+        { source: 'web_api' }
+      )
+      
+      return NextResponse.json({ ok: true, data: updatedRoute })
+    } catch (error) {
+      console.error('Failed to update fixed route:', error)
+      
+      if (error instanceof ZodError) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: '입력 데이터가 올바르지 않습니다',
+            details: error.errors
           }
-        }
+        }, { status: 400 })
       }
-    })
-
-    if (!routeTemplate) {
-      return NextResponse.json(
-        { ok: false, error: { code: 'NOT_FOUND', message: '고정노선을 찾을 수 없습니다' } },
-        { status: 404 }
-      )
-    }
-
-    // RouteTemplate을 FixedRoute 형식으로 변환
-    const fixedRoute = {
-      id: routeTemplate.id,
-      loadingPointId: routeTemplate.loadingPointId || '',
-      routeName: routeTemplate.name,
-      assignedDriverId: routeTemplate.defaultDriverId,
-      weekdayPattern: routeTemplate.weekdayPattern,
-      contractType: 'FIXED_DAILY',
-      revenueDaily: routeTemplate.billingFare,
-      costDaily: routeTemplate.driverFare,
-      isActive: routeTemplate.isActive,
-      createdAt: routeTemplate.createdAt.toISOString(),
-      updatedAt: routeTemplate.updatedAt.toISOString(),
-      loadingPoint: routeTemplate.loadingPointRef,
-      assignedDriver: routeTemplate.defaultDriver
-    }
-
-    return NextResponse.json({
-      ok: true,
-      data: {
-        ...fixedRoute,
-        createdAt: fixedRoute.createdAt.toISOString(),
-        updatedAt: fixedRoute.updatedAt.toISOString(),
-      }
-    })
-
-  } catch (error) {
-    console.error('고정노선 조회 실패:', error)
-    return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL_ERROR', message: '서버 오류가 발생했습니다' } },
-      { status: 500 }
-    )
-  }
-}
-
-// PUT /api/fixed-routes/[id] - 고정노선 수정
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const user = await getCurrentUser(request)
-    
-    if (!user) {
-      return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: '로그인이 필요합니다' } }, { status: 401 })
-    }
-
-    const { id } = params
-    const body = await request.json()
-    const validatedData = UpdateFixedRouteSchema.parse(body)
-
-    // 기존 데이터 확인
-    const existingRoute = await prisma.routeTemplate.findUnique({
-      where: { id }
-    })
-
-    if (!existingRoute) {
-      return NextResponse.json(
-        { ok: false, error: { code: 'NOT_FOUND', message: '고정노선을 찾을 수 없습니다' } },
-        { status: 404 }
-      )
-    }
-
-    // 중복 체크 (다른 고정노선과 같은 상차지 + 노선명)
-    if (validatedData.loadingPointId && validatedData.routeName) {
-      const duplicateRoute = await prisma.fixedRoute.findFirst({
-        where: {
-          id: { not: id },
-          loadingPointId: validatedData.loadingPointId,
-          routeName: validatedData.routeName,
-          isActive: true
+      
+      if (error instanceof Error) {
+        // 중복 체크
+        if (error.message.includes('이미 등록된') || error.message.includes('중복')) {
+          return NextResponse.json({
+            ok: false,
+            error: {
+              code: 'DUPLICATE_ERROR',
+              message: error.message
+            }
+          }, { status: 409 })
         }
+        
+        // 비즈니스 로직 오류
+        if (error.message.includes('찾을 수 없습니다') || error.message.includes('배정되어 있습니다')) {
+          return NextResponse.json({
+            ok: false,
+            error: {
+              code: 'BUSINESS_ERROR',
+              message: error.message
+            }
+          }, { status: 400 })
+        }
+        
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error.message
+          }
+        }, { status: 500 })
+      }
+      
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '고정노선 수정 중 오류가 발생했습니다'
+        }
+      }, { status: 500 })
+    }
+  },
+  { resource: 'fixed_routes', action: 'update' }
+)
+
+/**
+ * DELETE /api/fixed-routes/[id] - 고정노선 삭제 (소프트 삭제)
+ */
+export const DELETE = withAuth(
+  async (req: NextRequest, context: { params?: any }) => {
+    try {
+      const user = await getCurrentUser(req)
+      if (!user) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '로그인이 필요합니다'
+          }
+        }, { status: 401 })
+      }
+
+      const { id } = context.params || {}
+      
+      // 기존 데이터 조회 (감사 로그용)
+      const existingRoute = await fixedRouteService.getFixedRouteById(id)
+      if (!existingRoute) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: '고정노선을 찾을 수 없습니다'
+          }
+        }, { status: 404 })
+      }
+      
+      // 고정노선 삭제 (소프트 삭제)
+      await fixedRouteService.deleteFixedRoute(id)
+      
+      // 감사 로그 기록
+      await createAuditLog(
+        user,
+        'DELETE',
+        'FixedRoute',
+        id,
+        { deleted: existingRoute },
+        { source: 'web_api', type: 'soft_delete' }
+      )
+      
+      return NextResponse.json({
+        ok: true,
+        data: { message: '고정노선이 삭제되었습니다' }
       })
-
-      if (duplicateRoute) {
-        return NextResponse.json(
-          { ok: false, error: { code: 'DUPLICATE_ROUTE', message: '이미 등록된 노선입니다' } },
-          { status: 400 }
-        )
-      }
-    }
-
-    // 배정기사 중복 체크
-    if (validatedData.assignedDriverId && validatedData.weekdayPattern) {
-      const conflictRoute = await prisma.fixedRoute.findFirst({
-        where: {
-          id: { not: id },
-          assignedDriverId: validatedData.assignedDriverId,
-          isActive: true,
-          weekdayPattern: {
-            hasSome: validatedData.weekdayPattern
+    } catch (error) {
+      console.error('Failed to delete fixed route:', error)
+      
+      if (error instanceof Error) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error.message
           }
+        }, { status: 500 })
+      }
+      
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: '고정노선 삭제 중 오류가 발생했습니다'
         }
-      })
-
-      if (conflictRoute) {
-        return NextResponse.json(
-          { ok: false, error: { code: 'DRIVER_CONFLICT', message: '해당 기사는 같은 요일에 이미 배정되어 있습니다' } },
-          { status: 400 }
-        )
-      }
+      }, { status: 500 })
     }
-
-    const updatedRoute = await prisma.fixedRoute.update({
-      where: { id },
-      data: validatedData,
-      include: {
-        loadingPoint: {
-          select: {
-            id: true,
-            centerName: true,
-            loadingPointName: true,
-          }
-        },
-        assignedDriver: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            vehicleNumber: true,
-          }
-        },
-        creator: {
-          select: {
-            id: true,
-            name: true,
-          }
-        }
-      }
-    })
-
-    return NextResponse.json({
-      ok: true,
-      data: {
-        ...updatedRoute,
-        createdAt: updatedRoute.createdAt.toISOString(),
-        updatedAt: updatedRoute.updatedAt.toISOString(),
-      }
-    })
-
-  } catch (error) {
-    console.error('고정노선 수정 실패:', error)
-    
-    if (error instanceof Error && error.name === 'ZodError') {
-      return NextResponse.json(
-        { ok: false, error: { code: 'VALIDATION_ERROR', message: '입력 데이터가 올바르지 않습니다', details: error } },
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL_ERROR', message: '서버 오류가 발생했습니다' } },
-      { status: 500 }
-    )
-  }
-}
-
-// DELETE /api/fixed-routes/[id] - 고정노선 삭제 (비활성화)
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const user = await getCurrentUser(request)
-    
-    if (!user) {
-      return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: '로그인이 필요합니다' } }, { status: 401 })
-    }
-
-    const { id } = params
-
-    const existingRoute = await prisma.routeTemplate.findUnique({
-      where: { id }
-    })
-
-    if (!existingRoute) {
-      return NextResponse.json(
-        { ok: false, error: { code: 'NOT_FOUND', message: '고정노선을 찾을 수 없습니다' } },
-        { status: 404 }
-      )
-    }
-
-    // Soft delete - isActive를 false로 설정
-    await prisma.routeTemplate.update({
-      where: { id },
-      data: { isActive: false }
-    })
-
-    return NextResponse.json({ ok: true, message: '고정노선이 비활성화되었습니다' })
-
-  } catch (error) {
-    console.error('고정노선 삭제 실패:', error)
-    return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL_ERROR', message: '서버 오류가 발생했습니다' } },
-      { status: 500 }
-    )
-  }
-}
+  },
+  { resource: 'fixed_routes', action: 'delete' }
+)

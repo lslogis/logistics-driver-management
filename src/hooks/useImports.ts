@@ -603,3 +603,223 @@ export function useRoutesImportWorkflow() {
     resetProgress
   }
 }
+
+// Loading Points import hooks
+export function useValidateLoadingPointsCSV() {
+  return useMutation<ImportResponse, Error, File>({
+    mutationFn: (file: File) => importsAPI.validateLoadingPointsCSV(file),
+    onSuccess: (data) => {
+      const results = data.data.results
+      toast.success(`검증 완료: ${results.valid}개 유효, ${results.invalid}개 오류`)
+    },
+    onError: (error: Error) => {
+      toast.error(`검증 실패: ${error.message}`)
+    }
+  })
+}
+
+export function useImportLoadingPointsCSV() {
+  const queryClient = useQueryClient()
+  
+  return useMutation<ImportResponse, Error, File>({
+    mutationFn: (file: File) => importsAPI.importLoadingPointsCSV(file),
+    onSuccess: (data) => {
+      const results = data.data.results
+      toast.success(`가져오기 완료: ${results.imported}개 상차지가 등록되었습니다`)
+      queryClient.invalidateQueries({ queryKey: ['loading-points'] })
+    },
+    onError: (error: Error) => {
+      toast.error(`가져오기 실패: ${error.message}`)
+    }
+  })
+}
+
+export function useDownloadLoadingPointTemplate() {
+  return useMutation<Blob, Error, void>({
+    mutationFn: () => importsAPI.downloadLoadingPointTemplate(),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = '상차지등록템플릿.csv'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      toast.success('템플릿 다운로드 완료')
+    },
+    onError: (error: Error) => {
+      toast.error(`템플릿 다운로드 실패: ${error.message}`)
+    }
+  })
+}
+
+// Loading Points import workflow
+export function useLoadingPointsImportWorkflow() {
+  const validateMutation = useValidateLoadingPointsCSV()
+  const importMutation = useImportLoadingPointsCSV()
+  const downloadTemplateMutation = useDownloadLoadingPointTemplate()
+  const { progress, isUploading, uploadError, resetProgress, simulateProgress, completeProgress, setError } = useFileUploadProgress()
+  const { validateFile } = useFileValidation()
+
+  const validate = useCallback(async (file: File) => {
+    const validation = validateFile(file)
+    if (!validation.isValid) {
+      setError(validation.error!)
+      return null
+    }
+
+    const cleanup = simulateProgress()
+    try {
+      const result = await validateMutation.mutateAsync(file)
+      completeProgress()
+      cleanup()
+      return result
+    } catch (error) {
+      cleanup()
+      setError(error instanceof Error ? error.message : '검증 중 오류가 발생했습니다')
+      throw error
+    }
+  }, [validateMutation, validateFile, simulateProgress, completeProgress, setError])
+
+  const importData = useCallback(async (file: File) => {
+    const validation = validateFile(file)
+    if (!validation.isValid) {
+      setError(validation.error!)
+      return null
+    }
+
+    const cleanup = simulateProgress()
+    try {
+      const result = await importMutation.mutateAsync(file)
+      completeProgress()
+      cleanup()
+      return result
+    } catch (error) {
+      cleanup()
+      setError(error instanceof Error ? error.message : '가져오기 중 오류가 발생했습니다')
+      throw error
+    }
+  }, [importMutation, validateFile, simulateProgress, completeProgress, setError])
+
+  return {
+    validate,
+    importData,
+    downloadTemplate: () => downloadTemplateMutation.mutate(),
+    isLoading: validateMutation.isPending || importMutation.isPending || downloadTemplateMutation.isPending,
+    progress,
+    isUploading,
+    uploadError,
+    resetProgress
+  }
+}
+
+// Fixed Routes import hooks
+export function useValidateFixedRoutesCSV() {
+  return useMutation<ImportResponse, Error, File>({
+    mutationFn: (file: File) => importsAPI.validateFixedRoutesCSV(file),
+    onSuccess: (data) => {
+      const results = data.data.results
+      toast.success(`검증 완료: ${results.valid}개 유효, ${results.invalid}개 오류`)
+    },
+    onError: (error: Error) => {
+      toast.error(`검증 실패: ${error.message}`)
+    }
+  })
+}
+
+export function useImportFixedRoutesCSV() {
+  const queryClient = useQueryClient()
+  
+  return useMutation<ImportResponse, Error, File>({
+    mutationFn: (file: File) => importsAPI.importFixedRoutesCSV(file),
+    onSuccess: (data) => {
+      const results = data.data.results
+      toast.success(`가져오기 완료: ${results.imported}개 고정노선이 등록되었습니다`)
+      queryClient.invalidateQueries({ queryKey: ['fixed-routes'] })
+    },
+    onError: (error: Error) => {
+      toast.error(`가져오기 실패: ${error.message}`)
+    }
+  })
+}
+
+export function useDownloadFixedRouteTemplate() {
+  return useMutation<Blob, Error, void>({
+    mutationFn: () => importsAPI.downloadFixedRouteTemplate(),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = '고정노선등록템플릿.csv'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      toast.success('템플릿 다운로드 완료')
+    },
+    onError: (error: Error) => {
+      toast.error(`템플릿 다운로드 실패: ${error.message}`)
+    }
+  })
+}
+
+// Fixed Routes import workflow
+export function useFixedRoutesImportWorkflow() {
+  const validateMutation = useValidateFixedRoutesCSV()
+  const importMutation = useImportFixedRoutesCSV()
+  const downloadTemplateMutation = useDownloadFixedRouteTemplate()
+  const { progress, isUploading, uploadError, resetProgress, simulateProgress, completeProgress, setError } = useFileUploadProgress()
+  const { validateFile } = useFileValidation()
+
+  const validate = useCallback(async (file: File) => {
+    const validation = validateFile(file)
+    if (!validation.isValid) {
+      setError(validation.error!)
+      return null
+    }
+
+    const cleanup = simulateProgress()
+    try {
+      const result = await validateMutation.mutateAsync(file)
+      completeProgress()
+      cleanup()
+      return result
+    } catch (error) {
+      cleanup()
+      setError(error instanceof Error ? error.message : '검증 중 오류가 발생했습니다')
+      throw error
+    }
+  }, [validateMutation, validateFile, simulateProgress, completeProgress, setError])
+
+  const importData = useCallback(async (file: File) => {
+    const validation = validateFile(file)
+    if (!validation.isValid) {
+      setError(validation.error!)
+      return null
+    }
+
+    const cleanup = simulateProgress()
+    try {
+      const result = await importMutation.mutateAsync(file)
+      completeProgress()
+      cleanup()
+      return result
+    } catch (error) {
+      cleanup()
+      setError(error instanceof Error ? error.message : '가져오기 중 오류가 발생했습니다')
+      throw error
+    }
+  }, [importMutation, validateFile, simulateProgress, completeProgress, setError])
+
+  return {
+    validate,
+    importData,
+    downloadTemplate: () => downloadTemplateMutation.mutate(),
+    isLoading: validateMutation.isPending || importMutation.isPending || downloadTemplateMutation.isPending,
+    progress,
+    isUploading,
+    uploadError,
+    resetProgress
+  }
+}

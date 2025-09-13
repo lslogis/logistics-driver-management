@@ -7,11 +7,19 @@ import { FixedRouteResponse, ContractTypeLabels, WeekdayLabels } from '@/lib/val
 // FixedRoute extends BaseItem
 export interface FixedRouteItem extends BaseItem {
   routeName: string
+  centerName: string
+  loadingPointName: string
+  assignedDriverName?: string | null
   assignedDriverId?: string
   weekdayPattern?: number[]
   contractType: string
   revenueDaily?: number
   costDaily?: number
+  revenueMonthly?: number
+  costMonthly?: number
+  driverPhone?: string | null
+  vehicleNumber?: string | null
+  remarks?: string | null
   loadingPoint?: {
     centerName: string
     loadingPointName: string
@@ -25,10 +33,19 @@ export interface FixedRouteItem extends BaseItem {
 // Table columns for fixed routes
 export const getFixedRouteColumns = (): TableColumn<FixedRouteItem>[] => [
   {
+    key: 'centerName',
+    header: '센터명',
+    render: (item) => (
+      <div className="text-sm text-gray-900 text-center">
+        {item.centerName}
+      </div>
+    )
+  },
+  {
     key: 'routeName',
     header: '노선명',
     render: (item) => (
-      <div>
+      <div className="text-center">
         <div className="text-sm font-medium text-gray-900">{item.routeName}</div>
         {!item.isActive && (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
@@ -39,20 +56,29 @@ export const getFixedRouteColumns = (): TableColumn<FixedRouteItem>[] => [
     )
   },
   {
-    key: 'loadingPoint',
-    header: '센터/상차지',
+    key: 'assignedDriverName',
+    header: '배정기사',
     render: (item) => (
-      <div className="text-sm text-gray-900">
-        {item.loadingPoint ? `${item.loadingPoint.centerName} ${item.loadingPoint.loadingPointName}` : '-'}
+      <div className="text-sm text-gray-900 text-center">
+        {item.assignedDriverName || '-'}
       </div>
     )
   },
   {
-    key: 'assignedDriver',
-    header: '배정기사',
+    key: 'vehicleNumber',
+    header: '차량번호',
     render: (item) => (
-      <div className="text-sm text-gray-900">
-        {item.assignedDriver ? item.assignedDriver.name : '-'}
+      <div className="text-sm text-gray-900 text-center">
+        {item.vehicleNumber || '-'}
+      </div>
+    )
+  },
+  {
+    key: 'driverPhone',
+    header: '전화번호',
+    render: (item) => (
+      <div className="text-sm text-gray-900 text-center">
+        {item.driverPhone || '-'}
       </div>
     )
   },
@@ -60,7 +86,7 @@ export const getFixedRouteColumns = (): TableColumn<FixedRouteItem>[] => [
     key: 'contractType',
     header: '계약형태',
     render: (item) => (
-      <div className="text-sm text-gray-900">
+      <div className="text-sm text-gray-900 text-center">
         {ContractTypeLabels[item.contractType as keyof typeof ContractTypeLabels] || item.contractType}
       </div>
     )
@@ -69,26 +95,41 @@ export const getFixedRouteColumns = (): TableColumn<FixedRouteItem>[] => [
     key: 'weekdayPattern',
     header: '운행요일',
     render: (item) => (
-      <div className="text-sm text-gray-900">
+      <div className="text-sm text-gray-900 text-center">
         {item.weekdayPattern?.map(day => WeekdayLabels[day]).join(', ') || '-'}
       </div>
     )
   },
   {
-    key: 'revenueDaily',
-    header: '일매출',
+    key: 'revenue',
+    header: '매출',
     render: (item) => (
-      <div className="text-sm text-gray-900">
-        {item.revenueDaily ? `${item.revenueDaily.toLocaleString()}원` : '-'}
+      <div className="text-sm text-gray-900 text-center">
+        {item.contractType === 'FIXED_DAILY' && item.revenueDaily ? 
+          `일 ${item.revenueDaily.toLocaleString()}원` : 
+          item.contractType === 'FIXED_MONTHLY' && item.revenueMonthly ? 
+          `월 ${item.revenueMonthly.toLocaleString()}원` : '-'}
       </div>
     )
   },
   {
-    key: 'costDaily',
-    header: '일비용',
+    key: 'cost',
+    header: '매입',
     render: (item) => (
-      <div className="text-sm text-gray-900">
-        {item.costDaily ? `${item.costDaily.toLocaleString()}원` : '-'}
+      <div className="text-sm text-gray-900 text-center">
+        {item.contractType === 'FIXED_DAILY' && item.costDaily ? 
+          `일 ${item.costDaily.toLocaleString()}원` : 
+          item.contractType === 'FIXED_MONTHLY' && item.costMonthly ? 
+          `월 ${item.costMonthly.toLocaleString()}원` : '-'}
+      </div>
+    )
+  },
+  {
+    key: 'remarks',
+    header: '비고',
+    render: (item) => (
+      <div className="text-sm text-gray-900 text-center max-w-32 truncate" title={item.remarks || ''}>
+        {item.remarks || '-'}
       </div>
     )
   }
@@ -128,7 +169,7 @@ export const getFixedRouteContextMenuItems = (
   },
   {
     id: 'call',
-    label: '전화 걸기',
+    label: fixedRoute.assignedDriver?.name ? `${fixedRoute.assignedDriver.name}님께 전화` : '전화 걸기',
     icon: <Phone className="h-4 w-4" />,
     onClick: () => fixedRoute.assignedDriver?.phone && handlers.onPhoneCall(fixedRoute, fixedRoute.assignedDriver.phone),
     disabled: !fixedRoute.assignedDriver?.phone

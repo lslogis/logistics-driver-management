@@ -14,6 +14,16 @@ const nextConfig = {
     // 빌드 시 ESLint 에러가 있어도 계속 진행 (개발 단계)
     ignoreDuringBuilds: false,
   },
+  // 개발 모드에서 파일 감지 개선 (Docker/WSL 환경)
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.watchOptions = {
+        poll: 1000, // 1초마다 파일 변경 확인
+        aggregateTimeout: 300, // 300ms 후 재빌드
+      }
+    }
+    return config
+  },
   // 보안 헤더 설정
   async headers() {
     return [

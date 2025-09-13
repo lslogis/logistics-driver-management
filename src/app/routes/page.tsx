@@ -384,7 +384,7 @@ export default function RoutesPage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-slate-600 mb-4">
-              {error instanceof Error ? error.message : '알 수 없는 오류'}
+              {error && typeof error === 'object' && 'message' in error ? (error as Error).message : '알 수 없는 오류'}
             </p>
             <Button onClick={() => window.location.reload()}>
               새로고침

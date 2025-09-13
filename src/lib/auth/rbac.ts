@@ -27,6 +27,22 @@ export const permissions = {
     update: [UserRole.ADMIN, UserRole.DISPATCHER],
     delete: [UserRole.ADMIN]
   },
+
+  // 고정노선 관리
+  fixed_routes: {
+    create: [UserRole.ADMIN, UserRole.DISPATCHER],
+    read: [UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT],
+    update: [UserRole.ADMIN, UserRole.DISPATCHER],
+    delete: [UserRole.ADMIN]
+  },
+
+  // 상차지 관리
+  'loading-points': {
+    create: [UserRole.ADMIN, UserRole.DISPATCHER],
+    read: [UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT],
+    update: [UserRole.ADMIN, UserRole.DISPATCHER],
+    delete: [UserRole.ADMIN]
+  },
   
   // 운행 관리
   trips: {

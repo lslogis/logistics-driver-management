@@ -94,10 +94,10 @@ export const IMPORT_TYPE_CONFIGS: Record<ImportType, ImportTypeConfig> = {
     icon: 'navigation'
   },
   trips: {
-    title: '운행 가져오기',
-    description: 'CSV 또는 Excel 파일로 운행 정보를 일괄 등록할 수 있습니다.',
-    templateFileName: '운행등록템플릿.csv',
-    acceptedFileTypes: ['.csv', '.xlsx', '.xls'],
+    title: '용차 가져오기',
+    description: 'Excel 파일로 용차 정보를 일괄 등록할 수 있습니다.',
+    templateFileName: '용차등록템플릿.xlsx',
+    acceptedFileTypes: ['.xlsx', '.xls'],
     maxFileSize: 10,
     sampleFields: ['날짜', '기사명', '차량번호', '노선명', '상태', '기사요금', '청구요금'],
     icon: 'calendar'

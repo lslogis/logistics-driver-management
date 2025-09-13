@@ -7,12 +7,13 @@ export interface LoadingPointResponse {
   id: string
   centerName: string
   loadingPointName: string
-  lotAddress?: string
-  roadAddress?: string
-  manager1?: string
-  manager2?: string
-  phone1?: string
-  phone2?: string
+  lotAddress?: string | null
+  roadAddress?: string | null
+  manager1?: string | null
+  manager2?: string | null
+  phone1?: string | null
+  phone2?: string | null
+  remarks?: string | null
   isActive: boolean
   createdAt: string
   updatedAt: string

@@ -56,7 +56,7 @@ export const POST = withAuth(
         // 감사 로그 기록
         await createAuditLog(
           user,
-          'BULK_UPDATE',
+          'ACTIVATE',
           'LoadingPoint',
           ids.join(','),
           { action: 'activate', count: ids.length },
@@ -82,7 +82,7 @@ export const POST = withAuth(
         // 감사 로그 기록
         await createAuditLog(
           user,
-          'BULK_UPDATE',
+          'DEACTIVATE',
           'LoadingPoint',
           ids.join(','),
           { action: 'deactivate', count: ids.length },
@@ -107,7 +107,7 @@ export const POST = withAuth(
         // 감사 로그 기록
         await createAuditLog(
           user,
-          'BULK_DELETE',
+          'DELETE',
           'LoadingPoint',
           ids.join(','),
           { action: 'delete', count: ids.length },
@@ -122,6 +122,15 @@ export const POST = withAuth(
           }
         })
       }
+
+      // 예상치 못한 경우에 대한 기본 응답
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'INVALID_ACTION',
+          message: '지원하지 않는 작업입니다'
+        }
+      }, { status: 400 })
       
     } catch (error) {
       console.error('Failed to bulk process loading points:', error)

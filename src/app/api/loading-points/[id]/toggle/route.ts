@@ -10,7 +10,17 @@ const loadingPointService = new LoadingPointService(prisma)
  * POST /api/loading-points/[id]/toggle - 상차지 활성화/비활성화 토글
  */
 export const POST = withAuth(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, context: { params?: any } = {}) => {
+    const { params } = context
+    if (!params?.id) {
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'MISSING_ID',
+          message: '상차지 ID가 필요합니다'
+        }
+      }, { status: 400 })
+    }
     try {
       const user = await getCurrentUser(req)
       if (!user) {

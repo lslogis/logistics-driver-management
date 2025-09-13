@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useRoutesImportWorkflow, useFileValidation } from '@/hooks/useImports'
 import { ImportResult } from '@/lib/api/imports'
 import { UploadProgress } from '@/components/ui/progress'
-import { ImportResultsDisplay } from '@/components/ImportResultsDisplay'
+import { ImportResultsDisplay } from '@/components/import/ImportResultsDisplay'
 import { ErrorBoundary, ImportErrorDisplay } from '@/components/ErrorBoundary'
 
 

@@ -1,20 +1,26 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { tripsAPI } from '@/lib/api/trips'
 import { CreateTripData, UpdateTripData, GetTripsQuery } from '@/lib/validations/trip'
 import { toast } from 'react-hot-toast'
 
-export function useTrips(params: Partial<GetTripsQuery> = {}) {
-  const defaultParams: GetTripsQuery = {
-    page: 1,
-    limit: 20,
-    sortBy: 'date',
-    sortOrder: 'desc',
-    ...params
-  }
-  
-  return useQuery({
-    queryKey: ['trips', defaultParams],
-    queryFn: () => tripsAPI.getTrips(defaultParams),
+export function useTrips(params: Omit<Partial<GetTripsQuery>, 'page'> = {}) {
+  return useInfiniteQuery({
+    queryKey: ['trips', 'infinite', params],
+    queryFn: ({ pageParam = 1 }) => 
+      tripsAPI.getTrips({ 
+        page: pageParam, 
+        limit: 20, 
+        sortBy: 'date', 
+        sortOrder: 'desc', 
+        ...params 
+      }),
+    getNextPageParam: (lastPage) => {
+      if (lastPage.pagination.hasMore) {
+        return lastPage.pagination.page + 1
+      }
+      return undefined
+    },
+    initialPageParam: 1,
     staleTime: 5 * 60 * 1000
   })
 }
@@ -124,5 +130,18 @@ export function useTripStats(params: { dateFrom?: string; dateTo?: string } = {}
     queryKey: ['trips', 'stats', params],
     queryFn: () => tripsAPI.getTripStats(params),
     staleTime: 5 * 60 * 1000
+  })
+}
+
+export function useExportTrips() {
+  return useMutation({
+    mutationFn: (format: 'csv' | 'excel') => 
+      tripsAPI.exportTrips(format),
+    onSuccess: () => {
+      toast.success('내보내기가 완료되었습니다')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '내보내기 중 오류가 발생했습니다')
+    }
   })
 }

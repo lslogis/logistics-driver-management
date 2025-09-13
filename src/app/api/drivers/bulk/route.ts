@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { withAuth } from '@/lib/auth/server'
+import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { z } from 'zod'
 
 // 일괄 작업 스키마
@@ -15,9 +15,14 @@ const BulkDriverActionSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request)
+    
+    if (!user) {
+      return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: '로그인이 필요합니다' } }, { status: 401 })
+    }
 
-      const body = await request.json()
-      const { ids, action } = BulkDriverActionSchema.parse(body)
+    const body = await request.json()
+    const { ids, action } = BulkDriverActionSchema.parse(body)
 
       let result: any
       let message: string
@@ -160,18 +165,14 @@ export async function POST(request: NextRequest) {
 
           // 감사 로그 먼저 기록
           await Promise.all(deleteIds.map(id => 
-            prisma.auditLog.create({
-              data: {
-                action: 'DELETE',
-                entityType: 'Driver',
-                entityId: id,
-                userId: 'system', // 임시
-                userName: 'System User',
-                changes: {
-                  deleted: true
-                }
-              }
-            })
+            createAuditLog(
+              user,
+              'DELETE',
+              'Driver',
+              id,
+              { deleted: true },
+              { source: 'bulk_delete' }
+            )
           ))
 
           result = await prisma.driver.deleteMany({

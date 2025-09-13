@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export interface DriverFormProps {
-  driver?: DriverResponse
+  driver?: DriverResponse | null
   onSubmit: (data: any) => void
   isLoading: boolean
   onCancel: () => void
@@ -44,6 +44,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             required
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
 
@@ -58,6 +59,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             placeholder="010-1234-5678"
+            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
 
@@ -72,6 +74,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             value={formData.vehicleNumber}
             onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
             placeholder="예: 12가3456"
+            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
 
@@ -82,6 +85,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             id="businessName"
             value={formData.businessName}
             onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
 
@@ -92,6 +96,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             id="representative"
             value={formData.representative}
             onChange={(e) => setFormData({ ...formData, representative: e.target.value })}
+            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
 
@@ -103,6 +108,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             value={formData.businessNumber}
             onChange={(e) => setFormData({ ...formData, businessNumber: e.target.value })}
             placeholder="000-00-00000"
+            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
 
@@ -113,6 +119,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             id="bankName"
             value={formData.bankName}
             onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
 
@@ -124,6 +131,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             value={formData.accountNumber}
             onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
             placeholder="숫자만 입력"
+            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
           />
         </div>
       </div>
@@ -135,7 +143,8 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
           rows={3}
           value={formData.remarks}
           onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-          className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 resize-none"
+          placeholder="특이사항이나 추가 정보를 입력하세요"
         />
       </div>
 

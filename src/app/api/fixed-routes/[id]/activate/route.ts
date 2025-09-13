@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { FixedRouteService } from '@/lib/services/fixed-route.service'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { withAuth } from '@/lib/auth/rbac'
+
+const fixedRouteService = new FixedRouteService(prisma)
+
+export const runtime = 'nodejs'
 
 /**
  * POST /api/fixed-routes/[id]/activate - 고정노선 활성화
  */
 export const POST = withAuth(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, context: { params?: any }) => {
     try {
       const user = await getCurrentUser(req)
       if (!user) {
@@ -20,39 +25,10 @@ export const POST = withAuth(
         }, { status: 401 })
       }
 
-      const { id } = params
+      const { id } = context.params || {}
 
-      // 고정노선 존재 확인
-      const existingRoute = await prisma.routeTemplate.findUnique({
-        where: { id },
-        select: { id: true, name: true, isActive: true }
-      })
-
-      if (!existingRoute) {
-        return NextResponse.json({
-          ok: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: '고정노선을 찾을 수 없습니다'
-          }
-        }, { status: 404 })
-      }
-
-      if (existingRoute.isActive) {
-        return NextResponse.json({
-          ok: false,
-          error: {
-            code: 'ALREADY_ACTIVE',
-            message: '이미 활성화된 고정노선입니다'
-          }
-        }, { status: 400 })
-      }
-
-      // 활성화
-      await prisma.routeTemplate.update({
-        where: { id },
-        data: { isActive: true }
-      })
+      // 고정노선 활성화
+      const activatedRoute = await fixedRouteService.activateFixedRoute(id)
 
       // 감사 로그
       await createAuditLog(
@@ -62,27 +38,38 @@ export const POST = withAuth(
         id,
         {
           action: 'activate',
-          routeName: existingRoute.name
+          routeName: activatedRoute.routeName
         },
         {
-          source: 'fixed_route_activate'
+          source: 'web_api'
         }
       )
 
       return NextResponse.json({
         ok: true,
         data: {
-          message: '고정노선이 활성화되었습니다'
+          message: '고정노선이 활성화되었습니다',
+          fixedRoute: activatedRoute
         }
       })
 
     } catch (error) {
       console.error('Fixed route activation error:', error)
       
+      if (error instanceof Error) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: error.message
+          }
+        }, { status: 500 })
+      }
+      
       return NextResponse.json({
         ok: false,
         error: {
-          code: 'INTERNAL_SERVER_ERROR',
+          code: 'INTERNAL_ERROR',
           message: '고정노선 활성화 중 오류가 발생했습니다'
         }
       }, { status: 500 })

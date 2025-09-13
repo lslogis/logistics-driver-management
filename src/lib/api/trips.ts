@@ -98,6 +98,26 @@ export class TripsAPI {
     if (!result.ok) throw new Error(result.error.message)
     return result.data
   }
+
+  async exportTrips(format: 'csv' | 'excel') {
+    const response = await fetch(`/api/trips/export?format=${format}`)
+    
+    if (!response.ok) {
+      const result = await response.json()
+      throw new Error(result.error?.message || '내보내기에 실패했습니다')
+    }
+    
+    // 파일 다운로드 처리
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `trips-export-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  }
 }
 
 export const tripsAPI = new TripsAPI()

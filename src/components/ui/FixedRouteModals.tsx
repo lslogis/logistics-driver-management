@@ -201,13 +201,13 @@ export function CreateFixedRouteModal({
                       운행요일 <span className="text-red-500">*</span>
                     </label>
                     <div className="grid grid-cols-7 gap-2">
-                      {WeekdayLabels.map((day, index) => (
+                      {Object.entries(WeekdayLabels).map(([weekdayIndex, day]) => (
                         <button
-                          key={index}
+                          key={weekdayIndex}
                           type="button"
-                          onClick={() => handleWeekdayToggle(index)}
+                          onClick={() => handleWeekdayToggle(Number(weekdayIndex))}
                           className={`p-2 text-sm rounded-md border ${
-                            formData.weekdayPattern?.includes(index)
+                            formData.weekdayPattern?.includes(Number(weekdayIndex))
                               ? 'bg-blue-500 text-white border-blue-500'
                               : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                           }`}
@@ -227,7 +227,7 @@ export function CreateFixedRouteModal({
                         <input
                           type="number"
                           value={formData.revenueMonthlyWithExpense || ''}
-                          onChange={(e) => setFormData({ ...formData, revenueMonthlyWithExpense: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, revenueMonthlyWithExpense: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -237,7 +237,7 @@ export function CreateFixedRouteModal({
                         <input
                           type="number"
                           value={formData.costMonthlyWithExpense || ''}
-                          onChange={(e) => setFormData({ ...formData, costMonthlyWithExpense: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, costMonthlyWithExpense: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -253,7 +253,7 @@ export function CreateFixedRouteModal({
                         <input
                           type="number"
                           value={formData.revenueDaily || ''}
-                          onChange={(e) => setFormData({ ...formData, revenueDaily: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, revenueDaily: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -263,7 +263,7 @@ export function CreateFixedRouteModal({
                         <input
                           type="number"
                           value={formData.costDaily || ''}
-                          onChange={(e) => setFormData({ ...formData, costDaily: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, costDaily: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -279,7 +279,7 @@ export function CreateFixedRouteModal({
                         <input
                           type="number"
                           value={formData.revenueMonthly || ''}
-                          onChange={(e) => setFormData({ ...formData, revenueMonthly: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, revenueMonthly: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -289,7 +289,7 @@ export function CreateFixedRouteModal({
                         <input
                           type="number"
                           value={formData.costMonthly || ''}
-                          onChange={(e) => setFormData({ ...formData, costMonthly: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, costMonthly: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -371,12 +371,12 @@ export function EditFixedRouteModal({
         assignedDriverId: fixedRoute.assignedDriverId || undefined,
         weekdayPattern: fixedRoute.weekdayPattern,
         contractType: fixedRoute.contractType,
-        revenueMonthlyWithExpense: fixedRoute.revenueMonthlyWithExpense?.toString(),
-        revenueDaily: fixedRoute.revenueDaily?.toString(),
-        revenueMonthly: fixedRoute.revenueMonthly?.toString(),
-        costMonthlyWithExpense: fixedRoute.costMonthlyWithExpense?.toString(),
-        costDaily: fixedRoute.costDaily?.toString(),
-        costMonthly: fixedRoute.costMonthly?.toString(),
+        revenueMonthlyWithExpense: fixedRoute.revenueMonthlyWithExpense || 0,
+        revenueDaily: fixedRoute.revenueDaily || 0,
+        revenueMonthly: fixedRoute.revenueMonthly || 0,
+        costMonthlyWithExpense: fixedRoute.costMonthlyWithExpense || 0,
+        costDaily: fixedRoute.costDaily || 0,
+        costMonthly: fixedRoute.costMonthly || 0,
         remarks: fixedRoute.remarks || undefined,
       })
     }
@@ -541,13 +541,13 @@ export function EditFixedRouteModal({
                       운행요일 <span className="text-red-500">*</span>
                     </label>
                     <div className="grid grid-cols-7 gap-2">
-                      {WeekdayLabels.map((day, index) => (
+                      {Object.entries(WeekdayLabels).map(([weekdayIndex, day]) => (
                         <button
-                          key={index}
+                          key={weekdayIndex}
                           type="button"
-                          onClick={() => handleWeekdayToggle(index)}
+                          onClick={() => handleWeekdayToggle(Number(weekdayIndex))}
                           className={`p-2 text-sm rounded-md border ${
-                            formData.weekdayPattern?.includes(index)
+                            formData.weekdayPattern?.includes(Number(weekdayIndex))
                               ? 'bg-blue-500 text-white border-blue-500'
                               : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                           }`}
@@ -567,7 +567,7 @@ export function EditFixedRouteModal({
                         <input
                           type="number"
                           value={formData.revenueMonthlyWithExpense || ''}
-                          onChange={(e) => setFormData({ ...formData, revenueMonthlyWithExpense: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, revenueMonthlyWithExpense: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -577,7 +577,7 @@ export function EditFixedRouteModal({
                         <input
                           type="number"
                           value={formData.costMonthlyWithExpense || ''}
-                          onChange={(e) => setFormData({ ...formData, costMonthlyWithExpense: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, costMonthlyWithExpense: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -593,7 +593,7 @@ export function EditFixedRouteModal({
                         <input
                           type="number"
                           value={formData.revenueDaily || ''}
-                          onChange={(e) => setFormData({ ...formData, revenueDaily: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, revenueDaily: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -603,7 +603,7 @@ export function EditFixedRouteModal({
                         <input
                           type="number"
                           value={formData.costDaily || ''}
-                          onChange={(e) => setFormData({ ...formData, costDaily: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, costDaily: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -619,7 +619,7 @@ export function EditFixedRouteModal({
                         <input
                           type="number"
                           value={formData.revenueMonthly || ''}
-                          onChange={(e) => setFormData({ ...formData, revenueMonthly: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, revenueMonthly: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />
@@ -629,7 +629,7 @@ export function EditFixedRouteModal({
                         <input
                           type="number"
                           value={formData.costMonthly || ''}
-                          onChange={(e) => setFormData({ ...formData, costMonthly: e.target.value })}
+                          onChange={(e) => setFormData({ ...formData, costMonthly: Number(e.target.value) || 0 })}
                           placeholder="원"
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         />

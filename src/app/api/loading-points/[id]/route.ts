@@ -12,14 +12,24 @@ const loadingPointService = new LoadingPointService(prisma)
  * GET /api/loading-points/[id] - 상차지 상세 조회
  */
 export const GET = withAuth(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, context: { params?: any } = {}) => {
+    const { params } = context
+    if (!params?.id) {
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'MISSING_ID',
+          message: '상차지 ID가 필요합니다'
+        }
+      }, { status: 400 })
+    }
     try {
       const { id } = params
       
       // 상차지 조회 (Raw SQL)
       const result = await prisma.$queryRaw`
         SELECT * FROM loading_points WHERE id = ${id} LIMIT 1
-      `
+      ` as any[]
       
       if (!result[0]) {
         return NextResponse.json({
@@ -44,14 +54,24 @@ export const GET = withAuth(
       }, { status: 500 })
     }
   },
-  { resource: 'routes', action: 'read' }
+  { resource: 'loading-points', action: 'read' }
 )
 
 /**
  * PUT /api/loading-points/[id] - 상차지 수정
  */
 export const PUT = withAuth(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, context: { params?: any } = {}) => {
+    const { params } = context
+    if (!params?.id) {
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'MISSING_ID',
+          message: '상차지 ID가 필요합니다'
+        }
+      }, { status: 400 })
+    }
     try {
       const user = await getCurrentUser(req)
       if (!user) {
@@ -69,7 +89,7 @@ export const PUT = withAuth(
       // 기존 상차지 조회 (Raw SQL)
       const existingResult = await prisma.$queryRaw`
         SELECT * FROM loading_points WHERE id = ${id} LIMIT 1
-      `
+      ` as any[]
       
       if (!existingResult[0]) {
         return NextResponse.json({
@@ -103,7 +123,7 @@ export const PUT = withAuth(
           "updatedAt" = NOW()
         WHERE id = ${id}
         RETURNING *
-      `
+      ` as any[]
       
       const updatedLoadingPoint = updateResult[0]
       
@@ -171,7 +191,17 @@ export const PUT = withAuth(
  * DELETE /api/loading-points/[id] - 상차지 삭제 (소프트 삭제)
  */
 export const DELETE = withAuth(
-  async (req: NextRequest, { params }: { params: { id: string } }) => {
+  async (req: NextRequest, context: { params?: any } = {}) => {
+    const { params } = context
+    if (!params?.id) {
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'MISSING_ID',
+          message: '상차지 ID가 필요합니다'
+        }
+      }, { status: 400 })
+    }
     try {
       const user = await getCurrentUser(req)
       if (!user) {
@@ -189,7 +219,7 @@ export const DELETE = withAuth(
       // 기존 상차지 조회 (Raw SQL)
       const existingResult = await prisma.$queryRaw`
         SELECT * FROM loading_points WHERE id = ${id} LIMIT 1
-      `
+      ` as any[]
       
       if (!existingResult[0]) {
         return NextResponse.json({

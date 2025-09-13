@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { FixedRouteService } from '@/lib/services/fixed-route.service'
 import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { z } from 'zod'
+
+const fixedRouteService = new FixedRouteService(prisma)
+
+export const runtime = 'nodejs'
 
 // Bulk action request schema
 const bulkActionSchema = z.object({
@@ -40,44 +45,10 @@ export const POST = withAuth(
         }, { status: 400 })
       }
 
-      // Check if all routes exist
-      const existingRoutes = await prisma.routeTemplate.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, name: true, isActive: true }
-      })
-
-      if (existingRoutes.length !== ids.length) {
-        const foundIds = existingRoutes.map(r => r.id)
-        const missingIds = ids.filter(id => !foundIds.includes(id))
-        
-        return NextResponse.json({
-          ok: false,
-          error: {
-            code: 'ROUTES_NOT_FOUND',
-            message: `다음 고정노선을 찾을 수 없습니다: ${missingIds.join(', ')}`
-          }
-        }, { status: 404 })
-      }
-
       const isActive = action === 'activate'
-      const alreadyInState = existingRoutes.filter(route => route.isActive === isActive)
-      
-      if (alreadyInState.length === existingRoutes.length) {
-        const stateText = isActive ? '활성' : '비활성'
-        return NextResponse.json({
-          ok: false,
-          error: {
-            code: 'NO_CHANGE_NEEDED',
-            message: `선택한 고정노선이 모두 이미 ${stateText} 상태입니다`
-          }
-        }, { status: 400 })
-      }
 
-      // Perform bulk update
-      const result = await prisma.routeTemplate.updateMany({
-        where: { id: { in: ids } },
-        data: { isActive }
-      })
+      // 일괄 상태 업데이트
+      const result = await fixedRouteService.bulkUpdateStatus(ids, isActive)
 
       // Audit log for bulk operation
       await createAuditLog(
@@ -91,8 +62,7 @@ export const POST = withAuth(
           count: result.count
         },
         {
-          source: 'bulk_operation',
-          routes: existingRoutes.map(r => ({ id: r.id, name: r.name }))
+          source: 'bulk_operation'
         }
       )
 
@@ -155,29 +125,8 @@ export const DELETE = withAuth(
         ids: z.array(z.string()).min(1)
       }).parse(body)
 
-      // Check if all routes exist and get their info
-      const existingRoutes = await prisma.routeTemplate.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, name: true, isActive: true }
-      })
-
-      if (existingRoutes.length !== ids.length) {
-        const foundIds = existingRoutes.map(r => r.id)
-        const missingIds = ids.filter(id => !foundIds.includes(id))
-        
-        return NextResponse.json({
-          ok: false,
-          error: {
-            code: 'ROUTES_NOT_FOUND',
-            message: `다음 고정노선을 찾을 수 없습니다: ${missingIds.join(', ')}`
-          }
-        }, { status: 404 })
-      }
-
-      // Perform bulk hard delete
-      const result = await prisma.routeTemplate.deleteMany({
-        where: { id: { in: ids } }
-      })
+      // 일괄 하드 삭제
+      const result = await fixedRouteService.bulkHardDelete(ids)
 
       // Audit log for bulk deletion
       await createAuditLog(
@@ -191,8 +140,7 @@ export const DELETE = withAuth(
           count: result.count
         },
         {
-          source: 'bulk_hard_delete',
-          deletedRoutes: existingRoutes.map(r => ({ id: r.id, name: r.name }))
+          source: 'bulk_hard_delete'
         }
       )
       

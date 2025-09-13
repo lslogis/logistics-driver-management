@@ -398,7 +398,7 @@ export default function SettlementsPage() {
         },
       ]}
       isLoading={isLoading}
-      error={error instanceof Error ? error.message : undefined}
+      error={error && typeof error === 'object' && 'message' in error ? (error as Error).message : undefined}
     >
       {/* 빠른 정산 섹션 */}
       <div className="mb-6 bg-blue-50 border border-blue-200 p-6 rounded-lg">

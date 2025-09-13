@@ -4,7 +4,7 @@ import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser } from '@/lib/auth/server'
 
 // 지원하는 템플릿 타입
-const TEMPLATE_TYPES = ['drivers', 'vehicles', 'routes', 'trips'] as const
+const TEMPLATE_TYPES = ['drivers', 'vehicles', 'routes', 'trips', 'fixed-routes'] as const
 type TemplateType = typeof TEMPLATE_TYPES[number]
 
 // CSV Injection 방지 함수
@@ -39,6 +39,10 @@ const TEMPLATE_INFO: Record<TemplateType, { filename: string; description: strin
   trips: {
     filename: 'trips.csv',
     description: '운행 기록 임포트 템플릿'
+  },
+  'fixed-routes': {
+    filename: 'fixed-routes.csv',
+    description: '고정노선 임포트 템플릿'
   }
 }
 
@@ -167,6 +171,41 @@ function generateTripsTemplate() {
   return Papa.unparse({ fields: headers, data })
 }
 
+function generateFixedRoutesTemplate() {
+  const headers = ['노선명', '센터명', '운행요일', '계약형태', '배정기사명', '일매출', '일매입', '월매출', '월매입', '월매출(비용포함)', '월매입(비용포함)', '비고']
+  const data = [
+    {
+      '노선명': sanitizeForCSV('서울-부산 고정노선'),
+      '센터명': sanitizeForCSV('서울허브센터'),
+      '운행요일': sanitizeForCSV('월,화,수,목,금'),
+      '계약형태': sanitizeForCSV('고정(일대)'),
+      '배정기사명': sanitizeForCSV('홍길동'),
+      '일매출': sanitizeForCSV(180000),
+      '일매입': sanitizeForCSV(150000),
+      '월매출': sanitizeForCSV(''),
+      '월매입': sanitizeForCSV(''),
+      '월매출(비용포함)': sanitizeForCSV(''),
+      '월매입(비용포함)': sanitizeForCSV(''),
+      '비고': sanitizeForCSV('일대 계약 예시')
+    },
+    {
+      '노선명': sanitizeForCSV('인천-대전 월대'),
+      '센터명': sanitizeForCSV('인천물류센터'),
+      '운행요일': sanitizeForCSV('월,수,금'),
+      '계약형태': sanitizeForCSV('고정(월대)'),
+      '배정기사명': sanitizeForCSV(''),
+      '일매출': sanitizeForCSV(''),
+      '일매입': sanitizeForCSV(''),
+      '월매출': sanitizeForCSV(4000000),
+      '월매입': sanitizeForCSV(3500000),
+      '월매출(비용포함)': sanitizeForCSV(''),
+      '월매입(비용포함)': sanitizeForCSV(''),
+      '비고': sanitizeForCSV('월대 계약 예시')
+    }
+  ]
+  return Papa.unparse({ fields: headers, data })
+}
+
 export const GET = withAuth(
   async (request: NextRequest, context: { params?: { type: string } } = {}) => {
     const { params } = context
@@ -228,6 +267,9 @@ export const GET = withAuth(
           break
         case 'trips':
           csvContent = generateTripsTemplate()
+          break
+        case 'fixed-routes':
+          csvContent = generateFixedRoutesTemplate()
           break
         default:
           throw new Error('지원하지 않는 템플릿 타입입니다')
@@ -389,6 +431,22 @@ function getTemplateFields(type: TemplateType): Array<{field: string, required: 
         { field: '대차기사', required: false, description: '대차 운행 기사명' },
         { field: '대차비', required: false, description: '대차 기사 지급액' },
         { field: '공제액', required: false, description: '원 기사 공제액' },
+        { field: '비고', required: false, description: '추가 정보' }
+      ]
+
+    case 'fixed-routes':
+      return [
+        { field: '노선명', required: true, description: '고정노선 이름 (필수)' },
+        { field: '센터명', required: true, description: '상차지 센터명 (필수)' },
+        { field: '운행요일', required: true, description: '운행 요일 (월,화,수,목,금 형식)' },
+        { field: '계약형태', required: true, description: '계약형태 (고정(일대), 고정(월대), 고정(지입))' },
+        { field: '배정기사명', required: false, description: '기본 배정 기사명' },
+        { field: '일매출', required: false, description: '일대 계약시 일 매출액' },
+        { field: '일매입', required: false, description: '일대 계약시 일 매입액' },
+        { field: '월매출', required: false, description: '월대 계약시 월 매출액' },
+        { field: '월매입', required: false, description: '월대 계약시 월 매입액' },
+        { field: '월매출(비용포함)', required: false, description: '월대 계약시 비용포함 월 매출액' },
+        { field: '월매입(비용포함)', required: false, description: '월대 계약시 비용포함 월 매입액' },
         { field: '비고', required: false, description: '추가 정보' }
       ]
 

@@ -12,7 +12,8 @@ import {
   ArrowRight,
   Plus,
   FileText,
-  BarChart3
+  BarChart3,
+  Calendar
 } from 'lucide-react'
 
 const quickActions = [
@@ -39,9 +40,9 @@ const quickActions = [
     borderColor: 'hover:border-orange-300'
   },
   {
-    title: '노선 관리',
-    description: '운행 노선, 요율 설정',
-    href: '/routes',
+    title: '고정노선 관리',
+    description: '고정노선 등록, 기사 배정',
+    href: '/fixed-routes',
     icon: Route,
     color: 'indigo',
     bgColor: 'bg-indigo-50',
@@ -50,10 +51,21 @@ const quickActions = [
     borderColor: 'hover:border-indigo-300'
   },
   {
+    title: '상차지 관리',
+    description: '상차지 등록, 담당자 관리',
+    href: '/loading-points',
+    icon: MapPin,
+    color: 'cyan',
+    bgColor: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    hoverColor: 'hover:bg-cyan-100',
+    borderColor: 'hover:border-cyan-300'
+  },
+  {
     title: '운행 관리',
     description: '일별 운행, 결행/대차 처리',
     href: '/trips',
-    icon: MapPin,
+    icon: Calendar,
     color: 'green',
     bgColor: 'bg-green-50',
     iconColor: 'text-green-600',
@@ -74,7 +86,7 @@ const quickActions = [
   {
     title: '데이터 가져오기',
     description: 'CSV 파일 일괄 등록',
-    href: '/import/drivers',
+    href: '/import',
     icon: Upload,
     color: 'purple',
     bgColor: 'bg-purple-50',
@@ -87,37 +99,38 @@ const quickActions = [
 export function QuickActionsSection() {
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-slate-900">빠른 작업</h2>
-        <div className="flex items-center gap-4 text-sm text-slate-600">
-          <div className="flex items-center gap-1">
-            <BarChart3 className="h-3 w-3" />
-            <span>관리 도구</span>
-          </div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">빠른 작업</h2>
+          <p className="text-slate-600 text-sm mt-1">자주 사용하는 기능에 빠르게 접근하세요</p>
+        </div>
+        <div className="flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
+          <BarChart3 className="h-3 w-3" />
+          <span>관리 도구</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {quickActions.map((action) => {
           const Icon = action.icon
 
           return (
             <Link key={action.href} href={action.href} className="group">
-              <Card className={`h-full transition-all duration-200 hover:shadow-md ${action.borderColor} border`}>
+              <Card className={`h-full transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${action.borderColor} border-0 shadow-sm bg-gradient-to-br from-white to-${action.color}-50/30`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <div className={`p-2 ${action.bgColor} rounded-lg ${action.hoverColor} transition-colors`}>
+                    <div className={`p-3 ${action.bgColor} rounded-xl ${action.hoverColor} transition-all duration-300 group-hover:scale-110 shadow-sm`}>
                       <Icon className={`h-5 w-5 ${action.iconColor}`} />
                     </div>
-                    <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                    <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-1 transition-all duration-300" />
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <div className="space-y-2">
-                    <CardTitle className="text-base group-hover:text-sky-600 transition-colors">
+                    <CardTitle className="text-base group-hover:text-blue-600 transition-colors font-semibold">
                       {action.title}
                     </CardTitle>
-                    <CardDescription className="text-sm leading-relaxed">
+                    <CardDescription className="text-xs leading-relaxed text-slate-500">
                       {action.description}
                     </CardDescription>
                   </div>
@@ -129,43 +142,43 @@ export function QuickActionsSection() {
       </div>
 
       {/* 추가 빠른 작업 */}
-      <div className="mt-6 pt-6 border-t border-slate-200">
-        <h3 className="text-sm font-medium text-slate-700 mb-3">추가 작업</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="mt-8 pt-6 border-t border-slate-200/60">
+        <h3 className="text-base font-semibold text-slate-700 mb-4">추가 작업</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link 
             href="/trips?action=new" 
-            className="group flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
+            className="group flex items-center gap-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200/50 rounded-xl hover:shadow-md hover:scale-[1.02] transition-all duration-300"
           >
-            <div className="p-2 bg-green-50 rounded-lg group-hover:bg-green-100 transition-colors">
-              <Plus className="h-4 w-4 text-green-600" />
+            <div className="p-2.5 bg-green-100 rounded-xl group-hover:bg-green-200 group-hover:scale-110 transition-all duration-300 shadow-sm">
+              <Plus className="h-4 w-4 text-green-700" />
             </div>
-            <div>
-              <div className="font-medium text-slate-900 text-sm group-hover:text-green-600 transition-colors">
+            <div className="flex-1">
+              <div className="font-semibold text-slate-900 text-sm group-hover:text-green-700 transition-colors">
                 새 운행 등록
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-600 mt-0.5">
                 새로운 운행 일정 추가
               </div>
             </div>
-            <ArrowRight className="h-3 w-3 text-slate-400 group-hover:text-green-600 transition-colors ml-auto" />
+            <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-green-600 group-hover:translate-x-1 transition-all duration-300" />
           </Link>
 
           <Link 
             href="/settlements?action=generate" 
-            className="group flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
+            className="group flex items-center gap-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/50 rounded-xl hover:shadow-md hover:scale-[1.02] transition-all duration-300"
           >
-            <div className="p-2 bg-emerald-50 rounded-lg group-hover:bg-emerald-100 transition-colors">
-              <FileText className="h-4 w-4 text-emerald-600" />
+            <div className="p-2.5 bg-emerald-100 rounded-xl group-hover:bg-emerald-200 group-hover:scale-110 transition-all duration-300 shadow-sm">
+              <FileText className="h-4 w-4 text-emerald-700" />
             </div>
-            <div>
-              <div className="font-medium text-slate-900 text-sm group-hover:text-emerald-600 transition-colors">
+            <div className="flex-1">
+              <div className="font-semibold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
                 정산 생성
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-600 mt-0.5">
                 이달 정산 자동 생성
               </div>
             </div>
-            <ArrowRight className="h-3 w-3 text-slate-400 group-hover:text-emerald-600 transition-colors ml-auto" />
+            <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all duration-300" />
           </Link>
         </div>
       </div>

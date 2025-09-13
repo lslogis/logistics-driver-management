@@ -633,7 +633,7 @@ export default function VehiclesPage() {
       label: '소유권 유형',
       type: 'select' as const,
       value: ownership,
-      onChange: setOwnership,
+      onChange: (value: string) => setOwnership(value as VehicleOwnership | ''),
       options: [
         { value: 'OWNED', label: '고정 (자차)' },
         { value: 'CHARTER', label: '용차 (임시)' },
@@ -700,13 +700,13 @@ export default function VehiclesPage() {
       }]}
       exportAction={{
         label: '목록 내보내기',
-        onClick: (format) => exportMutation.mutate(format),
+        onClick: () => exportMutation.mutate('excel'),
         loading: exportMutation.isPending,
       }}
       searchFilters={searchFilters}
       quickActions={quickActions}
       isLoading={isLoading}
-      error={error instanceof Error ? error.message : undefined}
+      error={error && typeof error === 'object' && 'message' in error ? (error as Error).message : undefined}
     >
       <DataTable
         data={data?.vehicles || []}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DriverService } from '@/lib/services/driver.service'
 import { prisma } from '@/lib/prisma'
-import { withAuth } from '@/lib/auth/server'
+import { withAuth } from '@/lib/auth/rbac'
 
 const driverService = new DriverService(prisma)
 

@@ -16,7 +16,7 @@ export class LoadingPointService {
    * 상차지 목록 조회 (검색, 필터링, 페이지네이션)
    */
   async getLoadingPoints(query: GetLoadingPointsQuery): Promise<LoadingPointsListResponse> {
-    const { page, limit, search, category, isActive, sortBy, sortOrder } = query
+    const { page, limit, search, isActive, sortBy, sortOrder } = query
 
     // 검색 조건 구성
     const where: any = {}
@@ -107,6 +107,7 @@ export class LoadingPointService {
         manager2: lp.manager2,
         phone1: lp.phone1,
         phone2: lp.phone2,
+        remarks: lp.remarks,
         isActive: lp.isActive,
         createdAt: lp.createdAt.toISOString(),
         updatedAt: lp.updatedAt.toISOString(),
@@ -301,7 +302,7 @@ export class LoadingPointService {
    * 상차지 자동완성 검색
    */
   async searchLoadingPoints(query: LoadingPointSuggestionsQuery): Promise<LoadingPointSuggestionResponse[]> {
-    const { query: searchQuery, limit, category } = query
+    const { query: searchQuery, limit } = query
 
     const where: any = {
       isActive: true,
@@ -344,6 +345,7 @@ export class LoadingPointService {
       manager2: loadingPoint.manager2,
       phone1: loadingPoint.phone1,
       phone2: loadingPoint.phone2,
+      remarks: loadingPoint.remarks,
       isActive: loadingPoint.isActive,
       createdAt: loadingPoint.createdAt.toISOString(),
       updatedAt: loadingPoint.updatedAt.toISOString(),

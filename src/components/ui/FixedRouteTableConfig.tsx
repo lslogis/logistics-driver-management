@@ -19,7 +19,7 @@ export const getFixedRouteTableColumns = () => [
         <div className="font-medium text-gray-900">{centerName}</div>
         <div className="text-xs text-gray-500 flex items-center mt-1">
           <MapPin className="h-3 w-3 mr-1" />
-          {route.courseName}
+          {route.routeName}
         </div>
       </div>
     ),
@@ -47,15 +47,15 @@ export const getFixedRouteTableColumns = () => [
     key: 'assignedDriver',
     header: '배정 기사',
     render: (driver: any, route: FixedRouteResponse) => (
-      route.assignedDriver ? (
+      route.drivers ? (
         <div className="flex items-center space-x-2">
           <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
             <User className="h-4 w-4 text-blue-600" />
           </div>
           <div>
-            <div className="font-medium text-gray-900">{route.assignedDriver.name}</div>
+            <div className="font-medium text-gray-900">{route.drivers.name}</div>
             <div className="text-xs text-gray-500">
-              {route.assignedDriver.phone} • {route.assignedDriver.vehicleNumber}
+              {route.drivers.phone} • {route.drivers.vehicleNumber}
             </div>
           </div>
         </div>
@@ -89,8 +89,8 @@ export const getFixedRouteTableColumns = () => [
       
       // 계약유형별 운임 표시
       if (contractType === 'CONSIGNED_MONTHLY') {
-        const revenue = route.revenueMonthlyWithExpense ? parseInt(route.revenueMonthlyWithExpense) : 0
-        const cost = route.costMonthlyWithExpense ? parseInt(route.costMonthlyWithExpense) : 0
+        const revenue = route.revenueMonthlyWithExpense ? route.revenueMonthlyWithExpense : 0
+        const cost = route.costMonthlyWithExpense ? route.costMonthlyWithExpense : 0
         return (
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
@@ -104,8 +104,8 @@ export const getFixedRouteTableColumns = () => [
           </div>
         )
       } else if (contractType === 'FIXED_DAILY') {
-        const revenue = route.revenueDaily ? parseInt(route.revenueDaily) : 0
-        const cost = route.costDaily ? parseInt(route.costDaily) : 0
+        const revenue = route.revenueDaily ? route.revenueDaily : 0
+        const cost = route.costDaily ? route.costDaily : 0
         return (
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
@@ -119,8 +119,8 @@ export const getFixedRouteTableColumns = () => [
           </div>
         )
       } else if (contractType === 'FIXED_MONTHLY') {
-        const revenue = route.revenueMonthly ? parseInt(route.revenueMonthly) : 0
-        const cost = route.costMonthly ? parseInt(route.costMonthly) : 0
+        const revenue = route.revenueMonthly ? route.revenueMonthly : 0
+        const cost = route.costMonthly ? route.costMonthly : 0
         return (
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
@@ -150,9 +150,6 @@ export const getFixedRouteTableColumns = () => [
         }`}>
           {route.isActive ? '활성' : '비활성'}
         </span>
-        <div className="text-xs text-gray-500">
-          운행 {route._count.trips}회
-        </div>
       </div>
     ),
   },
@@ -185,7 +182,7 @@ export const FixedRouteMobileCard = ({ route, actions }: {
         <h3 className="font-medium text-gray-900 truncate">{route.centerName}</h3>
         <div className="flex items-center space-x-2 mt-1">
           <MapPin className="h-3 w-3 text-gray-400" />
-          <span className="text-sm text-gray-500 truncate">{route.courseName}</span>
+          <span className="text-sm text-gray-500 truncate">{route.routeName}</span>
         </div>
       </div>
       <div className="flex items-center space-x-2 ml-2">
@@ -211,10 +208,10 @@ export const FixedRouteMobileCard = ({ route, actions }: {
           <span>배정 기사</span>
         </div>
         <div className="text-sm font-medium">
-          {route.assignedDriver ? route.assignedDriver.name : '미배정'}
+          {route.drivers ? route.drivers.name : '미배정'}
         </div>
-        {route.assignedDriver && (
-          <div className="text-xs text-gray-500">{route.assignedDriver.phone}</div>
+        {route.drivers && (
+          <div className="text-xs text-gray-500">{route.drivers.phone}</div>
         )}
       </div>
     </div>
@@ -235,11 +232,11 @@ export const FixedRouteMobileCard = ({ route, actions }: {
             <>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">매출:</span>
-                <span className="font-medium">{route.revenueMonthlyWithExpense ? parseInt(route.revenueMonthlyWithExpense).toLocaleString() : '0'}원</span>
+                <span className="font-medium">{route.revenueMonthlyWithExpense ? route.revenueMonthlyWithExpense.toLocaleString() : '0'}원</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">매입:</span>
-                <span className="font-medium">{route.costMonthlyWithExpense ? parseInt(route.costMonthlyWithExpense).toLocaleString() : '0'}원</span>
+                <span className="font-medium">{route.costMonthlyWithExpense ? route.costMonthlyWithExpense.toLocaleString() : '0'}원</span>
               </div>
             </>
           )}
@@ -247,11 +244,11 @@ export const FixedRouteMobileCard = ({ route, actions }: {
             <>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">매출:</span>
-                <span className="font-medium">{route.revenueDaily ? parseInt(route.revenueDaily).toLocaleString() : '0'}원</span>
+                <span className="font-medium">{route.revenueDaily ? route.revenueDaily.toLocaleString() : '0'}원</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">매입:</span>
-                <span className="font-medium">{route.costDaily ? parseInt(route.costDaily).toLocaleString() : '0'}원</span>
+                <span className="font-medium">{route.costDaily ? route.costDaily.toLocaleString() : '0'}원</span>
               </div>
             </>
           )}
@@ -259,11 +256,11 @@ export const FixedRouteMobileCard = ({ route, actions }: {
             <>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">매출:</span>
-                <span className="font-medium">{route.revenueMonthly ? parseInt(route.revenueMonthly).toLocaleString() : '0'}원</span>
+                <span className="font-medium">{route.revenueMonthly ? route.revenueMonthly.toLocaleString() : '0'}원</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">매입:</span>
-                <span className="font-medium">{route.costMonthly ? parseInt(route.costMonthly).toLocaleString() : '0'}원</span>
+                <span className="font-medium">{route.costMonthly ? route.costMonthly.toLocaleString() : '0'}원</span>
               </div>
             </>
           )}
@@ -273,7 +270,7 @@ export const FixedRouteMobileCard = ({ route, actions }: {
 
     {/* Additional Info */}
     <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs text-gray-500">
-      <span>운행 {route._count.trips}회</span>
+      <span>등록일</span>
       <span>{new Date(route.createdAt).toLocaleDateString('ko-KR')}</span>
     </div>
 
