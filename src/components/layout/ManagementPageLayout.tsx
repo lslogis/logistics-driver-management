@@ -136,93 +136,100 @@ export function ManagementPageLayout({
               )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-3">
-              {/* Export Button */}
+            {/* Action Buttons - 통일된 디자인 */}
+            <div className="flex items-center space-x-2">
+              {/* Export Button - 회색 */}
               {exportAction && (
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="secondary"
+                  size="default"
                   onClick={exportAction.onClick}
                   loading={exportAction.loading}
                   disabled={exportAction.disabled}
                   leftIcon={exportAction.icon || <Download className="h-4 w-4" />}
+                  className="h-10 px-4 text-sm font-medium"
                 >
                   {exportAction.label}
                 </Button>
               )}
               
-              {/* Import Button */}
+              {/* Import Button - 파란색 */}
               {importAction && (
                 importAction.href ? (
                   <Button
-                    variant="secondary"
-                    size="sm"
+                    variant="outline"
+                    size="default"
                     asChild
                     leftIcon={importAction.icon || <Upload className="h-4 w-4" />}
+                    className="h-10 px-4 text-sm font-medium"
                   >
                     <Link href={importAction.href}>{importAction.label}</Link>
                   </Button>
                 ) : (
                   <Button
-                    variant="secondary"
-                    size="sm"
+                    variant="outline"
+                    size="default"
                     onClick={importAction.onClick}
                     loading={importAction.loading}
                     disabled={importAction.disabled}
                     leftIcon={importAction.icon || <Upload className="h-4 w-4" />}
+                    className="h-10 px-4 text-sm font-medium"
                   >
                     {importAction.label}
                   </Button>
                 )
               )}
               
-              {/* Secondary Actions */}
+              {/* Secondary Actions - 파란색 */}
               {secondaryActions.map((action, index) => (
                 action.href ? (
                   <Button
                     key={index}
-                    variant={action.variant || 'secondary'}
-                    size="sm"
+                    variant="outline"
+                    size="default"
                     asChild
                     leftIcon={action.icon}
+                    className="h-10 px-4 text-sm font-medium"
                   >
                     <Link href={action.href}>{action.label}</Link>
                   </Button>
                 ) : (
                   <Button
                     key={index}
-                    variant={action.variant || 'secondary'}
-                    size="sm"
+                    variant="outline"
+                    size="default"
                     onClick={action.onClick}
                     loading={action.loading}
                     disabled={action.disabled}
                     leftIcon={action.icon}
+                    className="h-10 px-4 text-sm font-medium"
                   >
                     {action.label}
                   </Button>
                 )
               ))}
 
-              {/* Primary Action */}
+              {/* Primary Action - 진한 파란색 */}
               {primaryAction && (
                 primaryAction.href ? (
                   <Button
-                    variant={primaryAction.variant || 'primary'}
-                    size="sm"
+                    variant="primary"
+                    size="default"
                     asChild
                     leftIcon={primaryAction.icon || <Plus className="h-4 w-4" />}
+                    className="h-10 px-4 text-sm font-medium"
                   >
                     <Link href={primaryAction.href}>{primaryAction.label}</Link>
                   </Button>
                 ) : (
                   <Button
-                    variant={primaryAction.variant || 'primary'}
-                    size="sm"
+                    variant="primary"
+                    size="default"
                     onClick={primaryAction.onClick}
                     loading={primaryAction.loading}
                     disabled={primaryAction.disabled}
                     leftIcon={primaryAction.icon || <Plus className="h-4 w-4" />}
+                    className="h-10 px-4 text-sm font-medium"
                   >
                     {primaryAction.label}
                   </Button>
@@ -241,25 +248,25 @@ export function ManagementPageLayout({
             <div className="bg-white border border-gray-200 rounded-lg p-4 w-full">
               <div className="flex items-center gap-4 w-full">
                 {searchFilters.map((filter, index) => (
-                  <div key={index} className="flex items-center gap-3 flex-1 min-w-0 max-w-none">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  <div key={index} className="flex items-center gap-3 min-w-0">
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap w-12">
                       {filter.label}
                     </span>
                     {filter.type === 'text' && (
-                      <div className="relative flex-1">
+                      <div className="relative w-80">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
                           type="text"
                           placeholder={filter.placeholder}
                           value={filter.value || ''}
                           onChange={(e) => filter.onChange(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 text-gray-900 font-medium border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm"
+                          className="w-full pl-10 pr-4 py-2 text-gray-900 font-medium border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm h-10"
                         />
                       </div>
                     )}
                     {filter.type === 'select' && (
                       <select
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-900"
+                        className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-900 h-10"
                         value={filter.value || ''}
                         onChange={(e) => filter.onChange(e.target.value)}
                       >
@@ -276,7 +283,7 @@ export function ManagementPageLayout({
                         value={filter.value || ''}
                         onChange={(e) => filter.onChange(e.target.value)}
                         max={filter.type === 'month' ? new Date().toISOString().slice(0, 7) : undefined}
-                        className="text-gray-900 font-medium"
+                        className="text-gray-900 font-medium w-40 h-10"
                       />
                     )}
                   </div>

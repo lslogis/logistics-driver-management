@@ -225,7 +225,7 @@ export default function LoadingPointCombobox({
                   className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none flex items-center text-sm text-blue-600"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  "{searchTerm}" 센터 새로 등록
+                  &quot;{searchTerm}&quot; 센터 새로 등록
                 </button>
               </>
             )}

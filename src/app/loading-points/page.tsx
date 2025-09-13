@@ -21,6 +21,7 @@ import { copyToClipboard, formatLoadingPointInfo, sendSMS, shareToKakao, makePho
 import ManagementPageTemplate from '@/components/templates/ManagementPageTemplate'
 import { getLoadingPointColumns, getLoadingPointContextMenuItems, LoadingPointItem } from '@/components/templates/LoadingPointsTemplateConfig'
 import LoadingPointForm from '@/components/forms/LoadingPointForm'
+import { ImportModal } from '@/components/import'
 
 export default function LoadingPointsPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -28,6 +29,7 @@ export default function LoadingPointsPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingLoadingPoint, setEditingLoadingPoint] = useState<LoadingPointResponse | null>(null)
+  const [importModalOpen, setImportModalOpen] = useState(false)
 
   // Data fetching
   const { 
@@ -170,6 +172,7 @@ export default function LoadingPointsPage() {
   }
 
   return (
+    <>
     <ManagementPageTemplate<LoadingPointItem, CreateLoadingPointData, UpdateLoadingPointData>
       title="상차지 관리"
       icon={<MapPin />}
@@ -189,7 +192,7 @@ export default function LoadingPointsPage() {
       }}
       secondaryActions={[{
         label: 'Excel 가져오기',
-        onClick: () => window.location.href = '/import/loading-points',
+        onClick: () => setImportModalOpen(true),
         icon: <Upload className="h-4 w-4" />
       }]}
       exportAction={{
@@ -259,5 +262,17 @@ export default function LoadingPointsPage() {
         actionLabel: '상차지 등록'
       }}
     />
+    
+    {/* Import Modal */}
+    <ImportModal
+      isOpen={importModalOpen}
+      onClose={() => setImportModalOpen(false)}
+      type="loading-points"
+      onSuccess={() => {
+        // 데이터 새로고침을 위해 쿼리를 무효화
+        window.location.reload()
+      }}
+    />
+    </>
   )
 }

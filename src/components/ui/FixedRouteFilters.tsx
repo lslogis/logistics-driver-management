@@ -173,7 +173,7 @@ export default function FixedRouteFilters({
             
             {filters.search && (
               <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">
-                검색: "{filters.search}"
+                검색: &quot;{filters.search}&quot;
                 <button
                   onClick={() => updateFilter('search', '')}
                   className="ml-1 text-gray-400 hover:text-gray-600"

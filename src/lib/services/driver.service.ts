@@ -17,10 +17,7 @@ export class DriverService {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
-        { vehicleNumber: { contains: search, mode: 'insensitive' } },
-        { businessName: { contains: search, mode: 'insensitive' } },
-        { representative: { contains: search, mode: 'insensitive' } },
-        { accountNumber: { contains: search } }
+        { vehicleNumber: { contains: search, mode: 'insensitive' } }
       ]
     }
 
@@ -279,7 +276,15 @@ export class DriverService {
     }
 
     if (driver.isActive) {
-      throw new Error('이미 활성화된 기사입니다')
+      // 이미 활성화된 경우 현재 상태 그대로 반환
+      return this.formatDriverResponse({
+        ...driver,
+        _count: {
+          vehicles: 0,
+          trips: 0,
+          settlements: 0
+        }
+      })
     }
 
     const updatedDriver = await this.prisma.driver.update({

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { ChevronDown, Search, User, X, Check } from 'lucide-react'
 import { DriverResponse } from '@/lib/validations/driver'
 
@@ -93,7 +93,7 @@ export default function DriverSelector({
   const searchInputRef = useRef<HTMLInputElement>(null)
   
   const { data, isLoading } = useDrivers()
-  const drivers = data?.drivers || []
+  const drivers = useMemo(() => data?.drivers || [], [data])
   
   // Find selected driver when value changes
   useEffect(() => {

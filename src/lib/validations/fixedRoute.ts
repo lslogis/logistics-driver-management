@@ -3,11 +3,6 @@ import { z } from 'zod'
 // Contract types that match Prisma schema
 export const CONTRACT_TYPES = [
   {
-    value: 'CONSIGNED_MONTHLY',
-    label: '지입(월대+경비)',
-    description: '월 단위 지입 계약 (월대차료 + 경비 포함)'
-  },
-  {
     value: 'FIXED_DAILY',
     label: '고정(일대)',
     description: '일일 고정 운임 계산'
@@ -16,6 +11,11 @@ export const CONTRACT_TYPES = [
     value: 'FIXED_MONTHLY',
     label: '고정(월대)',
     description: '월 고정 운임 계산'
+  },
+  {
+    value: 'CONSIGNED_MONTHLY',
+    label: '지입(월대)',
+    description: '월 지입 운임 계산'
   }
 ] as const
 
@@ -23,20 +23,20 @@ export type ContractType = typeof CONTRACT_TYPES[number]['value']
 
 // Contract type labels for UI
 export const ContractTypeLabels: Record<ContractType, string> = {
-  'CONSIGNED_MONTHLY': '지입(월대+경비)',
   'FIXED_DAILY': '고정(일대)',  
-  'FIXED_MONTHLY': '고정(월대)'
+  'FIXED_MONTHLY': '고정(월대)',
+  'CONSIGNED_MONTHLY': '지입(월대)'
 }
 
 // Weekday labels for UI
 export const WeekdayLabels: Record<number, string> = {
-  0: '일요일',
-  1: '월요일', 
-  2: '화요일',
-  3: '수요일',
-  4: '목요일',
-  5: '금요일',
-  6: '토요일'
+  0: '일',
+  1: '월', 
+  2: '화',
+  3: '수',
+  4: '목',
+  5: '금',
+  6: '토'
 }
 
 // Vehicle types for UI (추가)
@@ -72,14 +72,18 @@ const weekdayPatternSchema = z
     message: '중복된 요일이 있습니다'
   })
 
-// 운임 검증 스키마
+// 운임 검증 스키마 - string 입력을 number로 변환
 const fareSchema = z
-  .number({ 
-    required_error: '운임을 입력해주세요',
-    invalid_type_error: '운임은 숫자여야 합니다'
+  .union([z.string(), z.number()])
+  .transform((val) => {
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val)
+      return isNaN(parsed) ? 0 : parsed
+    }
+    return val
   })
-  .positive('운임은 양수여야 합니다')
-  .max(10000000, '운임은 1천만원 이하로 입력해주세요') // 10M 한도
+  .refine((val) => val >= 0, '운임은 0 이상이어야 합니다')
+  .refine((val) => val <= 10000000, '운임은 1천만원 이하로 입력해주세요')
 
 // Contract type 검증 스키마
 const contractTypeSchema = z.enum(CONTRACT_TYPES.map(ct => ct.value) as [string, ...string[]], {
@@ -105,16 +109,12 @@ export const CreateFixedRouteSchema = z.object({
   
   contractType: contractTypeSchema,
   
-  // 지입(월대+경비) 전용 필드
+  // 실제 DB 스키마 필드들
   revenueMonthlyWithExpense: fareSchema.optional(),
-  costMonthlyWithExpense: fareSchema.optional(),
-  
-  // 고정(일대) 전용 필드  
   revenueDaily: fareSchema.optional(),
-  costDaily: fareSchema.optional(),
-  
-  // 고정(월대) 전용 필드
   revenueMonthly: fareSchema.optional(),
+  costMonthlyWithExpense: fareSchema.optional(),
+  costDaily: fareSchema.optional(),
   costMonthly: fareSchema.optional(),
     
   remarks: z
@@ -124,15 +124,15 @@ export const CreateFixedRouteSchema = z.object({
 })
 .refine(data => {
   // 계약유형별 필수 필드 검증
-  if (data.contractType === 'CONSIGNED_MONTHLY') {
-    return data.revenueMonthlyWithExpense && data.costMonthlyWithExpense &&
-           data.revenueMonthlyWithExpense >= data.costMonthlyWithExpense
-  }
   if (data.contractType === 'FIXED_DAILY') {
     return data.revenueDaily && data.costDaily &&
            data.revenueDaily >= data.costDaily
   }
   if (data.contractType === 'FIXED_MONTHLY') {
+    return data.revenueMonthly && data.costMonthly &&
+           data.revenueMonthly >= data.costMonthly
+  }
+  if (data.contractType === 'CONSIGNED_MONTHLY') {
     return data.revenueMonthly && data.costMonthly &&
            data.revenueMonthly >= data.costMonthly
   }
@@ -170,20 +170,16 @@ export const UpdateFixedRouteSchema = z.object({
     .string()
     .optional(),
   
-  weekdayPattern: weekdayPatternSchema.optional(),
+  weekdayPattern: z.array(z.number()).min(1, '최소 하나의 요일을 선택해야 합니다').optional(),
   
   contractType: contractTypeSchema.optional(),
   
-  // 지입(월대+경비) 전용 필드
+  // 실제 DB 스키마 필드들
   revenueMonthlyWithExpense: fareSchema.optional(),
-  costMonthlyWithExpense: fareSchema.optional(),
-  
-  // 고정(일대) 전용 필드
   revenueDaily: fareSchema.optional(),
-  costDaily: fareSchema.optional(),
-  
-  // 고정(월대) 전용 필드
   revenueMonthly: fareSchema.optional(),
+  costMonthlyWithExpense: fareSchema.optional(),
+  costDaily: fareSchema.optional(),
   costMonthly: fareSchema.optional(),
     
   remarks: z
@@ -229,7 +225,7 @@ export const getFixedRoutesQuerySchema = z.object({
     .optional(),
   
   sortBy: z
-    .enum(['routeName', 'loadingPoint', 'contractType', 'createdAt', 'updatedAt'])
+    .enum(['routeName', 'centerName', 'contractType', 'createdAt', 'updatedAt'])
     .default('createdAt'),
   
   sortOrder: z
@@ -241,45 +237,56 @@ export const getFixedRoutesQuerySchema = z.object({
 export type CreateFixedRouteData = z.infer<typeof CreateFixedRouteSchema>
 export type SimpleCreateFixedRouteData = z.infer<typeof SimpleCreateFixedRouteSchema>
 export type UpdateFixedRouteData = z.infer<typeof UpdateFixedRouteSchema>
+export type GetFixedRoutesQuery = z.infer<typeof getFixedRoutesQuerySchema>
 
-// 응답 타입
+// 응답 타입 (실제 DB 스키마 기반)
 export interface FixedRouteResponse {
   id: string
-  centerName: string
-  courseName: string
+  routeName: string
+  loadingPointId: string
   assignedDriverId?: string | null
   weekdayPattern: number[]
   contractType: ContractType
   
-  // 지입(월대+경비) 전용 필드
-  revenueMonthlyWithExpense?: string | null // Decimal as string
-  costMonthlyWithExpense?: string | null // Decimal as string
-  
-  // 고정(일대) 전용 필드  
-  revenueDaily?: string | null // Decimal as string
-  costDaily?: string | null // Decimal as string
-  
-  // 고정(월대) 전용 필드
-  revenueMonthly?: string | null // Decimal as string
-  costMonthly?: string | null // Decimal as string
+  // 실제 DB 스키마 필드들
+  revenueMonthlyWithExpense?: number | null
+  revenueDaily?: number | null
+  revenueMonthly?: number | null
+  costMonthlyWithExpense?: number | null
+  costDaily?: number | null
+  costMonthly?: number | null
   
   remarks?: string | null
   isActive: boolean
   createdAt: string
   updatedAt: string
+  createdBy?: string | null
   
-  // 관계 데이터
-  assignedDriver?: {
+  // 관계 데이터 (실제 관계명 사용)
+  loading_points?: {
+    id: string
+    centerName: string
+    loadingPointName: string
+  } | null
+  
+  drivers?: {
     id: string
     name: string
     phone: string
-    vehicleNumber: string
+    vehicleNumber?: string | null
   } | null
   
-  // 통계 데이터
-  _count: {
-    trips: number
-  }
+  users?: {
+    id: string
+    name: string
+  } | null
+  
+  // 계산된 필드들 (UI용)
+  centerName?: string
+  loadingPointName?: string
+  assignedDriverName?: string | null
+  driverPhone?: string | null
+  vehicleNumber?: string | null
 }
 
 export interface FixedRoutesListResponse {
@@ -304,7 +311,7 @@ export const getWeekdayNames = (weekdays: number[]): string => {
   return weekdays
     .sort()
     .map(getWeekdayName)
-    .join(', ')
+    .join('')
 }
 
 export const isFixedRouteActiveOnWeekday = (weekdayPattern: number[], targetWeekday: number): boolean => {
@@ -322,12 +329,12 @@ export const getContractTypeDescription = (contractType: ContractType): string =
 
 export const getContractTypeColor = (contractType: ContractType): string => {
   switch (contractType) {
-    case 'CONSIGNED_MONTHLY':
-      return 'bg-purple-100 text-purple-800 border-purple-200'
     case 'FIXED_DAILY':
       return 'bg-blue-100 text-blue-800 border-blue-200'
     case 'FIXED_MONTHLY':
       return 'bg-green-100 text-green-800 border-green-200'
+    case 'CONSIGNED_MONTHLY':
+      return 'bg-purple-100 text-purple-800 border-purple-200'
     default:
       return 'bg-gray-100 text-gray-800 border-gray-200'
   }

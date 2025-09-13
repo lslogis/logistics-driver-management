@@ -209,7 +209,28 @@ function findSimilarHeader(target: string, headers: string[]): string | null {
     '사업번호': ['사업번호', '사업자번호', '사업자등록번호', 'business'],
     '계좌은행': ['계좌은행', '은행명', '은행', 'bank'],
     '계좌번호': ['계좌번호', '계좌', '통장번호', 'account'],
-    '특이사항': ['특이사항', '비고', '메모', '참고', 'remarks', 'note']
+    '특이사항': ['특이사항', '비고', '메모', '참고', 'remarks', 'note'],
+    // 상차지 관련 헤더
+    '센터명': ['센터명', '센터', '물류센터', '창고명', 'center'],
+    '상차지명': ['상차지명', '상차지', '로딩포인트', '하차지', 'loading', 'point'],
+    '지번주소': ['지번주소', '지번', '구주소', '번지', 'lot', 'address'],
+    '도로명주소': ['도로명주소', '도로명', '신주소', '주소', 'road', 'address'],
+    '담당자1': ['담당자1', '담당자', '관리자1', '연락담당자1', 'manager1', 'contact1'],
+    '연락처1': ['연락처1', '전화번호1', '전화1', '연락망1', 'phone1', 'contact1'],
+    '담당자2': ['담당자2', '부담당자', '관리자2', '연락담당자2', 'manager2', 'contact2'],
+    '연락처2': ['연락처2', '전화번호2', '전화2', '연락망2', 'phone2', 'contact2'],
+    '비고': ['비고', '특이사항', '메모', '참고사항', 'remarks', 'note'],
+    // 고정노선 관련 헤더
+    '노선명': ['노선명', '노선', '코스명', '라인명', 'route', 'line'],
+    '운행요일': ['운행요일', '요일패턴', '요일', '운행일', 'weekday', 'pattern'],
+    '계약형태': ['계약형태', '계약타입', '계약', '타입', 'contract', 'type'],
+    '배정기사명': ['배정기사명', '배정기사', '담당기사', '기사명', '기사', 'driver', 'assigned'],
+    '일매출': ['일매출', '일수익', '일당매출', '일수입', 'daily_revenue'],
+    '일매입': ['일매입', '일비용', '일당매입', '일지출', 'daily_cost'],
+    '월매출': ['월매출', '월수익', '월당매출', '월수입', 'monthly_revenue'],
+    '월매입': ['월매입', '월비용', '월당매입', '월지출', 'monthly_cost'],
+    '월매출(비용포함)': ['월매출(비용포함)', '월매출비용포함', '월전체매출', 'monthly_revenue_with_expense'],
+    '월매입(비용포함)': ['월매입(비용포함)', '월매입비용포함', '월전체매입', 'monthly_cost_with_expense']
   }
   
   const targetAlts = alternatives[target] || [target]
@@ -269,8 +290,15 @@ export function mapRowHeaders(row: any, headerMapping?: { [key: string]: string 
   const mappedRow: any = {}
   const headers = Object.keys(row)
   
-  // 표준 헤더에 대해 매핑
-  const standardHeaders = ['성함', '연락처', '차량번호', '사업상호', '대표자', '사업번호', '계좌은행', '계좌번호', '특이사항']
+  // 표준 헤더에 대해 매핑 (기사 + 상차지 + 고정노선 헤더)
+  const standardHeaders = [
+    // 기사 관련
+    '성함', '연락처', '차량번호', '사업상호', '대표자', '사업번호', '계좌은행', '계좌번호', '특이사항',
+    // 상차지 관련
+    '센터명', '상차지명', '지번주소', '도로명주소', '담당자1', '연락처1', '담당자2', '연락처2', '비고',
+    // 고정노선 관련
+    '노선명', '운행요일', '계약형태', '배정기사명', '일매출', '일매입', '월매출', '월매입', '월매출(비용포함)', '월매입(비용포함)'
+  ]
   
   for (const standardHeader of standardHeaders) {
     const matchedHeader = findSimilarHeader(standardHeader, headers)

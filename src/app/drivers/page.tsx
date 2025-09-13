@@ -19,6 +19,7 @@ import {
 import ManagementPageTemplate from '@/components/templates/ManagementPageTemplate'
 import { getDriverColumns, getDriverContextMenuItems, DriverItem } from '@/components/templates/DriversTemplateConfig'
 import DriverForm from '@/components/forms/DriverForm'
+import { ImportModal } from '@/components/import'
 
 export default function DriversPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -26,6 +27,7 @@ export default function DriversPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingDriver, setEditingDriver] = useState<DriverResponse | null>(null)
+  const [importModalOpen, setImportModalOpen] = useState(false)
 
   // Data fetching
   const { 
@@ -171,6 +173,7 @@ export default function DriversPage() {
   }
 
   return (
+    <>
     <ManagementPageTemplate<DriverItem, CreateDriverData, UpdateDriverData>
       title="기사 관리"
       icon={<User />}
@@ -190,7 +193,7 @@ export default function DriversPage() {
       }}
       secondaryActions={[{
         label: 'Excel 가져오기',
-        onClick: () => window.location.href = '/import/drivers',
+        onClick: () => setImportModalOpen(true),
         icon: <Upload className="h-4 w-4" />
       }]}
       exportAction={{
@@ -260,5 +263,17 @@ export default function DriversPage() {
         actionLabel: '기사 등록'
       }}
     />
+    
+    {/* Import Modal */}
+    <ImportModal
+      isOpen={importModalOpen}
+      onClose={() => setImportModalOpen(false)}
+      type="drivers"
+      onSuccess={() => {
+        // 데이터 새로고침을 위해 쿼리를 무효화
+        window.location.reload()
+      }}
+    />
+    </>
   )
 }

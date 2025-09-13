@@ -1,45 +1,38 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { Upload, FileText, User, Truck, Route, Calendar, Download, ArrowRight, CheckCircle } from 'lucide-react'
+import { Upload, FileText, User, Truck, Route, Calendar, Download, ArrowRight, CheckCircle, MapPin } from 'lucide-react'
+import { ImportModal } from '@/components/import/ImportModal'
+import { ImportType } from '@/components/import/types'
 
 const importModules = [
   {
     title: '기사 가져오기',
     description: '운송기사 정보를 CSV 파일로 일괄 등록',
     icon: User,
-    href: '/import/drivers',
+    type: 'drivers',
     color: 'blue',
     features: ['이름, 전화번호 필수', '계좌정보 포함 가능', '중복 전화번호 자동 제외'],
     templateUrl: '/api/templates/drivers'
   },
   {
-    title: '차량 가져오기',
-    description: '차량 정보를 CSV 파일로 일괄 등록',
-    icon: Truck,
-    href: '/import/vehicles',
+    title: '상차지 가져오기',
+    description: '상차지 정보를 CSV 파일로 일괄 등록',
+    icon: MapPin,
+    type: 'loading-points',
     color: 'orange',
-    features: ['차량번호, 차종 필수', '소유권 구분 설정', '기사 배정 가능'],
-    templateUrl: '/api/templates/vehicles'
+    features: ['센터명, 상차지명 필수', '담당자 정보 포함', '중복 상차지명 자동 제외'],
+    templateUrl: '/api/templates/loading-points'
   },
   {
-    title: '노선 템플릿 가져오기',
-    description: '노선 템플릿 정보를 CSV 파일로 일괄 등록',
+    title: '고정노선 가져오기',
+    description: '고정노선 정보를 CSV 파일로 일괄 등록',
     icon: Route,
-    href: '/import/routes',
+    type: 'fixed-routes',
     color: 'purple',
-    features: ['노선명, 구간 필수', '요일별 운행 패턴', '운임 설정 포함'],
-    templateUrl: '/api/templates/routes'
-  },
-  {
-    title: '운행 기록 가져오기',
-    description: '운행 기록을 CSV 파일로 일괄 등록',
-    icon: Calendar,
-    href: '/import/trips',
-    color: 'green',
-    features: ['날짜, 노선 필수', '기사, 차량 배정', '상태별 분류'],
-    templateUrl: '/api/templates/trips'
+    features: ['노선명, 계약형태 필수', '매출/비용 정보', '중복 노선명 자동 제외'],
+    templateUrl: '/api/templates/fixed-routes'
   }
 ]
 
@@ -75,6 +68,9 @@ const colorClasses = {
 } as const
 
 export default function ImportPage() {
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [selectedImportType, setSelectedImportType] = useState<ImportType>('drivers')
+
   const handleTemplateDownload = (templateUrl: string, filename: string) => {
     fetch(templateUrl)
       .then(response => response.blob())
@@ -91,6 +87,11 @@ export default function ImportPage() {
       .catch(error => {
         console.error('Template download failed:', error)
       })
+  }
+
+  const handleImportStart = (type: ImportType) => {
+    setSelectedImportType(type)
+    setIsImportModalOpen(true)
   }
 
   return (
@@ -192,13 +193,13 @@ export default function ImportPage() {
                       템플릿
                     </button>
                     
-                    <Link
-                      href={module.href}
+                    <button
+                      onClick={() => handleImportStart(module.type as ImportType)}
                       className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-md transition-colors ${colors.button}`}
                     >
                       시작하기
                       <ArrowRight className="h-4 w-4 ml-2" />
-                    </Link>
+                    </button>
                   </div>
                 </div>
               )
@@ -215,13 +216,24 @@ export default function ImportPage() {
             </p>
             <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
               <li>파일이 UTF-8 인코딩으로 저장되었는지 확인</li>
-              <li>Excel에서 CSV로 저장할 때 "CSV UTF-8(쉼표 구분자)" 선택</li>
+              <li>Excel에서 CSV로 저장할 때 &quot;CSV UTF-8(쉼표 구분자)&quot; 선택</li>
               <li>필수 컬럼이 모두 포함되었는지 템플릿과 비교</li>
               <li>데이터 형식이 올바른지 확인 (날짜, 숫자 등)</li>
             </ul>
           </div>
         </div>
       </main>
+
+      {/* 통합 임포트 모달 */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        type={selectedImportType}
+        onSuccess={() => {
+          setIsImportModalOpen(false)
+          // 성공 시 각 해당 페이지로 리다이렉션하거나 새로고침 등 처리
+        }}
+      />
     </div>
   )
 }

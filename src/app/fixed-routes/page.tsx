@@ -23,6 +23,7 @@ import { copyToClipboard, formatFixedRouteInfo, sendSMS, shareToKakao, makePhone
 import ManagementPageTemplate from '@/components/templates/ManagementPageTemplate'
 import { getFixedRouteColumns, getFixedRouteContextMenuItems, FixedRouteItem } from '@/components/templates/FixedRoutesTemplateConfig'
 import FixedRouteForm from '@/components/forms/FixedRouteForm'
+import { ImportModal } from '@/components/import'
 
 export default function FixedRoutesPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -30,6 +31,7 @@ export default function FixedRoutesPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingFixedRoute, setEditingFixedRoute] = useState<FixedRouteResponse | null>(null)
+  const [importModalOpen, setImportModalOpen] = useState(false)
 
   // Data fetching
   const { 
@@ -58,11 +60,19 @@ export default function FixedRoutesPage() {
   const templateData: FixedRouteItem[] = fixedRoutesData.map(route => ({
     id: route.id,
     routeName: route.routeName,
+    centerName: route.centerName,
+    loadingPointName: route.loadingPointName,
+    assignedDriverName: route.assignedDriverName,
     assignedDriverId: route.assignedDriverId,
     weekdayPattern: route.weekdayPattern,
     contractType: route.contractType,
     revenueDaily: route.revenueDaily,
     costDaily: route.costDaily,
+    revenueMonthly: route.revenueMonthly,
+    costMonthly: route.costMonthly,
+    driverPhone: route.driverPhone,
+    vehicleNumber: route.vehicleNumber,
+    remarks: route.remarks,
     isActive: route.isActive,
     createdAt: route.createdAt,
     updatedAt: route.updatedAt,
@@ -173,8 +183,9 @@ export default function FixedRoutesPage() {
   }
 
   return (
+    <>
     <ManagementPageTemplate<FixedRouteItem, CreateFixedRouteData, UpdateFixedRouteData>
-      title="고정노선 관리"
+      title="고정 관리"
       icon={<MapPin />}
       countLabel="개"
       data={templateData}
@@ -192,7 +203,7 @@ export default function FixedRoutesPage() {
       }}
       secondaryActions={[{
         label: 'Excel 가져오기',
-        onClick: () => window.location.href = '/import/fixed-routes',
+        onClick: () => setImportModalOpen(true),
         icon: <Upload className="h-4 w-4" />
       }]}
       exportAction={{
@@ -262,5 +273,17 @@ export default function FixedRoutesPage() {
         actionLabel: '고정노선 등록'
       }}
     />
+    
+    {/* Import Modal */}
+    <ImportModal
+      isOpen={importModalOpen}
+      onClose={() => setImportModalOpen(false)}
+      type="fixed-routes"
+      onSuccess={() => {
+        // 데이터 새로고침을 위해 쿼리를 무효화
+        window.location.reload()
+      }}
+    />
+    </>
   )
 }
