@@ -1,0 +1,64 @@
+// 정산 관련 모델
+
+model Settlement {
+  id             String           @id @default(cuid())
+  yearMonth      String           // YYYY-MM 형식 (예: 2025-01)
+  driverId       String           // 정산 대상 기사
+  status         SettlementStatus @default(DRAFT)
+  
+  // 집계 정보 (성능 최적화를 위한 비정규화)
+  totalTrips     Int              @default(0) // 총 운행 횟수
+  totalBaseFare  Decimal          @default(0) @db.Decimal(12, 2) // 기본 운임 합계
+  totalDeductions Decimal         @default(0) @db.Decimal(12, 2) // 총 공제액
+  totalAdditions Decimal          @default(0) @db.Decimal(12, 2) // 총 추가 지급액
+  finalAmount    Decimal          @default(0) @db.Decimal(12, 2) // 최종 지급액
+  
+  // 확정 정보
+  confirmedAt    DateTime?        @db.Timestamptz(6) // 확정 일시
+  confirmedBy    String?          // 확정한 사용자 ID
+  paidAt         DateTime?        @db.Timestamptz(6) // 지급 일시
+  
+  // 메타데이터
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdBy String?  // 생성한 사용자 ID
+  
+  // Relations
+  driver       Driver            @relation("DriverSettlements", fields: [driverId], references: [id], onDelete: Cascade)
+  creator      User?             @relation("SettlementCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  confirmer    User?             @relation("SettlementConfirmer", fields: [confirmedBy], references: [id], onDelete: SetNull)
+  items        SettlementItem[]
+  
+  // 비즈니스 제약: 기사별 월 단위 정산 유니크
+  @@unique([driverId, yearMonth], name: "unique_driver_yearmonth")
+  
+  // 인덱스 최적화
+  @@index([yearMonth, status]) // 월별 정산 현황 조회
+  @@index([driverId, status]) // 기사별 정산 이력
+  @@index([status, confirmedAt]) // 확정 정산 조회
+  @@map("settlements")
+}
+
+model SettlementItem {
+  id           String              @id @default(cuid())
+  settlementId String              // 소속 정산 ID
+  tripId       String?             // 연결된 운행 ID (nullable for manual adjustments)
+  type         SettlementItemType  // 항목 유형
+  description  String              // 항목 설명 (예: "서울-부산 운행", "결행 공제")
+  amount       Decimal             @db.Decimal(12, 2) // 금액 (양수: 수입, 음수: 공제)
+  date         DateTime            @db.Date // 해당 일자
+  
+  // 메타데이터
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  settlement Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  trip       Trip?      @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  
+  // 인덱스 최적화
+  @@index([settlementId, type]) // 정산별 항목 유형 조회
+  @@index([tripId]) // 운행별 정산 항목 조회
+  @@index([date]) // 일자별 정산 항목 조회
+  @@map("settlement_items")
+}

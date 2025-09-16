@@ -1,0 +1,62 @@
+// 인증 및 사용자 관련 모델
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String?  // nullable for OAuth users
+  role      UserRole @default(DISPATCHER)
+  isActive  Boolean  @default(true)
+  
+  // 메타데이터
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  lastLogin DateTime? @db.Timestamptz(6)
+  
+  // Relations
+  auditLogs AuditLog[]
+  settlements Settlement[] @relation("SettlementCreator")
+  confirmedSettlements Settlement[] @relation("SettlementConfirmer")
+  
+  @@map("users")
+}
+
+// NextAuth.js 세션 관리
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(6)
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}

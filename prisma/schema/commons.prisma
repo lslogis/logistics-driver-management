@@ -1,0 +1,58 @@
+// 공통 설정 및 Enum 정의
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 차량 소유권 구분
+enum VehicleOwnership {
+  OWNED      // 고정 (자차)
+  CHARTER    // 용차 (임시)
+  CONSIGNED  // 지입 (계약)
+}
+
+// 운행 상태
+enum TripStatus {
+  SCHEDULED   // 예정
+  COMPLETED   // 완료
+  ABSENCE     // 결행
+  SUBSTITUTE  // 대차
+}
+
+// 정산 상태
+enum SettlementStatus {
+  DRAFT      // 임시 저장
+  CONFIRMED  // 확정 (수정 불가)
+  PAID       // 지급 완료
+}
+
+// 사용자 역할
+enum UserRole {
+  ADMIN      // 관리자 (모든 권한)
+  DISPATCHER // 배차담당자 (운행 관리)
+  ACCOUNTANT // 정산담당자 (정산 업무)
+}
+
+// 감사 로그 액션 타입
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  EXPORT
+  CONFIRM
+  LOGIN
+  LOGOUT
+}
+
+// 정산 항목 타입
+enum SettlementItemType {
+  TRIP        // 운행 운임
+  DEDUCTION   // 공제 (결행, 대차)
+  ADDITION    // 추가 지급
+  ADJUSTMENT  // 수동 조정
+}

@@ -1,0 +1,243 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: logistics_test
+          TZ: Asia/Seoul
+          PGTZ: Asia/Seoul
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Setup test environment
+      run: |
+        cp .env.example .env.test
+        echo "TEST_DATABASE_URL=postgresql://postgres:password@localhost:5432/logistics_test" >> .env.test
+        echo "NEXTAUTH_SECRET=test-secret-key-for-testing-only" >> .env.test
+
+    - name: Generate Prisma client
+      run: npx prisma generate
+
+    - name: Run database migrations
+      run: npx prisma migrate dev --name test-migration
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/logistics_test
+
+    - name: Seed test database
+      run: npx prisma db seed
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/logistics_test
+
+    - name: Run linting
+      run: npm run lint
+
+    - name: Run type checking
+      run: npm run typecheck
+
+    - name: Run unit tests
+      run: npm run test
+      env:
+        TEST_DATABASE_URL: postgresql://postgres:password@localhost:5432/logistics_test
+        NEXTAUTH_SECRET: test-secret-key-for-testing-only
+
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps chromium
+
+    - name: Build application for E2E tests
+      run: npm run build
+      env:
+        TEST_DATABASE_URL: postgresql://postgres:password@localhost:5432/logistics_test
+        NEXTAUTH_SECRET: test-secret-key-for-testing-only
+        NEXT_PUBLIC_FEATURE_RATES: true
+
+    - name: Start application for E2E tests
+      run: |
+        npm run start &
+        sleep 10
+        npx wait-on http://localhost:3001 --timeout 30000
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/logistics_test
+        NEXTAUTH_SECRET: test-secret-key-for-testing-only
+        NEXT_PUBLIC_FEATURE_RATES: true
+        PORT: 3001
+      
+    - name: Run E2E tests
+      run: npm run test:e2e
+      env:
+        DATABASE_URL: postgresql://postgres:password@localhost:5432/logistics_test
+        NEXTAUTH_SECRET: test-secret-key-for-testing-only
+        NEXT_PUBLIC_FEATURE_RATES: true
+        BASE_URL: http://localhost:3001
+        CI: true
+
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 7
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    
+    environment:
+      name: staging
+      url: https://staging.logistics.example.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        # Add your staging deployment commands here
+        # e.g., kubectl, docker-compose, or cloud deployment scripts
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test, build, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    environment:
+      name: production
+      url: https://logistics.example.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying to production environment..."
+        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        # Add your production deployment commands here
+        # e.g., kubectl, docker-compose, or cloud deployment scripts
+
+  notify:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always() && (needs.deploy-staging.result != 'skipped' || needs.deploy-production.result != 'skipped')
+    
+    steps:
+    - name: Notify deployment status
+      run: |
+        if [[ "${{ needs.deploy-staging.result }}" == "success" ]]; then
+          echo "✅ Staging deployment successful"
+        fi
+        if [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
+          echo "✅ Production deployment successful"
+        fi
+        # Add notification logic here (Slack, Discord, email, etc.)

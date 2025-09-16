@@ -1,0 +1,163 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Next.js
+.next/
+out/
+.vercel
+*.tsbuildinfo
+
+# Build outputs
+build/
+dist/
+
+# Coverage
+coverage/
+*.lcov
+.nyc_output/
+junit.xml
+test-results/
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.npm
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.jest/
+.jest-cache/
+.turbo/
+.swc/
+.next/cache/
+.next/standalone/
+.next/static/
+.next/server/
+node_modules/.cache/
+
+# Logs
+logs/
+*.log
+
+# Temporary folders
+tmp/
+temp/
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+docker-compose.override.yml
+data/
+logs/
+
+# Prisma
+prisma/migrations/migration_lock.toml
+
+# Uploads and user data
+uploads/
+user-data/
+public/uploads/
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+certificates/
+
+# Local development
+.local
+*.local
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Claude Code
+.claude/
+
+# Temporary documentation files
+*.md
+!README.md
+!CHANGELOG.md
+!LICENSE.md
+!CONTRIBUTING.md
+
+# Temporary SQL migration files
+prisma/migrations/*.sql
+!prisma/migrations/
+
+# Test files
+test-*.js
+test-*.ts
+
+# Backup/temporary schema files
+*.optimized.prisma
+*.backup.*
+
+# Legacy/archive files
+archive/
+legacy/

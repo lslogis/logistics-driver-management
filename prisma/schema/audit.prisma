@@ -1,0 +1,29 @@
+// 감사 로그 모델
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?     // 작업 수행한 사용자 ID (nullable for system actions)
+  userName   String      // 사용자 이름 (스냅샷, 사용자 삭제 시에도 기록 보존)
+  action     AuditAction // 수행한 액션
+  entityType String      // 대상 엔티티 타입 (예: "Driver", "Trip", "Settlement")
+  entityId   String      // 대상 엔티티 ID
+  
+  // 변경 내용 (JSON 형태로 저장)
+  changes    Json?       // { before: {...}, after: {...} } 또는 추가 정보
+  
+  // 메타데이터
+  metadata   Json?       // 추가 정보 { ip, userAgent, importFile, recordCount, etc. }
+  
+  // 시간 정보 (삭제 불가, 수정 불가)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // 인덱스 최적화
+  @@index([userId, createdAt]) // 사용자별 활동 조회
+  @@index([entityType, entityId]) // 엔티티별 변경 이력
+  @@index([action, createdAt]) // 액션별 로그 조회
+  @@index([createdAt]) // 시간순 조회 (최근 활동)
+  @@map("audit_logs")
+}

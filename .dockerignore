@@ -1,0 +1,91 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Git
+.git/
+.gitignore
+
+# Environment (keep examples)
+.env
+.env.*.local
+!.env.example
+!.env.staging.example
+!.env.production.example
+
+# Testing
+coverage/
+test-results/
+tests/
+__tests__/
+jest.config.js
+playwright.config.ts
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.DS_Store
+Thumbs.db
+
+# Logs and runtime
+*.log
+logs/
+uploads/
+tmp/
+temp/
+
+# Cache files
+.cache/
+.npm/
+.eslintcache
+.next/cache/
+tsconfig.tsbuildinfo
+
+# Development tools
+dev-tools/
+scripts/
+!scripts/init-*.sql
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+prisma/migrations/
+migration.sql
+migrations/
+
+# Windows specific
+*.bat
+clear-all-cache.*
+
+# Test files
+test-*.js
+*test*.js

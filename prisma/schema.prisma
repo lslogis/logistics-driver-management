@@ -1,0 +1,371 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String          @id @default(cuid())
+  email                String          @unique
+  name                 String
+  password             String?
+  role                 UserRole        @default(DISPATCHER)
+  isActive             Boolean         @default(true)
+  createdAt            DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime        @updatedAt @db.Timestamptz(6)
+  lastLogin            DateTime?       @db.Timestamptz(6)
+  fixedContracts       FixedContract[] @relation("FixedContractCreator")
+  accounts             Account[]
+  auditLogs            AuditLog[]
+  sessions             Session[]
+  confirmedSettlements Settlement[]    @relation("SettlementConfirmer")
+  settlements          Settlement[]    @relation("SettlementCreator")
+  charterRequests      CharterRequest[] @relation("CharterRequestCreator")
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(6)
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+model Driver {
+  id              String          @id @default(cuid())
+  name            String
+  phone           String
+  businessNumber  String?
+  bankName        String?
+  accountNumber   String?
+  remarks         String?
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+  vehicleNumber   String
+  businessName    String?
+  representative  String?
+  fixedContracts  FixedContract[] @relation("FixedContractDriver")
+  routeTemplates  RouteTemplate[] @relation("RouteDefaultDriver")
+  settlements     Settlement[]    @relation("DriverSettlements")
+  charterRequests CharterRequest[] @relation("CharterRequestDriver")
+
+  @@index([name])
+  @@index([phone])
+  @@index([vehicleNumber])
+  @@index([isActive])
+  @@index([name, phone, vehicleNumber], name: "idx_driver_composite")
+  @@unique([name, phone, vehicleNumber], name: "unique_driver_info")
+  @@map("drivers")
+}
+
+model LoadingPoint {
+  id               String          @id @default(cuid())
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
+  centerName       String
+  loadingPointName String
+  lotAddress       String?
+  roadAddress      String?
+  manager1         String?
+  manager2         String?
+  phone1           String?
+  phone2           String?
+  remarks          String?
+  fixedContracts   FixedContract[] @relation("FixedContractLoadingPoint")
+  routeTemplates   RouteTemplate[]
+  charterRequests  CharterRequest[] @relation("CharterRequestCenter")
+  centerFares      CenterFare[]    @relation("CenterFareLoadingPoint")
+
+  @@index([centerName])
+  @@index([loadingPointName])
+  @@index([isActive])
+  @@map("loading_points")
+}
+
+model RouteTemplate {
+  id              String        @id @default(cuid())
+  name            String        @unique
+  loadingPoint    String
+  distance        Float?
+  driverFare      Decimal       @db.Decimal(12, 2)
+  billingFare     Decimal       @db.Decimal(12, 2)
+  weekdayPattern  Int[]
+  defaultDriverId String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
+  loadingPointId  String?
+  defaultDriver   Driver?       @relation("RouteDefaultDriver", fields: [defaultDriverId], references: [id])
+  loadingPointRef LoadingPoint? @relation(fields: [loadingPointId], references: [id])
+
+  @@index([name])
+  @@index([loadingPoint])
+  @@index([loadingPointId])
+  @@index([defaultDriverId])
+  @@index([isActive])
+  @@map("route_templates")
+}
+
+
+model Settlement {
+  id              String           @id @default(cuid())
+  yearMonth       String
+  driverId        String
+  status          SettlementStatus @default(DRAFT)
+  totalTrips      Int              @default(0)
+  totalBaseFare   Decimal          @default(0) @db.Decimal(12, 2)
+  totalDeductions Decimal          @default(0) @db.Decimal(12, 2)
+  totalAdditions  Decimal          @default(0) @db.Decimal(12, 2)
+  finalAmount     Decimal          @default(0) @db.Decimal(12, 2)
+  confirmedAt     DateTime?        @db.Timestamptz(6)
+  confirmedBy     String?
+  paidAt          DateTime?        @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  createdBy       String?
+  items           SettlementItem[]
+  confirmer       User?            @relation("SettlementConfirmer", fields: [confirmedBy], references: [id])
+  creator         User?            @relation("SettlementCreator", fields: [createdBy], references: [id])
+  driver          Driver           @relation("DriverSettlements", fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, yearMonth], name: "unique_driver_yearmonth")
+  @@index([yearMonth, status])
+  @@index([driverId, status])
+  @@index([status, confirmedAt])
+  @@map("settlements")
+}
+
+model SettlementItem {
+  id           String             @id @default(cuid())
+  settlementId String
+  type         SettlementItemType
+  description  String
+  amount       Decimal            @db.Decimal(12, 2)
+  date         DateTime           @db.Date
+  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @db.Timestamptz(6)
+  settlement   Settlement         @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  @@index([settlementId, type])
+  @@index([date])
+  @@map("settlement_items")
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  userName   String
+  action     AuditAction
+  entityType String
+  entityId   String
+  changes    Json?
+  metadata   Json?
+  createdAt  DateTime    @default(now()) @db.Timestamptz(6)
+  user       User?       @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+
+model RegionAlias {
+  id             String   @id @default(cuid())
+  rawText        String   @unique
+  normalizedText String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([normalizedText])
+  @@index([rawText])
+  @@map("region_aliases")
+}
+
+model FixedContract {
+  id                 String        @id @default(cuid())
+  driverId           String?
+  loadingPointId     String
+  routeName          String
+  centerContractType ContractType
+  driverContractType ContractType?
+  centerAmount       Decimal       @db.Decimal(12, 2)
+  driverAmount       Decimal?      @db.Decimal(12, 2)
+  operatingDays      Int[]
+  startDate          DateTime?     @db.Date
+  endDate            DateTime?     @db.Date
+  specialConditions  String?
+  remarks            String?
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
+  createdBy          String?
+  creator            User?         @relation("FixedContractCreator", fields: [createdBy], references: [id])
+  driver             Driver?       @relation("FixedContractDriver", fields: [driverId], references: [id])
+  loadingPoint       LoadingPoint  @relation("FixedContractLoadingPoint", fields: [loadingPointId], references: [id])
+
+  @@index([driverId, isActive])
+  @@index([loadingPointId, isActive])
+  @@index([centerContractType])
+  @@index([driverContractType])
+  @@unique([loadingPointId, routeName], name: "unique_center_route")
+  @@map("fixed_contracts")
+}
+
+
+enum SettlementStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+}
+
+enum UserRole {
+  ADMIN
+  DISPATCHER
+  ACCOUNTANT
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  EXPORT
+  CONFIRM
+  ACTIVATE
+  DEACTIVATE
+  LOGIN
+  LOGOUT
+}
+
+enum ContractType {
+  FIXED_DAILY
+  FIXED_MONTHLY
+  CONSIGNED_MONTHLY
+  CHARTER_PER_RIDE
+}
+
+
+enum SettlementItemType {
+  TRIP
+  DEDUCTION
+  ADDITION
+  ADJUSTMENT
+}
+
+// === 새로운 용차(일차) 관리 시스템 ===
+
+model CenterFare {
+  id          String       @id @default(cuid())
+  centerId    String
+  vehicleType String
+  region      String       // 시/군 단위 텍스트 (RegionAlias 활용 가능)
+  fare        Int          // 기본 단가 (KRW, 정수)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  center      LoadingPoint @relation("CenterFareLoadingPoint", fields: [centerId], references: [id])
+  
+  // 센터ID + 차량타입 + 지역별 요율 유니크
+  @@unique([centerId, vehicleType, region], name: "unique_center_vehicle_region")
+  @@index([centerId, vehicleType])
+  @@index([region])
+  @@index([isActive])
+  @@map("center_fares")
+}
+
+model CharterRequest {
+  id             String                @id @default(cuid())
+  centerId       String
+  vehicleType    String
+  date           DateTime              @db.Date
+  
+  // 목적지 정보
+  destinations   CharterDestination[]
+  
+  // 센터 금액 (받는 금액)
+  isNegotiated   Boolean               @default(false)
+  negotiatedFare Int?
+  baseFare       Int?                  // 최댓값 지역의 요율
+  regionFare     Int?                  // 지역 2개 이상 추가비
+  stopFare       Int?                  // 콜 2개 이상 추가비  
+  extraFare      Int?                  // 대기/회송/수작업/명절 등
+  totalFare      Int                   // 최종 받는 금액
+  
+  // 기사 금액 (항상 별도 입력)
+  driverId       String
+  driverFare     Int
+  
+  // 기타 정보
+  notes          String?
+  createdAt      DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime              @updatedAt @db.Timestamptz(6)
+  createdBy      String?
+  
+  // Relations
+  center         LoadingPoint          @relation("CharterRequestCenter", fields: [centerId], references: [id])
+  driver         Driver                @relation("CharterRequestDriver", fields: [driverId], references: [id])
+  creator        User?                 @relation("CharterRequestCreator", fields: [createdBy], references: [id])
+  
+  @@index([centerId, date])
+  @@index([driverId, date])
+  @@index([vehicleType])
+  @@index([date])
+  @@index([createdAt])
+  @@map("charter_requests")
+}
+
+model CharterDestination {
+  id        String         @id @default(cuid())
+  requestId String
+  region    String
+  order     Int            // 순서 (1부터 시작)
+  
+  // Relations
+  request   CharterRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  @@unique([requestId, order], name: "unique_request_order")
+  @@index([requestId])
+  @@map("charter_destinations")
+}
