@@ -1,0 +1,161 @@
+spec:
+  name: 용차 관리 시스템
+  description: >
+    센터 요청부터 배차, 금액 관리까지 처리하는 용차 관리 시스템.
+    정산은 추후 고정차와 함께 별도 페이지에서 통합 처리한다.
+    현재 스펙은 용차 관리의 핵심 기능에 집중한다.
+
+  entities:
+    - name: Request
+      description: 센터에서 들어온 요청 정보
+      fields:
+        - name: requestDate
+          type: date
+          required: true
+        - name: centerCarNo
+          type: string
+          required: true
+          description: 센터에서 관리하는 호차 번호
+        - name: vehicleTon
+          type: decimal
+          required: true
+          description: 요청 톤수
+        - name: regions
+          type: array<string>
+          required: true
+          description: 배송 지역 리스트
+        - name: stops
+          type: integer
+          required: true
+          description: 착지 수
+        - name: notes
+          type: text
+          required: false
+          description: 자유 기재란 (변경 요청, 회송 등)
+        - name: extraAdjustment
+          type: integer
+          required: false
+          default: 0
+          description: 센터청구금액 가감 (±)
+      relations:
+        - name: dispatches
+          type: hasMany
+          target: Dispatch
+
+    - name: Dispatch
+      description: 센터 요청에 기사 배정을 기록
+      fields:
+        - name: deliveryTime
+          type: string
+          required: false
+          description: 납품 시간대 (예: 09~12시)
+        - name: driverFee
+          type: integer
+          required: true
+          description: 기사 운임 (시가, 수기 입력)
+        - name: driverId
+          type: relation
+          target: ExistingDriverTable
+          required: false
+          description: 기존 드라이버 마스터 테이블과 FK 연결
+        - name: driverName
+          type: string
+          required: true
+          description: 수기 입력 시 기사명
+        - name: driverPhone
+          type: string
+          required: true
+        - name: driverVehicle
+          type: string
+          required: true
+        - name: driverNotes
+          type: text
+          required: false
+      relations:
+        - name: request
+          type: belongsTo
+          target: Request
+
+  businessLogic:
+    - name: calculateCenterFare
+      description: >
+        center_fares 테이블과 계산기를 통해 센터청구금액을 산출.
+        최종 금액 = 기본료 + (착지수-1)*경유운임 + (지역수-1)*지역운임 + extraAdjustment
+      inputs:
+        - requestId
+      outputs:
+        - baseFare
+        - extraStopFee
+        - extraRegionFee
+        - adjustment
+        - totalFare
+
+  ui:
+    - name: RequestForm
+      description: 센터 요청 입력 화면
+      fields:
+        - requestDate
+        - centerCarNo
+        - vehicleTon
+        - regions (multi select)
+        - stops
+        - notes
+        - extraAdjustment
+      computed:
+        - calculatedFare: 자동 표시 (계산기 연동)
+        - finalFare: calculatedFare + extraAdjustment
+
+    - name: DispatchForm
+      description: 배차 확정 입력 화면
+      fields:
+        - driverId (lookup from existing Driver table or null)
+        - driverName (free text if driverId is null)
+        - driverPhone
+        - driverVehicle
+        - deliveryTime
+        - driverFee
+        - driverNotes
+      computed:
+        - centerFare: Request.finalFare
+        - margin: centerFare - driverFee
+
+    - name: RequestDetail
+      description: 요청 상세 화면
+      show:
+        - 요청 기본정보
+        - 센터청구금액(계산 + 조정)
+        - 배차 기사 리스트 (기사운임 포함)
+        - 마진 자동 계산
+
+
+model Request {
+  id              Int        @id @default(autoincrement())
+  requestDate     DateTime
+  centerCarNo     String
+  vehicleTon      Float
+  regions         Json
+  stops           Int
+  notes           String?
+  extraAdjustment Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  dispatches      Dispatch[]
+}
+
+model Dispatch {
+  id            Int      @id @default(autoincrement())
+  requestId     Int
+  driverId      Int?     // 기존 드라이버 마스터 테이블 FK (nullable)
+  driverName    String   // FK 없을 때 수기 입력
+  driverPhone   String
+  driverVehicle String
+  deliveryTime  String?
+  driverFee     Int
+  driverNotes   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  request Request @relation(fields: [requestId], references: [id])
+  // driver  → relation to existing driver table (e.g., DriverMaster)
+}

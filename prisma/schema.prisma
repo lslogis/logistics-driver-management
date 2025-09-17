@@ -84,6 +84,7 @@ model Driver {
   fixedContracts                          FixedContract[]  @relation("FixedContractDriver")
   routeTemplates                          RouteTemplate[]  @relation("RouteDefaultDriver")
   settlements                             Settlement[]     @relation("DriverSettlements")
+  dispatches                              Dispatch[]       @relation("DispatchDriver")
 
   @@unique([name, phone, vehicleNumber], name: "unique_driver_info")
   @@index([name])
@@ -307,6 +308,55 @@ model CharterDestination {
   @@unique([requestId, order], name: "unique_request_order")
   @@index([requestId])
   @@map("charter_destinations")
+}
+
+model Request {
+  id                String      @id @default(cuid())
+  requestDate       DateTime    @db.Date
+  centerCarNo       String      @db.VarChar(50)
+  vehicleTon        Decimal     @db.Decimal(3,1)
+  regions           Json        // Stored as JSON array for multi-select UI
+  stops             Int         @db.SmallInt
+  notes             String?     @db.Text
+  extraAdjustment   Int         @default(0)
+  adjustmentReason  String?     @db.VarChar(200)
+  createdAt         DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime    @updatedAt @db.Timestamptz(6)
+
+  // Relationships
+  dispatches        Dispatch[]
+
+  // Indexes for performance
+  @@index([requestDate, centerCarNo], name: "idx_request_date_carno")
+  @@index([requestDate], name: "idx_request_date")
+  @@index([centerCarNo], name: "idx_request_carno")
+  
+  @@map("requests")
+}
+
+model Dispatch {
+  id            String      @id @default(cuid())
+  requestId     String
+  driverId      String?     // Optional FK to drivers table
+  driverName    String      @db.VarChar(100)
+  driverPhone   String      @db.VarChar(20)
+  driverVehicle String      @db.VarChar(50)
+  deliveryTime  String?     @db.VarChar(50)
+  driverFee     Int
+  driverNotes   String?     @db.Text
+  createdAt     DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(6)
+
+  // Relationships
+  request       Request     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  driver        Driver?     @relation("DispatchDriver", fields: [driverId], references: [id], onDelete: SetNull)
+
+  // Indexes for performance
+  @@index([requestId], name: "idx_dispatch_request")
+  @@index([driverId], name: "idx_dispatch_driver")
+  @@index([requestId, driverId], name: "idx_dispatch_request_driver")
+  
+  @@map("dispatches")
 }
 
 

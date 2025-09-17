@@ -1,0 +1,435 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { useForm, useFieldArray } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { CalendarIcon, PlusIcon, XIcon, CalculatorIcon, RefreshCwIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const RequestFormSchema = z.object({
+  requestDate: z.string().min(1, '요청일을 선택해주세요'),
+  centerCarNo: z.string().min(1, '센터호차를 입력해주세요').max(50),
+  vehicleTon: z.number().min(0.1, '최소 0.1톤').max(999.9, '최대 999.9톤'),
+  regions: z.array(z.string().min(1, '지역을 입력해주세요')).min(1, '최소 1개 지역 필요').max(10, '최대 10개 지역'),
+  stops: z.number().int().min(1, '최소 1개 착지').max(50, '최대 50개 착지'),
+  notes: z.string().optional(),
+  extraAdjustment: z.number().int().default(0),
+  adjustmentReason: z.string().optional(),
+}).refine(
+  (data) => {
+    if (data.extraAdjustment !== 0 && !data.adjustmentReason) {
+      return false
+    }
+    return true
+  },
+  {
+    message: '추가 조정 시 조정 사유가 필요합니다',
+    path: ['adjustmentReason']
+  }
+)
+
+type RequestFormData = z.infer<typeof RequestFormSchema>
+
+interface FareCalculationResult {
+  baseFare: number
+  extraStopFare: number
+  extraRegionFare: number
+  subtotal: number
+  extraAdjustment: number
+  totalFare: number
+  calculationBreakdown: {
+    appliedRate?: any
+    baseFareCalculation: string
+    extraStopCalculation: string
+    extraRegionCalculation: string
+  }
+  warnings: string[]
+}
+
+interface RequestFormProps {
+  initialData?: Partial<RequestFormData>
+  onSubmit: (data: RequestFormData) => Promise<void>
+  onCancel?: () => void
+  isLoading?: boolean
+}
+
+export function RequestForm({ initialData, onSubmit, onCancel, isLoading }: RequestFormProps) {
+  const [fareCalculation, setFareCalculation] = useState<FareCalculationResult | null>(null)
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [showAdjustment, setShowAdjustment] = useState(false)
+
+  const form = useForm<RequestFormData>({
+    resolver: zodResolver(RequestFormSchema),
+    defaultValues: {
+      requestDate: initialData?.requestDate || new Date().toISOString().split('T')[0],
+      centerCarNo: initialData?.centerCarNo || '',
+      vehicleTon: initialData?.vehicleTon || 3.5,
+      regions: initialData?.regions || [''],
+      stops: initialData?.stops || 1,
+      notes: initialData?.notes || '',
+      extraAdjustment: initialData?.extraAdjustment || 0,
+      adjustmentReason: initialData?.adjustmentReason || '',
+    }
+  })
+
+  const { fields: regionFields, append: appendRegion, remove: removeRegion } = useFieldArray({
+    control: form.control,
+    name: 'regions'
+  })
+
+  const watchedValues = form.watch()
+
+  // Auto-calculate fare when key fields change
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (['centerCarNo', 'vehicleTon', 'regions', 'stops'].includes(name || '')) {
+        if (value.centerCarNo && value.vehicleTon && value.regions?.length && value.stops) {
+          calculateFare()
+        }
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const calculateFare = async () => {
+    const values = form.getValues()
+    
+    if (!values.centerCarNo || !values.vehicleTon || !values.regions?.length || !values.stops) {
+      return
+    }
+
+    setIsCalculating(true)
+    
+    try {
+      const response = await fetch('/api/requests/calculate-fare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          centerCarNo: values.centerCarNo,
+          vehicleTon: values.vehicleTon,
+          regions: values.regions.filter(r => r.trim()),
+          stops: values.stops,
+          extraAdjustment: values.extraAdjustment || 0
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setFareCalculation(data.calculation)
+      }
+    } catch (error) {
+      console.error('Fare calculation error:', error)
+    } finally {
+      setIsCalculating(false)
+    }
+  }
+
+  const handleSubmit = async (data: RequestFormData) => {
+    await onSubmit(data)
+  }
+
+  const finalBillingAmount = fareCalculation 
+    ? fareCalculation.totalFare 
+    : (watchedValues.extraAdjustment || 0)
+
+  return (
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      {/* Basic Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            📋 기본 정보
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="requestDate">요청일 *</Label>
+              <Input
+                id="requestDate"
+                type="date"
+                {...form.register('requestDate')}
+                className={cn(form.formState.errors.requestDate && 'border-red-500')}
+              />
+              {form.formState.errors.requestDate && (
+                <p className="text-sm text-red-500 mt-1">
+                  {form.formState.errors.requestDate.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="centerCarNo">센터호차 *</Label>
+              <Input
+                id="centerCarNo"
+                {...form.register('centerCarNo')}
+                placeholder="C001"
+                className={cn(form.formState.errors.centerCarNo && 'border-red-500')}
+              />
+              {form.formState.errors.centerCarNo && (
+                <p className="text-sm text-red-500 mt-1">
+                  {form.formState.errors.centerCarNo.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="vehicleTon">차량톤수 *</Label>
+              <div className="flex">
+                <Input
+                  id="vehicleTon"
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  max="999.9"
+                  {...form.register('vehicleTon', { valueAsNumber: true })}
+                  className={cn(form.formState.errors.vehicleTon && 'border-red-500', 'rounded-r-none')}
+                />
+                <div className="bg-gray-50 border border-l-0 rounded-r px-3 flex items-center text-sm text-gray-600">
+                  톤
+                </div>
+              </div>
+              {form.formState.errors.vehicleTon && (
+                <p className="text-sm text-red-500 mt-1">
+                  {form.formState.errors.vehicleTon.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="stops">착지수 *</Label>
+              <div className="flex">
+                <Input
+                  id="stops"
+                  type="number"
+                  min="1"
+                  max="50"
+                  {...form.register('stops', { valueAsNumber: true })}
+                  className={cn(form.formState.errors.stops && 'border-red-500', 'rounded-r-none')}
+                />
+                <div className="bg-gray-50 border border-l-0 rounded-r px-3 flex items-center text-sm text-gray-600">
+                  개
+                </div>
+              </div>
+              {form.formState.errors.stops && (
+                <p className="text-sm text-red-500 mt-1">
+                  {form.formState.errors.stops.message}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Delivery Regions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 justify-between">
+            🗺️ 배송지역 *
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendRegion('')}
+              className="ml-auto"
+            >
+              <PlusIcon className="h-4 w-4 mr-1" />
+              지역 추가
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {regionFields.map((field, index) => (
+            <div key={field.id} className="flex gap-2">
+              <div className="flex-1">
+                <div className="flex">
+                  <div className="bg-gray-50 border border-r-0 rounded-l px-3 flex items-center text-sm text-gray-600 min-w-[60px]">
+                    {index + 1}번째
+                  </div>
+                  <Input
+                    {...form.register(`regions.${index}` as const)}
+                    placeholder="서울"
+                    className="rounded-l-none"
+                  />
+                </div>
+              </div>
+              {regionFields.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeRegion(index)}
+                  className="px-2"
+                >
+                  <XIcon className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+          {form.formState.errors.regions && (
+            <p className="text-sm text-red-500">
+              {form.formState.errors.regions.message}
+            </p>
+          )}
+          <p className="text-sm text-gray-500">
+            💡 팁: 지역 순서는 배송 순서와 동일하게 입력해주세요
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Fare Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 justify-between">
+            💰 요금 정보
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={calculateFare}
+              disabled={isCalculating}
+            >
+              {isCalculating ? (
+                <RefreshCwIcon className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <CalculatorIcon className="h-4 w-4 mr-1" />
+              )}
+              요금 계산
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {fareCalculation ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="font-medium text-green-800">요금 계산 완료</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <div className="text-gray-600">기본료</div>
+                  <div className="font-medium">{fareCalculation.baseFare.toLocaleString()}원</div>
+                </div>
+                <div>
+                  <div className="text-gray-600">지역료</div>
+                  <div className="font-medium">{fareCalculation.extraRegionFare.toLocaleString()}원</div>
+                </div>
+                <div>
+                  <div className="text-gray-600">콜료</div>
+                  <div className="font-medium">{fareCalculation.extraStopFare.toLocaleString()}원</div>
+                </div>
+              </div>
+              <Separator className="my-3" />
+              <div className="flex justify-between items-center font-semibold">
+                <span>💳 총 센터청구금액:</span>
+                <span className="text-lg text-blue-600">
+                  {fareCalculation.subtotal.toLocaleString()}원
+                </span>
+              </div>
+              {fareCalculation.warnings.length > 0 && (
+                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                  <div className="text-sm text-yellow-800">
+                    ⚠️ {fareCalculation.warnings.join(', ')}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center text-gray-500">
+              기본 정보를 입력한 후 요금 계산 버튼을 클릭해주세요
+            </div>
+          )}
+
+          {/* Extra Adjustment */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="showAdjustment"
+              checked={showAdjustment}
+              onChange={(e) => setShowAdjustment(e.target.checked)}
+              className="rounded"
+            />
+            <Label htmlFor="showAdjustment">추가 조정 사용</Label>
+          </div>
+
+          {showAdjustment && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="extraAdjustment">조정 금액</Label>
+                <div className="flex">
+                  <Input
+                    id="extraAdjustment"
+                    type="number"
+                    {...form.register('extraAdjustment', { valueAsNumber: true })}
+                    placeholder="0"
+                    className="rounded-r-none"
+                  />
+                  <div className="bg-gray-50 border border-l-0 rounded-r px-3 flex items-center text-sm text-gray-600">
+                    원
+                  </div>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="adjustmentReason">조정 사유 *</Label>
+                <Input
+                  id="adjustmentReason"
+                  {...form.register('adjustmentReason')}
+                  placeholder="유료비 추가"
+                  className={cn(form.formState.errors.adjustmentReason && 'border-red-500')}
+                />
+                {form.formState.errors.adjustmentReason && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {form.formState.errors.adjustmentReason.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {(fareCalculation || watchedValues.extraAdjustment !== 0) && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex justify-between items-center font-semibold text-blue-800">
+                <span>🏷️ 최종 청구금액:</span>
+                <span className="text-xl">{finalBillingAmount.toLocaleString()}원</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Notes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>📝 메모</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            {...form.register('notes')}
+            placeholder="추가 요청사항이나 특이사항을 입력해주세요..."
+            rows={3}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3">
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            취소
+          </Button>
+        )}
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? '저장 중...' : '저장'}
+        </Button>
+      </div>
+    </form>
+  )
+}
