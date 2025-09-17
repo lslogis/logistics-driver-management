@@ -22,7 +22,7 @@ export function SimpleFiltersBar({ onFilterChange }: SimpleFiltersBarProps) {
 
   const fareTypeOptions = [
     '기본운임',
-    '경유+지역'
+    '경유운임'
   ]
 
   const updateFilters = (center?: string, fareType?: string, search?: string) => {

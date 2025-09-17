@@ -6,7 +6,7 @@ export interface FareRow {
   centerName: string
   vehicleTypeId: string
   vehicleTypeName: string
-  fareType: '기본운임' | '경유+지역'
+  fareType: '기본운임' | '경유운임'
   baseFare: number
   extraStopFee: number
   extraRegionFee: number
@@ -128,8 +128,8 @@ export const parseExcelFile = (file: File): Promise<ParsedExcelResult> => {
             return
           }
 
-          if (!fareType || (fareType !== '기본운임' && fareType !== '경유+지역')) {
-            errors.push(`${rowNumber}행: 요율종류는 '기본운임' 또는 '경유+지역'이어야 합니다`)
+          if (!fareType || (fareType !== '기본운임' && fareType !== '경유운임')) {
+            errors.push(`${rowNumber}행: 요율종류는 '기본운임' 또는 '경유운임'이어야 합니다`)
             return
           }
 
@@ -160,7 +160,7 @@ export const parseExcelFile = (file: File): Promise<ParsedExcelResult> => {
             centerName: centerName.trim(),
             vehicleTypeId: `vehicle-${vehicleTypeName.trim().toLowerCase()}`,
             vehicleTypeName: vehicleTypeName.trim(),
-            fareType: fareType as '기본운임' | '경유+지역',
+            fareType: fareType as '기본운임' | '경유운임',
             baseFare,
             extraStopFee,
             extraRegionFee,
@@ -201,9 +201,9 @@ export const downloadExcelTemplate = () => {
 
   const sampleData = [
     ['쿠팡', '1톤', '기본운임', 120000, 15000, 20000],
-    ['쿠팡', '2.5톤', '경유+지역', 180000, 20000, 25000],
+    ['쿠팡', '2.5톤', '경유운임', 180000, 20000, 25000],
     ['CJ대한통운', '3.5톤', '기본운임', 200000, 18000, 22000],
-    ['현대글로비스', '5톤', '경유+지역', 300000, 25000, 30000],
+    ['현대글로비스', '5톤', '경유운임', 300000, 25000, 30000],
     ['한진', '11톤', '기본운임', 450000, 35000, 40000]
   ]
 
@@ -244,7 +244,7 @@ export const downloadExcelTemplate = () => {
 // 중복 체크 함수
 export const checkDuplicateFare = (
   rows: FareRow[], 
-  newRow: { centerId: string; vehicleTypeId: string; fareType: '기본운임' | '경유+지역' }, 
+  newRow: { centerId: string; vehicleTypeId: string; fareType: '기본운임' | '경유운임' }, 
   excludeId?: string
 ): boolean => {
   return rows.some(row => 

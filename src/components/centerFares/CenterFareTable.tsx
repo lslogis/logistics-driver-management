@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { CenterFare, CenterFareQuery } from '@/lib/api/center-fares'
 import { formatNumber } from '@/lib/utils/format'
+import { VEHICLE_TYPE_OPTIONS } from '@/lib/utils/center-fares'
 
 interface CenterFareTableProps {
   data?: {
@@ -228,7 +229,7 @@ export function CenterFareTable({
                       <Truck className="h-5 w-5 text-purple-600" />
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">{fare.vehicleTypeName}</div>
+                      <div className="font-medium text-gray-900">{fare.vehicleType}</div>
                       <div className="text-xs text-gray-500">차량</div>
                     </div>
                   </div>

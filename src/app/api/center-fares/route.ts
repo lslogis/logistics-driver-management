@@ -9,10 +9,24 @@ const centerFareService = new CenterFareService(prisma)
 
 // 센터 요율 생성 스키마
 const CreateCenterFareSchema = z.object({
-  centerId: z.string().min(1, '센터 ID는 필수입니다'),
+  centerName: z.string().min(1, '센터명은 필수입니다'),
   vehicleType: z.string().min(1, '차량 타입은 필수입니다'),
-  region: z.string().min(1, '지역은 필수입니다'),
-  fare: z.number().int().min(0, '요율은 0 이상이어야 합니다')
+  region: z.string().optional(),
+  fareType: z.enum(['BASIC', 'STOP_FEE']),
+  baseFare: z.number().int().positive().optional(),
+  extraStopFee: z.number().int().positive().optional(),
+  extraRegionFee: z.number().int().positive().optional(),
+}).refine(data => {
+  if (data.fareType === 'BASIC') {
+    return data.baseFare !== undefined && data.region && data.region.length > 0
+  }
+  if (data.fareType === 'STOP_FEE') {
+    return data.extraStopFee !== undefined && 
+           data.extraRegionFee !== undefined
+  }
+  return false
+}, {
+  message: '요율 종류에 맞는 필수 필드를 입력하세요'
 })
 
 export const runtime = 'nodejs'
@@ -29,10 +43,10 @@ export const GET = withAuth(
         page: parseInt(searchParams.get('page') || '1'),
         limit: parseInt(searchParams.get('limit') || '20'),
         search: searchParams.get('search') || undefined,
-        centerId: searchParams.get('centerId') || undefined,
+        centerName: searchParams.get('centerName') || undefined,
         vehicleType: searchParams.get('vehicleType') || undefined,
         region: searchParams.get('region') || undefined,
-        isActive: searchParams.get('isActive') ? searchParams.get('isActive') === 'true' : undefined,
+        fareType: searchParams.get('fareType') as any || undefined,
         sortBy: searchParams.get('sortBy') || 'createdAt',
         sortOrder: (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
       }

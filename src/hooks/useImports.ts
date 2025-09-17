@@ -823,3 +823,194 @@ export function useFixedContractsImportWorkflow() {
     resetProgress
   }
 }
+
+// Center Fares import hooks
+export function useValidateCenterFaresExcel() {
+  return useMutation<ImportResponse, Error, File>({
+    mutationFn: (file: File) => {
+      // 센터요율 검증 API 호출
+      const formData = new FormData()
+      formData.append('file', file)
+      return fetch('/api/center-fares/validate', {
+        method: 'POST',
+        body: formData
+      }).then(res => res.json())
+    },
+    onSuccess: (data) => {
+      if (data.ok) {
+        const results = data.data
+        toast.success(`검증 완료: ${results.valid}개 유효, ${results.invalid}개 오류`)
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`검증 실패: ${error.message}`)
+    }
+  })
+}
+
+export function useImportCenterFaresExcel() {
+  const queryClient = useQueryClient()
+  
+  return useMutation<any, Error, File>({
+    mutationFn: async (file: File) => {
+      // 파일을 파싱하고 기존 bulk API 사용
+      const { parseExcelFile } = await import('@/lib/utils/center-fares')
+      const parseResult = await parseExcelFile(file)
+      
+      if (parseResult.errors.length > 0 && parseResult.data.length === 0) {
+        throw new Error('파싱 오류: ' + parseResult.errors.join(', '))
+      }
+      
+      // DTO로 변환
+      const createDtos = parseResult.data.map(row => ({
+        centerName: row.centerName,
+        vehicleType: row.vehicleTypeId,
+        region: row.fareType === '기본운임' ? (row.region || '') : null, // 기본운임은 region 필요, 경유운임은 null
+        fareType: row.fareType === '기본운임' ? 'BASIC' : 'STOP_FEE',
+        baseFare: row.baseFare,
+        extraStopFee: row.extraStopFee,
+        extraRegionFee: row.extraRegionFee
+      }))
+      
+      // Bulk import API 호출
+      const response = await fetch('/api/center-fares/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fares: createDtos })
+      })
+      
+      const result = await response.json()
+      if (!result.ok) {
+        throw new Error(result.error?.message || '가져오기 실패')
+      }
+      
+      return result
+    },
+    onSuccess: (data) => {
+      const results = data.data
+      toast.success(`가져오기 완료: ${results.imported}개 센터요율이 등록되었습니다`)
+      queryClient.invalidateQueries({ queryKey: ['center-fares'] })
+    },
+    onError: (error: Error) => {
+      toast.error(`가져오기 실패: ${error.message}`)
+    }
+  })
+}
+
+export function useDownloadCenterFareTemplate() {
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      const { downloadExcelTemplate } = await import('@/lib/utils/center-fares')
+      downloadExcelTemplate()
+    },
+    onSuccess: () => {
+      toast.success('템플릿 다운로드 완료')
+    },
+    onError: (error: Error) => {
+      toast.error(`템플릿 다운로드 실패: ${error.message}`)
+    }
+  })
+}
+
+// Center Fares import workflow
+export function useCenterFaresImportWorkflow() {
+  const validateMutation = useValidateCenterFaresExcel()
+  const importMutation = useImportCenterFaresExcel()
+  const downloadTemplateMutation = useDownloadCenterFareTemplate()
+  const { progress, isUploading, uploadError, resetProgress, simulateProgress, completeProgress, setError } = useFileUploadProgress()
+  const { validateFile } = useFileValidation()
+
+  const validate = useCallback(async (file: File) => {
+    const validation = validateFile(file)
+    if (!validation.isValid) {
+      setError(validation.error!)
+      return null
+    }
+
+    const cleanup = simulateProgress()
+    try {
+      // 센터요율은 Excel 파싱으로 직접 검증
+      const { parseExcelFile } = await import('@/lib/utils/center-fares')
+      const parseResult = await parseExcelFile(file)
+      
+      // 미리보기용 데이터 - centerName 포함
+      const previewRows = parseResult.data.map(row => ({
+        centerName: row.centerName,
+        vehicleType: row.vehicleTypeName,
+        region: row.region,
+        fareType: row.fareType,
+        baseFare: row.baseFare,
+        extraStopFee: row.extraStopFee,
+        extraRegionFee: row.extraRegionFee
+      }))
+      
+      // 에러 데이터에 row 번호 추가
+      const errorData = parseResult.errors.map((error, index) => ({
+        row: index + 2, // 헤더 포함해서 실제 행 번호
+        error: error,
+        data: null // 파싱 실패한 경우 데이터가 없을 수 있음
+      }))
+      
+      const results = {
+        total: parseResult.data.length + parseResult.errors.length,
+        valid: parseResult.data.length,
+        invalid: parseResult.errors.length,
+        errors: errorData,
+        preview: previewRows.slice(0, 10)
+      }
+      
+      completeProgress()
+      cleanup()
+      
+      return { data: { results } }
+    } catch (error) {
+      cleanup()
+      setError(error instanceof Error ? error.message : '검증 중 오류가 발생했습니다')
+      throw error
+    }
+  }, [validateFile, simulateProgress, completeProgress, setError])
+
+  const importData = useCallback(async (file: File) => {
+    const validation = validateFile(file)
+    if (!validation.isValid) {
+      setError(validation.error!)
+      return null
+    }
+
+    const cleanup = simulateProgress()
+    try {
+      const result = await importMutation.mutateAsync(file)
+      completeProgress()
+      cleanup()
+      
+      // 결과를 표준 형식으로 변환
+      const importResults = {
+        total: result.data.created + result.data.updated + result.data.skipped,
+        valid: result.data.created + result.data.updated,
+        invalid: result.data.skipped,
+        imported: result.data.created + result.data.updated,
+        created: result.data.created,
+        updated: result.data.updated,
+        skipped: result.data.skipped,
+        errors: result.data.errors || []
+      }
+      
+      return { data: { results: importResults } }
+    } catch (error) {
+      cleanup()
+      setError(error instanceof Error ? error.message : '가져오기 중 오류가 발생했습니다')
+      throw error
+    }
+  }, [importMutation, validateFile, simulateProgress, completeProgress, setError])
+
+  return {
+    validate,
+    importData,
+    downloadTemplate: () => downloadTemplateMutation.mutate(),
+    isLoading: validateMutation.isPending || importMutation.isPending || downloadTemplateMutation.isPending,
+    progress,
+    isUploading,
+    uploadError,
+    resetProgress
+  }
+}

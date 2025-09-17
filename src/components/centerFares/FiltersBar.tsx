@@ -22,6 +22,7 @@ import {
   ChevronUp
 } from 'lucide-react'
 import { CenterFareQuery } from '@/lib/api/center-fares'
+import { VEHICLE_TYPE_OPTIONS } from '@/lib/utils/center-fares'
 import { useDebounce } from '@/hooks/useDebounce'
 
 interface FiltersBarProps {
@@ -231,11 +232,11 @@ export function FiltersBar({ onFiltersChange, activeFilters }: FiltersBarProps) 
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
                         <SelectItem value="all">전체 차량</SelectItem>
-                        <SelectItem value="vehicle-1">1TON</SelectItem>
-                        <SelectItem value="vehicle-2">2.5TON</SelectItem>
-                        <SelectItem value="vehicle-3">5TON</SelectItem>
-                        <SelectItem value="vehicle-4">11TON</SelectItem>
-                        <SelectItem value="vehicle-5">25TON</SelectItem>
+                        {VEHICLE_TYPE_OPTIONS.map(vehicleType => (
+                          <SelectItem key={vehicleType.id} value={vehicleType.id}>
+                            {vehicleType.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

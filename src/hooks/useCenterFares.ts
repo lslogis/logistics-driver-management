@@ -23,6 +23,7 @@ import {
   UpdateCenterFareDto,
   CenterFareQuery,
 } from '@/lib/api/center-fares'
+import { centerFareApi } from '@/lib/api/center-fares-api'
 
 // Service hooks with adapters
 export const useCenterBaseFares = (params?: BaseFareQuery) => {
@@ -44,12 +45,13 @@ export const useCenterBaseFares = (params?: BaseFareQuery) => {
   })
 }
 
-// Legacy hook
+// Legacy hook - updated to use center-fares-api
 export const useCenterFares = (query?: CenterFareQuery) => {
   return useQuery({
     queryKey: ['centerFares', query],
-    queryFn: () => getCenterFares(query),
+    queryFn: () => centerFareApi.list(query),
     staleTime: 30000,
+    select: (fares) => ({ fares }) // 기존 형태에 맞게 변환
   })
 }
 
@@ -64,11 +66,11 @@ export const useCreateBaseFare = () => {
   })
 }
 
-// Legacy hook
+// Legacy hook - updated to use center-fares-api
 export const useCreateCenterFare = () => {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: CreateCenterFareDto) => createCenterFare(data),
+    mutationFn: (data: CreateCenterFareDto) => centerFareApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['centerFares'] })
       queryClient.invalidateQueries({ queryKey: ['centerBaseFares'] })
@@ -147,7 +149,8 @@ export const useUpsertFarePolicy = () => {
 // Fare Calculation hook
 export const useCalculateFare = () => {
   return useMutation({
-    mutationFn: (data: CalculateFareInput) => calculateFare(data),
+    mutationFn: (data: { centerName: string; vehicleType: string; regions: string[]; stopCount: number }) => 
+      centerFareApi.calculateFare(data),
   })
 }
 
@@ -167,7 +170,7 @@ export const useExportCenterFares = () => {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `center-fares-${new Date().toISOString().split('T')[0]}.xlsx`
+      link.download = `센터요율_${new Date().toISOString().split('T')[0]}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

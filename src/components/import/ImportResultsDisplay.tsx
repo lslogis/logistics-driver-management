@@ -43,6 +43,8 @@ export function ImportResultsDisplay({ results, type, onViewDetails }: ImportRes
         return <Navigation className="h-4 w-4 text-indigo-600" />
       case 'trips':
         return <Calendar className="h-4 w-4 text-pink-600" />
+      case 'center-fares':
+        return <Navigation className="h-4 w-4 text-teal-600" />
       default:
         return <Users className="h-4 w-4 text-blue-600" />
     }
@@ -62,6 +64,8 @@ export function ImportResultsDisplay({ results, type, onViewDetails }: ImportRes
         return '노선템플릿'
       case 'trips':
         return '운행'
+      case 'center-fares':
+        return '센터요율'
       default:
         return '항목'
     }
@@ -200,6 +204,41 @@ export function ImportResultsDisplay({ results, type, onViewDetails }: ImportRes
     </tr>
   )
 
+  const renderCenterFarePreview = (fare: any, index: number) => (
+    <tr key={index} className="hover:bg-gray-50">
+      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+        {fare.centerName}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        {fare.vehicleType}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+          {fare.region || '-'}
+        </span>
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          fare.fareType === '기본운임' || fare.fareType === 'BASIC' ? 'bg-blue-100 text-blue-800' :
+          'bg-green-100 text-green-800'
+        }`}>
+          {fare.fareType === 'BASIC' ? '기본운임' : 
+           fare.fareType === 'STOP_FEE' ? '경유운임' : 
+           fare.fareType}
+        </span>
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+        ₩{fare.baseFare?.toLocaleString() || '0'}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+        ₩{fare.extraStopFee?.toLocaleString() || '0'}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+        ₩{fare.extraRegionFee?.toLocaleString() || '0'}
+      </td>
+    </tr>
+  )
+
   const renderPreview = (item: any, index: number) => {
     switch (type) {
       case 'drivers':
@@ -214,6 +253,8 @@ export function ImportResultsDisplay({ results, type, onViewDetails }: ImportRes
         return renderRoutePreview(item, index)
       case 'trips':
         return renderTripPreview(item, index)
+      case 'center-fares':
+        return renderCenterFarePreview(item, index)
       default:
         return null
     }
@@ -250,6 +291,27 @@ export function ImportResultsDisplay({ results, type, onViewDetails }: ImportRes
             <td className="px-3 py-2 text-sm">{item.weekdayPattern || '-'}</td>
             <td className="px-3 py-2 text-sm">{item.contractType}</td>
             <td className="px-3 py-2 text-sm">{item.assignedDriverName || '-'}</td>
+          </>
+        )
+      case 'center-fares':
+        return (
+          <>
+            <td className="px-3 py-2 text-sm">{item.centerName}</td>
+            <td className="px-3 py-2 text-sm">{item.vehicleType}</td>
+            <td className="px-3 py-2 text-sm">{item.region || '-'}</td>
+            <td className="px-3 py-2 text-sm">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                item.fareType === '기본운임' || item.fareType === 'BASIC' ? 'bg-blue-100 text-blue-800' :
+                'bg-green-100 text-green-800'
+              }`}>
+                {item.fareType === 'BASIC' ? '기본운임' : 
+                 item.fareType === 'STOP_FEE' ? '경유운임' : 
+                 item.fareType}
+              </span>
+            </td>
+            <td className="px-3 py-2 text-sm text-right">₩{item.baseFare?.toLocaleString() || '0'}</td>
+            <td className="px-3 py-2 text-sm text-right">₩{item.extraStopFee?.toLocaleString() || '0'}</td>
+            <td className="px-3 py-2 text-sm text-right">₩{item.extraRegionFee?.toLocaleString() || '0'}</td>
           </>
         )
       default:
@@ -290,6 +352,18 @@ export function ImportResultsDisplay({ results, type, onViewDetails }: ImportRes
             <td className="px-3 py-2 text-sm text-gray-400">{data.weekdayPattern || '-'}</td>
             <td className="px-3 py-2 text-sm text-gray-400">{data.contractType || '-'}</td>
             <td className="px-3 py-2 text-sm text-gray-400">{data.assignedDriverName || '-'}</td>
+          </>
+        )
+      case 'center-fares':
+        return (
+          <>
+            <td className="px-3 py-2 text-sm text-gray-400">{data.centerName || '-'}</td>
+            <td className="px-3 py-2 text-sm text-gray-400">{data.vehicleType || '-'}</td>
+            <td className="px-3 py-2 text-sm text-gray-400">{data.region || '-'}</td>
+            <td className="px-3 py-2 text-sm text-gray-400">{data.fareType || '-'}</td>
+            <td className="px-3 py-2 text-sm text-gray-400">{data.baseFare || '-'}</td>
+            <td className="px-3 py-2 text-sm text-gray-400">{data.extraStopFee || '-'}</td>
+            <td className="px-3 py-2 text-sm text-gray-400">{data.extraRegionFee || '-'}</td>
           </>
         )
       default:
@@ -340,6 +414,8 @@ export function ImportResultsDisplay({ results, type, onViewDetails }: ImportRes
         return ['노선명', '구간', '거리', '기본요금']
       case 'trips':
         return ['날짜', '기사', '차량', '노선', '상태', '기사요금', '청구요금']
+      case 'center-fares':
+        return ['센터명', '차량톤수', '지역', '요율종류', '기본운임', '경유운임', '지역운임']
       default:
         return []
     }

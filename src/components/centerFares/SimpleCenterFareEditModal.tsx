@@ -33,7 +33,7 @@ const fareSchema = z.object({
   vehicleTypeId: z.string().min(1, '차량톤수를 선택하세요'),
   vehicleTypeName: z.string().min(1, '차량톤수명이 필요합니다'),
   region: z.string().optional(),
-  fareType: z.enum(['기본운임', '경유+지역'], {
+  fareType: z.enum(['기본운임', '경유운임'], {
     required_error: '요율종류를 선택하세요'
   }),
   baseFare: z.coerce.number().optional(),
@@ -45,8 +45,8 @@ const fareSchema = z.object({
     return data.region && data.region.trim() && 
            data.baseFare !== undefined && data.baseFare > 0
   }
-  // 경유+지역일 때: 경유운임, 지역운임만 필수 (지역 불필요)
-  if (data.fareType === '경유+지역') {
+  // 경유운임일 때: 경유운임, 지역운임만 필수 (지역 불필요)
+  if (data.fareType === '경유운임') {
     return data.extraStopFee !== undefined && data.extraStopFee > 0 &&
            data.extraRegionFee !== undefined && data.extraRegionFee > 0
   }
@@ -62,8 +62,7 @@ interface SimpleCenterFareEditModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   row: FareRow | null
-  onSubmit: (row: FareRow) => void
-  existingRows: FareRow[]
+  onSubmit: (row: FareRow) => Promise<void>
 }
 
 
@@ -71,8 +70,7 @@ export function SimpleCenterFareEditModal({
   open, 
   onOpenChange, 
   row,
-  onSubmit,
-  existingRows
+  onSubmit
 }: SimpleCenterFareEditModalProps) {
   const { centers } = useCenters()
   
@@ -110,57 +108,33 @@ export function SimpleCenterFareEditModal({
     }
   }, [row, open, form])
 
-  const handleSubmit = (data: FareForm) => {
+  const handleSubmit = async (data: FareForm) => {
     if (!row) return
 
-    // 요율종류별 중복 체크 (자기 자신 제외)
-    let isDuplicate = false
-    if (data.fareType === '기본운임') {
-      // 기본운임: 센터 + 차량톤수 + 지역 조합 체크
-      isDuplicate = existingRows.some(existingRow => 
-        existingRow.id !== row.id &&
-        existingRow.centerId === data.centerId && 
-        existingRow.vehicleTypeId === data.vehicleTypeId &&
-        existingRow.region === data.region &&
-        existingRow.fareType === '기본운임'
-      )
-      if (isDuplicate) {
-        toast.error(`동일한 센터(${data.centerName}), 차량톤수(${data.vehicleTypeName}), 지역(${data.region})의 기본운임이 이미 존재합니다.`)
-        return
+    try {
+      // 요율종류에 따른 조건부 필드 설정
+      const updatedRow: FareRow = {
+        ...row,
+        centerId: data.centerId,
+        centerName: data.centerName,
+        vehicleTypeId: data.vehicleTypeId,
+        vehicleTypeName: data.vehicleTypeName,
+        // 기본운임일 때만 지역 저장, 경유운임일 때는 빈 문자열
+        region: data.fareType === '기본운임' ? (data.region || '') : '',
+        fareType: data.fareType,
+        // 기본운임일 때: 기본운임만 설정, 나머지는 undefined
+        // 경유운임일 때: 경유운임, 지역운임만 설정, 기본운임은 undefined
+        baseFare: data.fareType === '기본운임' ? data.baseFare : undefined,
+        extraStopFee: data.fareType === '경유운임' ? data.extraStopFee : undefined,
+        extraRegionFee: data.fareType === '경유운임' ? data.extraRegionFee : undefined,
       }
-    } else {
-      // 경유+지역: 센터 + 차량톤수 조합 체크
-      isDuplicate = existingRows.some(existingRow => 
-        existingRow.id !== row.id &&
-        existingRow.centerId === data.centerId && 
-        existingRow.vehicleTypeId === data.vehicleTypeId &&
-        existingRow.fareType === '경유+지역'
-      )
-      if (isDuplicate) {
-        toast.error(`동일한 센터(${data.centerName}), 차량톤수(${data.vehicleTypeName})의 경유+지역 요율이 이미 존재합니다.`)
-        return
-      }
+      
+      await onSubmit(updatedRow)
+      onOpenChange(false)
+    } catch (error) {
+      // 에러는 부모 컴포넌트에서 처리
+      console.error('요율 수정 실패:', error)
     }
-
-    // 요율종류에 따른 조건부 필드 설정
-    const updatedRow: FareRow = {
-      ...row,
-      centerId: data.centerId,
-      centerName: data.centerName,
-      vehicleTypeId: data.vehicleTypeId,
-      vehicleTypeName: data.vehicleTypeName,
-      // 기본운임일 때만 지역 저장, 경유+지역일 때는 빈 문자열
-      region: data.fareType === '기본운임' ? (data.region || '') : '',
-      fareType: data.fareType,
-      // 기본운임일 때: 기본운임만 설정, 나머지는 undefined
-      // 경유+지역일 때: 경유운임, 지역운임만 설정, 기본운임은 undefined
-      baseFare: data.fareType === '기본운임' ? data.baseFare : undefined,
-      extraStopFee: data.fareType === '경유+지역' ? data.extraStopFee : undefined,
-      extraRegionFee: data.fareType === '경유+지역' ? data.extraRegionFee : undefined,
-    }
-    
-    onSubmit(updatedRow)
-    onOpenChange(false)
   }
 
   const handleClose = () => {
@@ -292,7 +266,7 @@ export function SimpleCenterFareEditModal({
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="기본운임">기본운임</SelectItem>
-                        <SelectItem value="경유+지역">경유+지역</SelectItem>
+                        <SelectItem value="경유운임">경유운임</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -331,22 +305,22 @@ export function SimpleCenterFareEditModal({
                 )}
               />
 
-              {/* 경유운임 - 경유+지역일 때만 필수 */}
+              {/* 경유운임 - 경유운임일 때만 필수 */}
               <FormField
                 control={form.control}
                 name="extraStopFee"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-semibold text-gray-700">
-                      경유운임 (원) {watchedFareType === '경유+지역' ? '*' : ''}
+                      경유운임 (원) {watchedFareType === '경유운임' ? '*' : ''}
                     </FormLabel>
                     <FormControl>
                       <Input
                         type="number"
                         min="0"
-                        placeholder={watchedFareType === '경유+지역' ? "예: 15000" : "사용안함"}
+                        placeholder={watchedFareType === '경유운임' ? "예: 15000" : "사용안함"}
                         className="h-11 rounded-xl border-2 focus:border-blue-500"
-                        disabled={watchedFareType !== '경유+지역'}
+                        disabled={watchedFareType !== '경유운임'}
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
@@ -357,22 +331,22 @@ export function SimpleCenterFareEditModal({
                 )}
               />
 
-              {/* 지역운임 - 경유+지역일 때만 필수 */}
+              {/* 지역운임 - 경유운임일 때만 필수 */}
               <FormField
                 control={form.control}
                 name="extraRegionFee"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-semibold text-gray-700">
-                      지역운임 (원) {watchedFareType === '경유+지역' ? '*' : ''}
+                      지역운임 (원) {watchedFareType === '경유운임' ? '*' : ''}
                     </FormLabel>
                     <FormControl>
                       <Input
                         type="number"
                         min="0"
-                        placeholder={watchedFareType === '경유+지역' ? "예: 20000" : "사용안함"}
+                        placeholder={watchedFareType === '경유운임' ? "예: 20000" : "사용안함"}
                         className="h-11 rounded-xl border-2 focus:border-blue-500"
-                        disabled={watchedFareType !== '경유+지역'}
+                        disabled={watchedFareType !== '경유운임'}
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}

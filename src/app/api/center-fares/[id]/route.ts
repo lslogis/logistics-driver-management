@@ -11,9 +11,11 @@ const centerFareService = new CenterFareService(prisma)
 const UpdateCenterFareSchema = z.object({
   centerId: z.string().min(1).optional(),
   vehicleType: z.string().min(1).optional(),
-  region: z.string().min(1).optional(),
-  fare: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional()
+  region: z.string().optional(),
+  fareType: z.enum(['BASIC', 'STOP_FEE']).optional(),
+  baseFare: z.number().int().positive().optional(),
+  extraStopFee: z.number().int().positive().optional(),
+  extraRegionFee: z.number().int().positive().optional()
 })
 
 export const runtime = 'nodejs'

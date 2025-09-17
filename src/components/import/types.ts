@@ -1,7 +1,7 @@
 import { ImportResult } from '@/lib/api/imports'
 
 // 임포트 가능한 데이터 타입
-export type ImportType = 'drivers' | 'loading-points' | 'fixed-contracts' | 'vehicles' | 'routes' | 'trips'
+export type ImportType = 'drivers' | 'loading-points' | 'fixed-contracts' | 'vehicles' | 'routes' | 'trips' | 'center-fares'
 
 // 모달 단계
 export type ImportStep = 'upload' | 'validate' | 'import' | 'complete'
@@ -101,6 +101,15 @@ export const IMPORT_TYPE_CONFIGS: Record<ImportType, ImportTypeConfig> = {
     maxFileSize: 10,
     sampleFields: ['날짜', '기사명', '차량번호', '노선명', '상태', '기사요금', '청구요금'],
     icon: 'calendar'
+  },
+  'center-fares': {
+    title: '센터요율 가져오기',
+    description: 'Excel 파일로 센터요율 정보를 일괄 등록할 수 있습니다.',
+    templateFileName: '센터요율등록템플릿.xlsx',
+    acceptedFileTypes: ['.xlsx', '.xls'],
+    maxFileSize: 10,
+    sampleFields: ['센터명', '차량톤수', '지역', '요율종류', '기본운임', '경유운임', '지역운임'],
+    icon: 'navigation'
   }
 }
 
