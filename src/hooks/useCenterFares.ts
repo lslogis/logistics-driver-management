@@ -162,7 +162,36 @@ export const useBulkUploadFares = () => {
 
 export const useExportCenterFares = () => {
   return useMutation({
-    mutationFn: (query?: CenterFareQuery) => exportCenterFares(query),
+    mutationFn: async (query?: CenterFareQuery) => {
+      const blob = await exportCenterFares(query)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `center-fares-${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      return { success: true }
+    },
+  })
+}
+
+export const useDownloadTemplate = () => {
+  return useMutation({
+    mutationFn: async () => {
+      const { downloadCenterFareTemplate } = await import('@/lib/api/center-fares')
+      const blob = await downloadCenterFareTemplate()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'center-fares-template.xlsx'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      return { success: true }
+    },
   })
 }
 

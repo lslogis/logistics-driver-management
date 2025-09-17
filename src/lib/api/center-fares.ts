@@ -164,7 +164,7 @@ export const bulkUploadFares = async (fares: CreateCenterFareDto[]) => {
   return res.data || res
 }
 
-export const exportCenterFares = async (query?: CenterFareQuery) => {
+export const exportCenterFares = async (query?: CenterFareQuery): Promise<Blob> => {
   const params = new URLSearchParams()
   if (query) {
     Object.entries(query).forEach(([key, value]) => {
@@ -173,6 +173,44 @@ export const exportCenterFares = async (query?: CenterFareQuery) => {
       }
     })
   }
-  const res = await api.get(`/api/center-fares/export?${params}`)
-  return res.data || res
+  
+  const response = await fetch(`/api/center-fares/export?${params}`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    },
+  })
+  
+  if (!response.ok) {
+    throw new Error('엑셀 내보내기 실패')
+  }
+  
+  return response.blob()
+}
+
+// Template download for bulk upload
+export const downloadCenterFareTemplate = async (): Promise<Blob> => {
+  const response = await fetch('/api/center-fares/template', {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    },
+  })
+  
+  if (!response.ok) {
+    throw new Error('템플릿 다운로드 실패')
+  }
+  
+  return response.blob()
+}
+
+// Enhanced bulk upload with validation
+export interface BulkUploadResult {
+  success: number
+  failed: number
+  errors: Array<{
+    row: number
+    error: string
+    data?: any
+  }>
 }

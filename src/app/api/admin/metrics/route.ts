@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth/rbac'
-import { RateService } from '@/lib/services/rate.service'
 import { isFeatureEnabled } from '@/lib/feature-flags'
-
-const rateService = new RateService(prisma)
 
 interface BusinessMetrics {
   profitability: {
@@ -325,40 +322,31 @@ async function calculateRatesMetrics(thisMonthStart: Date, lastMonthStart: Date,
     take: 100 // Sample for outlier analysis
   })
 
-  // Detect fare outliers using rate calculations
+  // Detect fare outliers using basic statistical analysis
   const outlierTrips = []
-  for (const trip of thisMonthTrips.slice(0, 20)) { // Analyze subset for performance
-    try {
-      const centerName = getCenterNameFromTrip(trip)
-      const tonnage = trip.tonnage
+  const fares = thisMonthTrips.map(t => Number(t.billingFare) || 0).filter(f => f > 0)
+  
+  if (fares.length > 0) {
+    const avgFare = fares.reduce((sum, fare) => sum + fare, 0) / fares.length
+    const stdDev = Math.sqrt(
+      fares.reduce((sum, fare) => sum + Math.pow(fare - avgFare, 2), 0) / fares.length
+    )
+    
+    for (const trip of thisMonthTrips.slice(0, 20)) {
+      const actualFare = Number(trip.billingFare) || 0
+      const deviation = Math.abs((actualFare - avgFare) / stdDev)
       
-      if (centerName && tonnage) {
-        const calculatedRate = await rateService.calculateRate({
-          center: centerName,
-          tonnage: parseFloat(tonnage) || 0,
-          regions: [],
-          date: new Date()
+      // Mark as outlier if deviation > 2 standard deviations
+      if (deviation > 2 && actualFare > 0) {
+        outlierTrips.push({
+          tripId: trip.id,
+          centerName: getCenterNameFromTrip(trip),
+          tonnage: parseFloat(trip.tonnage || '0') || 0,
+          billingFare: actualFare,
+          driverFare: Number(trip.driverFare) || 0,
+          deviation: Math.round(deviation * 100) / 100
         })
-        
-        const actualFare = Number(trip.billingFare) || 0
-        const expectedFare = calculatedRate.breakdown.total
-        const deviation = Math.abs((actualFare - expectedFare) / expectedFare) * 100
-        
-        // Mark as outlier if deviation > 30%
-        if (deviation > 30 && expectedFare > 0) {
-          outlierTrips.push({
-            tripId: trip.id,
-            centerName,
-            tonnage: parseFloat(tonnage) || 0,
-            billingFare: actualFare,
-            driverFare: Number(trip.driverFare) || 0,
-            deviation: Math.round(deviation * 100) / 100
-          })
-        }
       }
-    } catch (error) {
-      // Skip trips that can't be calculated
-      continue
     }
   }
 
