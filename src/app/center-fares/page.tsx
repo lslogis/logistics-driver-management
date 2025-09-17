@@ -19,7 +19,7 @@ export default function CenterFaresPage() {
   const [rows, setRows] = useState<FareRow[]>([])
   
   const [selectedRow, setSelectedRow] = useState<FareRow | null>(null)
-  const [filters, setFilters] = useState<{ center?: string; fareType?: string }>({})
+  const [filters, setFilters] = useState<{ center?: string; fareType?: string; searchText?: string }>({})
 
   const [openCreate, setOpenCreate] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
@@ -32,6 +32,12 @@ export default function CenterFaresPage() {
     return rows.filter(row => {
       if (filters.center && row.centerName !== filters.center) return false
       if (filters.fareType && row.fareType !== filters.fareType) return false
+      if (filters.searchText) {
+        const searchLower = filters.searchText.toLowerCase()
+        const matchesVehicleType = row.vehicleTypeName.toLowerCase().includes(searchLower)
+        const matchesRegion = row.region.toLowerCase().includes(searchLower)
+        if (!matchesVehicleType && !matchesRegion) return false
+      }
       return true
     })
   }, [rows, filters])
@@ -56,7 +62,7 @@ export default function CenterFaresPage() {
     toast.success(`${imported.length}건 가져오기 완료`)
   }
 
-  const handleFilterChange = (newFilters: { center?: string; fareType?: string }) => {
+  const handleFilterChange = (newFilters: { center?: string; fareType?: string; searchText?: string }) => {
     setFilters(newFilters)
   }
 
@@ -121,7 +127,7 @@ export default function CenterFaresPage() {
               요율 목록
             </div>
             <div className="text-sm font-normal text-gray-600">
-              총 {filteredRows.length}개 항목 {filters.center || filters.fareType ? '(필터 적용됨)' : ''}
+              총 {filteredRows.length}개 항목 {filters.center || filters.fareType || filters.searchText ? '(필터 적용됨)' : ''}
             </div>
           </CardTitle>
         </CardHeader>
@@ -145,7 +151,7 @@ export default function CenterFaresPage() {
                 {filteredRows.length === 0 && (
                   <tr>
                     <td colSpan={9} className="text-center py-8 text-gray-500">
-                      {filters.center || filters.fareType 
+                      {filters.center || filters.fareType || filters.searchText
                         ? '필터 조건에 맞는 요율이 없습니다' 
                         : '등록된 요율이 없습니다'
                       }

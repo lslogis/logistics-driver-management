@@ -4,16 +4,18 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { X, Search } from 'lucide-react'
 import { useCenters } from '@/hooks/useCenters'
 
 interface SimpleFiltersBarProps {
-  onFilterChange: (filters: { center?: string; fareType?: string }) => void
+  onFilterChange: (filters: { center?: string; fareType?: string; searchText?: string }) => void
 }
 
 export function SimpleFiltersBar({ onFilterChange }: SimpleFiltersBarProps) {
   const [selectedCenter, setSelectedCenter] = useState<string>('')
   const [selectedFareType, setSelectedFareType] = useState<string>('')
+  const [searchText, setSearchText] = useState<string>('')
   
   const { getCenterNames } = useCenters()
   const centerOptions = getCenterNames
@@ -23,34 +25,42 @@ export function SimpleFiltersBar({ onFilterChange }: SimpleFiltersBarProps) {
     '경유+지역'
   ]
 
+  const updateFilters = (center?: string, fareType?: string, search?: string) => {
+    onFilterChange({
+      center: center === 'all' ? undefined : center,
+      fareType: fareType === 'all' ? undefined : fareType,
+      searchText: search?.trim() || undefined
+    })
+  }
+
   const handleCenterChange = (value: string) => {
     setSelectedCenter(value)
-    onFilterChange({
-      center: value === 'all' ? undefined : value,
-      fareType: selectedFareType === 'all' ? undefined : selectedFareType
-    })
+    updateFilters(value, selectedFareType, searchText)
   }
 
   const handleFareTypeChange = (value: string) => {
     setSelectedFareType(value)
-    onFilterChange({
-      center: selectedCenter === 'all' ? undefined : selectedCenter,
-      fareType: value === 'all' ? undefined : value
-    })
+    updateFilters(selectedCenter, value, searchText)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchText(value)
+    updateFilters(selectedCenter, selectedFareType, value)
   }
 
   const handleClearFilters = () => {
     setSelectedCenter('')
     setSelectedFareType('')
+    setSearchText('')
     onFilterChange({})
   }
 
-  const hasActiveFilters = selectedCenter || selectedFareType
+  const hasActiveFilters = selectedCenter || selectedFareType || searchText
 
   return (
     <Card className="border-0 shadow-lg bg-gradient-to-r from-slate-50 to-gray-50 rounded-2xl">
       <CardContent className="p-6">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-gray-700">🏢</span>
@@ -91,6 +101,20 @@ export function SimpleFiltersBar({ onFilterChange }: SimpleFiltersBarProps) {
             </Select>
           </div>
 
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-gray-700" />
+              <span className="text-sm font-medium text-gray-700">검색:</span>
+            </div>
+            <Input
+              type="text"
+              placeholder="차량톤수, 지역 검색..."
+              value={searchText}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-52 h-11 rounded-xl border-2 focus:border-blue-500 transition-colors"
+            />
+          </div>
+
           {hasActiveFilters && (
             <Button 
               variant="outline" 
@@ -115,6 +139,11 @@ export function SimpleFiltersBar({ onFilterChange }: SimpleFiltersBarProps) {
                 {selectedFareType && (
                   <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium">
                     요율: {selectedFareType}
+                  </span>
+                )}
+                {searchText && (
+                  <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-medium">
+                    검색: {searchText}
                   </span>
                 )}
               </div>
