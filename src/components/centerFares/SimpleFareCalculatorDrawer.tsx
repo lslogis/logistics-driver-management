@@ -75,64 +75,66 @@ export function SimpleFareCalculatorDrawer({
   const watchedValues = form.watch()
 
   const handleCalculate = (data: CalculatorForm) => {
-    // 쉼표로 구분된 지역들 처리 (빈 값 제외)
-    const regions = data.regions
+    // 모든 지역들 수집 (기본지역 + 추가지역들)
+    const allRegions = [data.region]
+    const additionalRegions = data.regions
       .split(',')
       .map(region => region.trim())
       .filter(region => region.length > 0)
     
-    const regionCount = regions.length
+    allRegions.push(...additionalRegions)
+    const totalRegionCount = allRegions.length
 
-    // 기본운임과 경유+지역 요율을 각각 찾기
-    const baseFareRow = rows.find(row => 
-      row.centerId === data.centerId &&
-      row.vehicleTypeId === data.vehicleTypeId &&
-      row.region === data.region &&
-      row.fareType === '기본운임'
-    )
+    // 각 지역별 기본운임 찾기
+    const regionFares = []
+    for (const region of allRegions) {
+      const fareRow = rows.find(row => 
+        row.centerId === data.centerId &&
+        row.vehicleTypeId === data.vehicleTypeId &&
+        row.region === region &&
+        row.fareType === '기본운임'
+      )
+      
+      if (!fareRow || !fareRow.baseFare) {
+        toast.error(`${region} 지역의 기본운임을 찾을 수 없습니다. 먼저 해당 지역의 기본운임을 등록해주세요.`)
+        return
+      }
+      
+      regionFares.push({ region, fare: fareRow.baseFare })
+    }
     
+    // 경유+지역 요율 찾기
     const extraFareRow = rows.find(row => 
       row.centerId === data.centerId &&
       row.vehicleTypeId === data.vehicleTypeId &&
       row.fareType === '경유+지역'
     )
 
-    // 필요한 요율 정보가 없는 경우 에러
-    if (!baseFareRow) {
-      toast.error('선택한 센터, 차량톤수, 지역의 기본운임을 찾을 수 없습니다. 먼저 기본운임을 등록해주세요.')
-      return
-    }
-    
     if (!extraFareRow) {
       toast.error('선택한 센터, 차량톤수의 경유+지역 요율을 찾을 수 없습니다. 먼저 경유+지역 요율을 등록해주세요.')
       return
     }
 
-    // 필드 검증
-    if (baseFareRow.baseFare === undefined || baseFareRow.baseFare === null) {
-      toast.error('기본운임 정보가 설정되지 않았습니다.')
-      return
-    }
-    
     if (extraFareRow.extraStopFee === undefined || extraFareRow.extraStopFee === null ||
         extraFareRow.extraRegionFee === undefined || extraFareRow.extraRegionFee === null) {
       toast.error('경유+지역 요율 정보가 완전하지 않습니다.')
       return
     }
 
-    // 지역이 입력되지 않은 경우 경고
-    if (regionCount === 0) {
-      toast.error('지역을 최소 1개 이상 입력해주세요.')
-      return
-    }
+    // 가장 높은 기본운임을 기본료로 설정
+    const maxFare = Math.max(...regionFares.map(rf => rf.fare))
+    const maxFareRegion = regionFares.find(rf => rf.fare === maxFare)?.region
+    
+    // 나머지 지역 개수 (기본료 제외)
+    const additionalRegionCount = totalRegionCount - 1
 
-    // 계산: 기본운임 + 경유운임 + 지역운임
-    const baseFare = baseFareRow.baseFare
+    // 계산: 기본료(최고액) + 경유운임 + 지역운임
+    const baseFare = maxFare
     const extraStopFee = extraFareRow.extraStopFee * Math.max(0, data.stopCount - 1)
-    const extraRegionFee = extraFareRow.extraRegionFee * Math.max(0, regionCount - 1)
+    const extraRegionFee = extraFareRow.extraRegionFee * Math.max(0, additionalRegionCount)
     const total = baseFare + extraStopFee + extraRegionFee
 
-    const formula = `총 요율 = 기본료 ${baseFare.toLocaleString()}원 + (착지수 ${data.stopCount} - 1) × ${extraFareRow.extraStopFee.toLocaleString()}원 + (지역수 ${regionCount} - 1) × ${extraFareRow.extraRegionFee.toLocaleString()}원 = ${total.toLocaleString()}원`
+    const formula = `총 요율 = 기본료 ${baseFare.toLocaleString()}원(${maxFareRegion}) + (착지수 ${data.stopCount} - 1) × ${extraFareRow.extraStopFee.toLocaleString()}원 + 지역이동 ${additionalRegionCount}개 × ${extraFareRow.extraRegionFee.toLocaleString()}원 = ${total.toLocaleString()}원`
 
     const calculationResult: CalculationResult = {
       baseFare,
@@ -358,7 +360,7 @@ export function SimpleFareCalculatorDrawer({
                     </div>
                     
                     <div className="flex justify-between text-sm">
-                      <span className="text-green-700">지역운임 (지역 {Math.max(0, watchedValues.regions?.split(',').map(r => r.trim()).filter(r => r.length > 0).length - 1 || 0)}개):</span>
+                      <span className="text-green-700">지역이동비 ({Math.max(0, [watchedValues.region, ...(watchedValues.regions?.split(',').map(r => r.trim()).filter(r => r.length > 0) || [])].length - 1)}개):</span>
                       <span className="font-medium">₩{result.extraRegionFee.toLocaleString()}</span>
                     </div>
                     
