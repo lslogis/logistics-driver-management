@@ -33,11 +33,7 @@ const calculatorSchema = z.object({
   vehicleTypeId: z.string().min(1, '차량톤수를 선택하세요'),
   region: z.string().min(1, '지역을 입력하세요'),
   stopCount: z.coerce.number().int().min(1, '착지 수는 1 이상이어야 합니다'),
-  region1: z.string().optional(),
-  region2: z.string().optional(),
-  region3: z.string().optional(),
-  region4: z.string().optional(),
-  region5: z.string().optional(),
+  regions: z.string().min(1, '지역을 입력하세요 (쉼표로 구분)'),
 })
 
 type CalculatorForm = z.infer<typeof calculatorSchema>
@@ -72,20 +68,18 @@ export function SimpleFareCalculatorDrawer({
       vehicleTypeId: '',
       region: '',
       stopCount: 1,
-      region1: '',
-      region2: '',
-      region3: '',
-      region4: '',
-      region5: '',
+      regions: '',
     },
   })
 
   const watchedValues = form.watch()
 
   const handleCalculate = (data: CalculatorForm) => {
-    // 입력된 지역들 수집 (빈 값 제외)
-    const regions = [data.region1, data.region2, data.region3, data.region4, data.region5]
-      .filter(region => region && region.trim())
+    // 쉼표로 구분된 지역들 처리 (빈 값 제외)
+    const regions = data.regions
+      .split(',')
+      .map(region => region.trim())
+      .filter(region => region.length > 0)
     
     const regionCount = regions.length
 
@@ -189,7 +183,7 @@ export function SimpleFareCalculatorDrawer({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] rounded-2xl shadow-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] rounded-2xl shadow-lg">
         <DialogHeader className="text-left pb-4">
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">
             <Calculator className="h-6 w-6 text-blue-600" />
@@ -203,7 +197,7 @@ export function SimpleFareCalculatorDrawer({
         <div className="p-6 overflow-y-auto">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleCalculate)} className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
                 {/* 센터 선택 */}
                 <FormField
                   control={form.control}
@@ -255,29 +249,29 @@ export function SimpleFareCalculatorDrawer({
                     </FormItem>
                   )}
                 />
-
-                {/* 지역 */}
-                <FormField
-                  control={form.control}
-                  name="region"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-gray-700">지역 *</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="지역 입력 (예: 서울, 경기, 부산)"
-                          className="h-11 rounded-xl border-2 focus:border-blue-500"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
 
-              {/* 착지 수 */}
-              <div className="grid grid-cols-1 gap-4">
+              {/* 지역 */}
+              <FormField
+                control={form.control}
+                name="region"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-semibold text-gray-700">지역 *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="지역 입력 (예: 서울, 경기, 부산)"
+                        className="h-11 rounded-xl border-2 focus:border-blue-500"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* 착지 수 */}
                 <FormField
                   control={form.control}
                   name="stopCount"
@@ -298,110 +292,25 @@ export function SimpleFareCalculatorDrawer({
                     </FormItem>
                   )}
                 />
-              </div>
 
-              {/* 지역 입력 (5개까지) */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-gray-700">추가 지역 *</h3>
-                  <span className="text-xs text-gray-500">(최대 5개까지 입력 가능)</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {/* 지역1 */}
-                  <FormField
-                    control={form.control}
-                    name="region1"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-gray-600">지역 1</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="예: 서울"
-                            className="h-10 rounded-lg border-2 focus:border-blue-500"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* 지역2 */}
-                  <FormField
-                    control={form.control}
-                    name="region2"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-gray-600">지역 2</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="예: 경기"
-                            className="h-10 rounded-lg border-2 focus:border-blue-500"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* 지역3 */}
-                  <FormField
-                    control={form.control}
-                    name="region3"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-gray-600">지역 3</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="예: 인천"
-                            className="h-10 rounded-lg border-2 focus:border-blue-500"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* 지역4 */}
-                  <FormField
-                    control={form.control}
-                    name="region4"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-gray-600">지역 4</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="예: 부산"
-                            className="h-10 rounded-lg border-2 focus:border-blue-500"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* 지역5 */}
-                  <FormField
-                    control={form.control}
-                    name="region5"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-gray-600">지역 5</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="예: 대구"
-                            className="h-10 rounded-lg border-2 focus:border-blue-500"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* 추가 지역 */}
+                <FormField
+                  control={form.control}
+                  name="regions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-semibold text-gray-700">추가 지역 *</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="예: 서울, 경기, 인천 (쉼표 구분)"
+                          className="h-11 rounded-xl border-2 focus:border-blue-500"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               <Button type="submit" className="w-full h-11 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
@@ -449,7 +358,7 @@ export function SimpleFareCalculatorDrawer({
                     </div>
                     
                     <div className="flex justify-between text-sm">
-                      <span className="text-green-700">지역운임 (지역 {[watchedValues.region1, watchedValues.region2, watchedValues.region3, watchedValues.region4, watchedValues.region5].filter(r => r && r.trim()).length - 1}개):</span>
+                      <span className="text-green-700">지역운임 (지역 {Math.max(0, watchedValues.regions?.split(',').map(r => r.trim()).filter(r => r.length > 0).length - 1 || 0)}개):</span>
                       <span className="font-medium">₩{result.extraRegionFee.toLocaleString()}</span>
                     </div>
                     
