@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { Download } from 'lucide-react'
-import { exportToExcel, type FareRow } from '@/lib/utils/center-fares'
+import { exportToExcel, type FareRow } from '@/lib/utils/excel'
 import { toast } from 'react-hot-toast'
 
 interface ExportButtonProps {
