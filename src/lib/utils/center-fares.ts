@@ -65,8 +65,7 @@ export const exportToExcel = (data: FareRow[], filename: string = 'center-fares'
     ...data.map(row => [
       row.centerName,
       row.vehicleTypeName,
-      // 기본운임일 때만 지역 표시, 경유+지역일 때는 빈 값
-      row.fareType === '기본운임' ? row.region : '',
+      row.region,
       row.fareType,
       row.baseFare || '',
       row.extraStopFee || '',

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Upload, Download, FileText, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { parseExcelFile, downloadExcelTemplate, type FareRow } from '@/lib/utils/excel'
+import { parseExcelFile, downloadExcelTemplate, type FareRow } from '@/lib/utils/center-fares'
 import { toast } from 'react-hot-toast'
 
 interface SimpleImportModalProps {
@@ -197,6 +197,7 @@ export function SimpleImportModal({
                       <tr>
                         <th className="px-4 py-2 text-left">센터명</th>
                         <th className="px-4 py-2 text-left">차량톤수</th>
+                        <th className="px-4 py-2 text-left">지역</th>
                         <th className="px-4 py-2 text-left">요율종류</th>
                         <th className="px-4 py-2 text-right">기본운임</th>
                         <th className="px-4 py-2 text-right">경유운임</th>
@@ -206,12 +207,24 @@ export function SimpleImportModal({
                     <tbody>
                       {previewData.slice(0, 10).map((row, index) => (
                         <tr key={index} className="border-t hover:bg-gray-50">
-                          <td className="px-4 py-2">{row.center}</td>
-                          <td className="px-4 py-2">{row.vehicleType}</td>
-                          <td className="px-4 py-2">{row.fareType}</td>
-                          <td className="px-4 py-2 text-right">₩{row.baseFare.toLocaleString()}</td>
-                          <td className="px-4 py-2 text-right">₩{row.extraStopFee.toLocaleString()}</td>
-                          <td className="px-4 py-2 text-right">₩{row.extraRegionFee.toLocaleString()}</td>
+                          <td className="px-4 py-2">{row.centerName}</td>
+                          <td className="px-4 py-2">{row.vehicleTypeName}</td>
+                          <td className="px-4 py-2">
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              {row.region || '-'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              row.fareType === '기본운임' ? 'bg-blue-100 text-blue-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {row.fareType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-right">₩{(row.baseFare || 0).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-right">₩{(row.extraStopFee || 0).toLocaleString()}</td>
+                          <td className="px-4 py-2 text-right">₩{(row.extraRegionFee || 0).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
