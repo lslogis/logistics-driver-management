@@ -33,7 +33,11 @@ const calculatorSchema = z.object({
   vehicleTypeId: z.string().min(1, '차량톤수를 선택하세요'),
   region: z.string().min(1, '지역을 입력하세요'),
   stopCount: z.coerce.number().int().min(1, '착지 수는 1 이상이어야 합니다'),
-  regionCount: z.coerce.number().int().min(1, '지역 수는 1 이상이어야 합니다'),
+  region1: z.string().optional(),
+  region2: z.string().optional(),
+  region3: z.string().optional(),
+  region4: z.string().optional(),
+  region5: z.string().optional(),
 })
 
 type CalculatorForm = z.infer<typeof calculatorSchema>
@@ -68,13 +72,23 @@ export function SimpleFareCalculatorDrawer({
       vehicleTypeId: '',
       region: '',
       stopCount: 1,
-      regionCount: 1,
+      region1: '',
+      region2: '',
+      region3: '',
+      region4: '',
+      region5: '',
     },
   })
 
   const watchedValues = form.watch()
 
   const handleCalculate = (data: CalculatorForm) => {
+    // 입력된 지역들 수집 (빈 값 제외)
+    const regions = [data.region1, data.region2, data.region3, data.region4, data.region5]
+      .filter(region => region && region.trim())
+    
+    const regionCount = regions.length
+
     // 기본운임과 경유+지역 요율을 각각 찾기
     const baseFareRow = rows.find(row => 
       row.centerId === data.centerId &&
@@ -112,13 +126,19 @@ export function SimpleFareCalculatorDrawer({
       return
     }
 
+    // 지역이 입력되지 않은 경우 경고
+    if (regionCount === 0) {
+      toast.error('지역을 최소 1개 이상 입력해주세요.')
+      return
+    }
+
     // 계산: 기본운임 + 경유운임 + 지역운임
     const baseFare = baseFareRow.baseFare
     const extraStopFee = extraFareRow.extraStopFee * Math.max(0, data.stopCount - 1)
-    const extraRegionFee = extraFareRow.extraRegionFee * Math.max(0, data.regionCount - 1)
+    const extraRegionFee = extraFareRow.extraRegionFee * Math.max(0, regionCount - 1)
     const total = baseFare + extraStopFee + extraRegionFee
 
-    const formula = `총 요율 = 기본료 ${baseFare.toLocaleString()}원 + (착지수 ${data.stopCount} - 1) × ${extraFareRow.extraStopFee.toLocaleString()}원 + (지역수 ${data.regionCount} - 1) × ${extraFareRow.extraRegionFee.toLocaleString()}원 = ${total.toLocaleString()}원`
+    const formula = `총 요율 = 기본료 ${baseFare.toLocaleString()}원 + (착지수 ${data.stopCount} - 1) × ${extraFareRow.extraStopFee.toLocaleString()}원 + (지역수 ${regionCount} - 1) × ${extraFareRow.extraRegionFee.toLocaleString()}원 = ${total.toLocaleString()}원`
 
     const calculationResult: CalculationResult = {
       baseFare,
@@ -169,7 +189,7 @@ export function SimpleFareCalculatorDrawer({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg rounded-2xl shadow-lg">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] rounded-2xl shadow-lg">
         <DialogHeader className="text-left pb-4">
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">
             <Calculator className="h-6 w-6 text-blue-600" />
@@ -180,10 +200,10 @@ export function SimpleFareCalculatorDrawer({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleCalculate)} className="space-y-6">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-6">
                 {/* 센터 선택 */}
                 <FormField
                   control={form.control}
@@ -256,9 +276,8 @@ export function SimpleFareCalculatorDrawer({
                 />
               </div>
 
-              {/* 착지수와 지역수 */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* 착지 수 */}
+              {/* 착지 수 */}
+              <div className="grid grid-cols-1 gap-4">
                 <FormField
                   control={form.control}
                   name="stopCount"
@@ -279,28 +298,110 @@ export function SimpleFareCalculatorDrawer({
                     </FormItem>
                   )}
                 />
+              </div>
 
-                {/* 지역 수 */}
-                <FormField
-                  control={form.control}
-                  name="regionCount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-gray-700">지역 수 *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="1"
-                          placeholder="예: 1"
-                          className="h-11 rounded-xl border-2 focus:border-blue-500"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* 지역 입력 (5개까지) */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-gray-700">추가 지역 *</h3>
+                  <span className="text-xs text-gray-500">(최대 5개까지 입력 가능)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* 지역1 */}
+                  <FormField
+                    control={form.control}
+                    name="region1"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-600">지역 1</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="예: 서울"
+                            className="h-10 rounded-lg border-2 focus:border-blue-500"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* 지역2 */}
+                  <FormField
+                    control={form.control}
+                    name="region2"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-600">지역 2</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="예: 경기"
+                            className="h-10 rounded-lg border-2 focus:border-blue-500"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* 지역3 */}
+                  <FormField
+                    control={form.control}
+                    name="region3"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-600">지역 3</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="예: 인천"
+                            className="h-10 rounded-lg border-2 focus:border-blue-500"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* 지역4 */}
+                  <FormField
+                    control={form.control}
+                    name="region4"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-600">지역 4</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="예: 부산"
+                            className="h-10 rounded-lg border-2 focus:border-blue-500"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* 지역5 */}
+                  <FormField
+                    control={form.control}
+                    name="region5"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-600">지역 5</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="예: 대구"
+                            className="h-10 rounded-lg border-2 focus:border-blue-500"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <Button type="submit" className="w-full h-11 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
@@ -348,7 +449,7 @@ export function SimpleFareCalculatorDrawer({
                     </div>
                     
                     <div className="flex justify-between text-sm">
-                      <span className="text-green-700">지역운임 (지역 {watchedValues.regionCount - 1}개):</span>
+                      <span className="text-green-700">지역운임 (지역 {[watchedValues.region1, watchedValues.region2, watchedValues.region3, watchedValues.region4, watchedValues.region5].filter(r => r && r.trim()).length - 1}개):</span>
                       <span className="font-medium">₩{result.extraRegionFee.toLocaleString()}</span>
                     </div>
                     
