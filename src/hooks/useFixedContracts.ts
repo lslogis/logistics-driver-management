@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
+import { loadingPointsAPI } from '@/lib/api/loading-points'
 import {
   FixedContractResponse,
   CreateFixedContractRequest,
@@ -261,15 +262,8 @@ export function useLoadingPointsForContracts() {
   return useQuery({
     queryKey: ['loading-points', 'active'],
     queryFn: async () => {
-      const response = await fetch('/api/loading-points?isActive=true&limit=1000')
-      const result = await response.json()
-      
-      if (!result.ok) {
-        throw new Error(result.error?.message || '상차지 목록 조회에 실패했습니다')
-      }
-      
-      // API returns { data: { items, totalCount, ... } }
-      return result.data.items || []
+      const response = await loadingPointsAPI.list({ isActive: true, limit: 1000 })
+      return response.data || []
     },
     staleTime: 1000 * 60 * 10, // 10분
   })

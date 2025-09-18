@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { LoadingPointSelector } from '@/components/ui/LoadingPointSelector'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { 
@@ -21,34 +22,15 @@ import {
   ChevronRightIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-interface Request {
-  id: string
-  requestDate: string
-  centerCarNo: string
-  vehicleTon: number
-  regions: string[]
-  stops: number
-  extraAdjustment: number
-  dispatches: Array<{
-    id: string
-    driverName: string
-    driverFee: number
-  }>
-  financialSummary: {
-    centerBilling: number
-    totalDriverFees: number
-    totalMargin: number
-    marginPercentage: number
-    dispatchCount: number
-  }
-}
+import { Request } from '@/types'
+import { requestsAPI } from '@/lib/api/requests'
 
 interface SearchFilters {
   query: string
   startDate: string
   endDate: string
   centerCarNo: string
+  loadingPointId: string
   hasDispatches: boolean | null
   marginStatus: 'all' | 'profit' | 'loss' | 'break-even'
 }
@@ -78,34 +60,34 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
     startDate: '',
     endDate: '',
     centerCarNo: '',
+    loadingPointId: '',
     hasDispatches: null,
     marginStatus: 'all'
   })
 
   // Load requests
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
+      const response = await requestsAPI.list({
+        page: pagination.page,
+        limit: pagination.limit,
         ...(filters.startDate && { startDate: filters.startDate }),
         ...(filters.endDate && { endDate: filters.endDate }),
-        ...(filters.centerCarNo && { centerCarNo: filters.centerCarNo })
+        ...(filters.centerCarNo && { centerCarNo: filters.centerCarNo }),
+        ...(filters.loadingPointId && { loadingPointId: filters.loadingPointId })
       })
 
-      const response = await fetch(`/api/requests?${params}`)
-      if (response.ok) {
-        const data = await response.json()
-        setRequests(data.data || [])
-        setPagination(prev => ({ ...prev, ...data.pagination }))
+      setRequests(response.data || [])
+      if (response.pagination) {
+        setPagination(prev => ({ ...prev, ...response.pagination }))
       }
     } catch (error) {
       console.error('Failed to load requests:', error)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [filters.centerCarNo, filters.endDate, filters.loadingPointId, filters.startDate, pagination.limit, pagination.page])
 
   // Apply client-side filters
   useEffect(() => {
@@ -115,7 +97,10 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
     if (filters.query) {
       const query = filters.query.toLowerCase()
       filtered = filtered.filter(request =>
-        request.centerCarNo.toLowerCase().includes(query) ||
+        (request.centerCarNo ?? '').toLowerCase().includes(query) ||
+        request.loadingPoint?.loadingPointName?.toLowerCase().includes(query) ||
+        request.loadingPoint?.name?.toLowerCase().includes(query) ||
+        request.loadingPoint?.centerName?.toLowerCase().includes(query) ||
         request.regions.some(region => region.toLowerCase().includes(query)) ||
         request.dispatches.some(dispatch => 
           dispatch.driverName.toLowerCase().includes(query)
@@ -153,7 +138,7 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
   // Load data on mount and filter changes
   useEffect(() => {
     loadRequests()
-  }, [pagination.page, filters.startDate, filters.endDate, filters.centerCarNo])
+  }, [loadRequests])
 
   const handleFilterChange = (key: keyof SearchFilters, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -224,7 +209,7 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
             <div className="flex-1 relative">
               <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="센터호차, 배송지역, 기사명으로 검색..."
+                placeholder="상차지명, 상차지호차, 배송지역, 기사명으로 검색..."
                 value={filters.query}
                 onChange={(e) => handleFilterChange('query', e.target.value)}
                 className="pl-10"
@@ -249,7 +234,7 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
           </div>
 
           {showFilters && (
-            <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">시작일</label>
                 <Input
@@ -267,7 +252,28 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">센터호차</label>
+                <label className="text-sm font-medium mb-1 block">상차지</label>
+                <div className="flex gap-2 items-center">
+                  <LoadingPointSelector
+                    value={filters.loadingPointId}
+                    onValueChange={(value) => handleFilterChange('loadingPointId', value)}
+                    placeholder="상차지 선택"
+                    className="w-full"
+                  />
+                  {filters.loadingPointId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFilterChange('loadingPointId', '')}
+                    >
+                      초기화
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">상차지호차</label>
                 <Input
                   placeholder="C001"
                   value={filters.centerCarNo}
@@ -328,8 +334,17 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
           {viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredRequests.map((request) => {
-                const marginStatus = getMarginStatus(request.financialSummary.marginPercentage)
-                const dispatchStatus = getDispatchStatus(request.financialSummary.dispatchCount)
+                // Create default financial summary if not provided
+                const financialSummary = request.financialSummary || {
+                  centerBilling: 0,
+                  totalDriverFees: 0,
+                  totalMargin: 0,
+                  marginPercentage: 0,
+                  dispatchCount: request.dispatches?.length || 0
+                }
+                
+                const marginStatus = getMarginStatus(financialSummary.marginPercentage)
+                const dispatchStatus = getDispatchStatus(financialSummary.dispatchCount)
 
                 return (
                   <Card key={request.id} className="hover:shadow-md transition-shadow">
@@ -343,7 +358,14 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                           #{request.id.slice(-6)}
                         </Badge>
                       </div>
-                      <CardTitle className="text-lg">📋 요청 #{request.id.slice(-8)}</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">📋 요청 #{request.id.slice(-8)}</CardTitle>
+                        {request.loadingPoint && (
+                          <Badge variant="secondary" className="text-xs">
+                            🏢 {request.loadingPoint.loadingPointName || request.loadingPoint.name || request.loadingPoint.centerName}
+                          </Badge>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -353,9 +375,18 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                         </div>
                         <div className="flex items-center gap-1">
                           <TruckIcon className="h-3 w-3 text-gray-500" />
-                          {request.centerCarNo} ({request.vehicleTon}톤)
+                          {request.centerCarNo ?? '미지정'} ({request.vehicleTon}톤)
                         </div>
                       </div>
+                      
+                      {request.loadingPoint && (
+                        <div className="flex items-center gap-1 text-sm text-blue-600">
+                          <span className="font-medium">{request.loadingPoint.loadingPointName || request.loadingPoint.name || request.loadingPoint.centerName}</span>
+                          {request.loadingPoint.lotAddress && (
+                            <span className="text-gray-500">({request.loadingPoint.lotAddress})</span>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-1 text-sm">
                         <MapPinIcon className="h-3 w-3 text-gray-500" />
@@ -366,15 +397,15 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="text-center p-2 bg-blue-50 rounded">
-                          <div className="text-xs text-blue-600">센터청구</div>
+                          <div className="text-xs text-blue-600">상차지청구</div>
                           <div className="font-medium text-blue-800">
-                            {formatCurrency(request.financialSummary.centerBilling)}
+                            {formatCurrency(financialSummary.centerBilling)}
                           </div>
                         </div>
                         <div className="text-center p-2 bg-gray-50 rounded">
                           <div className="text-xs text-gray-600">{dispatchStatus.icon} {dispatchStatus.label}</div>
                           <div className={cn("font-medium", marginStatus.color)}>
-                            {formatCurrency(request.financialSummary.totalMargin)} {marginStatus.label}
+                            {formatCurrency(financialSummary.totalMargin)} {marginStatus.label}
                           </div>
                         </div>
                       </div>
@@ -421,6 +452,7 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                           />
                         </th>
                         <th className="p-3">요청정보</th>
+                        <th className="p-3">상차지정보</th>
                         <th className="p-3">배송정보</th>
                         <th className="p-3">요금정보</th>
                         <th className="p-3">배차상태</th>
@@ -429,8 +461,17 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                     </thead>
                     <tbody>
                       {filteredRequests.map((request) => {
-                        const marginStatus = getMarginStatus(request.financialSummary.marginPercentage)
-                        const dispatchStatus = getDispatchStatus(request.financialSummary.dispatchCount)
+                        // Create default financial summary if not provided
+                        const financialSummary = request.financialSummary || {
+                          centerBilling: 0,
+                          totalDriverFees: 0,
+                          totalMargin: 0,
+                          marginPercentage: 0,
+                          dispatchCount: request.dispatches?.length || 0
+                        }
+                        
+                        const marginStatus = getMarginStatus(financialSummary.marginPercentage)
+                        const dispatchStatus = getDispatchStatus(financialSummary.dispatchCount)
 
                         return (
                           <tr key={request.id} className="border-b hover:bg-gray-50">
@@ -447,9 +488,25 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                                   {formatDate(request.requestDate)}
                                 </div>
                                 <div className="text-sm text-gray-600">
-                                  {request.centerCarNo} ({request.vehicleTon}톤)
+                                  {request.centerCarNo ?? '미지정'} ({request.vehicleTon}톤)
                                 </div>
                               </div>
+                            </td>
+                            <td className="p-3">
+                              {request.loadingPoint ? (
+                                <div className="space-y-1">
+                                  <div className="font-medium text-blue-600">
+                              {request.loadingPoint.loadingPointName || request.loadingPoint.name || request.loadingPoint.centerName}
+                                  </div>
+                                  {request.loadingPoint.lotAddress && (
+                                    <div className="text-sm text-gray-600">
+                                      {request.loadingPoint.lotAddress}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-400">상차지 정보 없음</div>
+                              )}
                             </td>
                             <td className="p-3">
                               <div className="space-y-1">
@@ -464,10 +521,10 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                             <td className="p-3">
                               <div className="space-y-1">
                                 <div className="font-medium">
-                                  {formatCurrency(request.financialSummary.centerBilling)}
+                                  {formatCurrency(financialSummary.centerBilling)}
                                 </div>
                                 <div className={cn("text-sm", marginStatus.color)}>
-                                  {formatCurrency(request.financialSummary.totalMargin)} {marginStatus.label}
+                                  {formatCurrency(financialSummary.totalMargin)} {marginStatus.label}
                                 </div>
                               </div>
                             </td>

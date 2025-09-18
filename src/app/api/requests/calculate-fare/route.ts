@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
 const FareCalculationSchema = z.object({
-  centerCarNo: z.string().min(1),
+  loadingPointId: z.string().min(1),
+  centerCarNo: z.string().optional(),
   vehicleTon: z.number().min(0.1).max(999.9),
   regions: z.array(z.string()).min(1).max(10),
   stops: z.number().int().min(1).max(50),
@@ -16,9 +17,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = FareCalculationSchema.parse(body)
 
-    // Try to find matching center fare rates
+    // Get LoadingPoint information
+    const loadingPoint = await prisma.loadingPoint.findUnique({
+      where: { id: data.loadingPointId }
+    })
+
+    if (!loadingPoint) {
+      return NextResponse.json(
+        { error: 'Loading point not found' },
+        { status: 400 }
+      )
+    }
+
+    // Use LoadingPoint name (or centerName) to find matching center fare rates
+    const centerName = loadingPoint.name || loadingPoint.centerName
+    const vehicleTypePattern = `${data.vehicleTon}톤`
+
     const centerFares = await prisma.centerFare.findMany({
       where: {
+        centerName: centerName,
         vehicleType: {
           contains: data.vehicleTon.toString(),
           mode: 'insensitive'
@@ -64,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     // Add warnings if needed
     if (centerFares.length === 0) {
-      calculation.warnings.push('해당 톤수에 대한 센터요율을 찾을 수 없어 기본 요율을 적용했습니다')
+      calculation.warnings.push(`${centerName} 센터의 ${data.vehicleTon}톤 차량에 대한 요율을 찾을 수 없어 기본 요율을 적용했습니다`)
     }
 
     return NextResponse.json({

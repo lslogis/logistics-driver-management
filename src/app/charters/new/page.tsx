@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { CharterForm } from '@/components/charters/CharterForm'
 import { useCreateCharter } from '@/hooks/useCharters'
@@ -15,7 +15,7 @@ export default function NewCharterPage() {
   const { user } = useAuth()
   const createMutation = useCreateCharter()
 
-  const handleSubmit = async (data: CreateCharterRequestData | any) => {
+  const handleSubmit = useCallback(async (data: CreateCharterRequestData | any) => {
     try {
       const result = await createMutation.mutateAsync(data)
       toast.success('용차가 등록되었습니다')
@@ -24,11 +24,11 @@ export default function NewCharterPage() {
       console.error('Charter creation error:', error)
       toast.error(error.message || '용차 등록 중 오류가 발생했습니다')
     }
-  }
+  }, [createMutation, router])
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     router.back()
-  }
+  }, [router])
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -37,7 +37,7 @@ export default function NewCharterPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => router.back()}
+          onClick={handleCancel}
           className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />

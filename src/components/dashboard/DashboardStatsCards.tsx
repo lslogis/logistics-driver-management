@@ -170,7 +170,7 @@ export function DashboardStatsCards() {
     }
 
     fetchStats()
-  }, [])
+  }, [isRatesEnabled])
 
   if (loading) {
     return (

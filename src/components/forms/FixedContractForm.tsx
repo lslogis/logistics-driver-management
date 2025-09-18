@@ -84,7 +84,7 @@ export default function FixedContractForm({ fixedContract, onSubmit, isLoading, 
     'active'
   )
   
-  const loadingPoints = loadingPointsData?.pages?.flatMap((page: any) => page.items || []) || []
+  const loadingPoints = loadingPointsData?.pages?.flatMap((page: any) => (page.items || page.data || [])) || []
   const drivers = useMemo(
     () => driversData?.pages?.flatMap((page: any) => page.drivers || []) || [],
     [driversData]

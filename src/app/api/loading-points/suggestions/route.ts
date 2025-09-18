@@ -7,6 +7,8 @@ import { loadingPointSuggestionsQuerySchema } from '@/lib/validations/loading-po
 
 const loadingPointService = new LoadingPointService(prisma)
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/loading-points/suggestions - 상차지 자동완성 검색
  * Query params:

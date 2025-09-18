@@ -9,16 +9,16 @@ const centerFareService = new CenterFareService(prisma)
 
 // 센터 요율 생성 스키마
 const CreateCenterFareSchema = z.object({
-  centerName: z.string().min(1, '센터명은 필수입니다'),
+  loadingPointId: z.string().min(1, '상차지는 필수입니다'),
   vehicleType: z.string().min(1, '차량 타입은 필수입니다'),
-  region: z.string().optional(),
+  region: z.string().optional().nullable(),
   fareType: z.enum(['BASIC', 'STOP_FEE']),
   baseFare: z.number().int().positive().optional(),
   extraStopFee: z.number().int().positive().optional(),
   extraRegionFee: z.number().int().positive().optional(),
 }).refine(data => {
   if (data.fareType === 'BASIC') {
-    return data.baseFare !== undefined && data.region && data.region.length > 0
+    return data.baseFare !== undefined && typeof data.region === 'string' && data.region.trim().length > 0
   }
   if (data.fareType === 'STOP_FEE') {
     return data.extraStopFee !== undefined && 
@@ -43,7 +43,7 @@ export const GET = withAuth(
         page: parseInt(searchParams.get('page') || '1'),
         limit: parseInt(searchParams.get('limit') || '20'),
         search: searchParams.get('search') || undefined,
-        centerName: searchParams.get('centerName') || undefined,
+        loadingPointId: searchParams.get('loadingPointId') || undefined,
         vehicleType: searchParams.get('vehicleType') || undefined,
         region: searchParams.get('region') || undefined,
         fareType: searchParams.get('fareType') as any || undefined,
@@ -91,8 +91,14 @@ export const POST = withAuth(
 
       // 요청 데이터 검증
       const body = await req.json()
-      const data = CreateCenterFareSchema.parse(body)
-      
+      const parsed = CreateCenterFareSchema.parse(body)
+      const data = {
+        ...parsed,
+        region: parsed.fareType === 'BASIC'
+          ? (parsed.region ? parsed.region.trim() : '')
+          : null,
+      }
+
       // 센터 요율 생성
       const centerFare = await centerFareService.createCenterFare(data)
       
@@ -102,7 +108,7 @@ export const POST = withAuth(
         'CREATE',
         'CenterFare',
         centerFare.id,
-        { created: data },
+        { created: centerFare },
         { source: 'web_api' }
       )
       

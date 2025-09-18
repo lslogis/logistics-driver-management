@@ -10,10 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { LoadingPointSelector } from '@/components/ui/LoadingPointSelector'
 
 // 타입 정의
 export type CharterFormData = {
-  centerId: string
+  loadingPointId: string
+  /** @deprecated centerId는 loadingPointId로 대체되었습니다. 호환을 위해 유지됩니다. */
+  centerId?: string
   vehicleType: string
   date: string
   destinations: Array<{
@@ -47,13 +50,28 @@ const VEHICLE_TYPES = [
 
 export default function CharterForm({ onSubmit, isLoading, onCancel, initialData }: CharterFormProps) {
   // 폼 상태
-  const [formData, setFormData] = useState<Partial<CharterFormData>>({
-    date: new Date().toISOString().split('T')[0], // 오늘 날짜 기본값
-    destinations: [],
-    isNegotiated: false,
-    totalFare: 0,
-    driverFare: 0,
-    ...initialData
+  const [formData, setFormData] = useState<Partial<CharterFormData>>(() => {
+    const baseState: Partial<CharterFormData> = {
+      date: new Date().toISOString().split('T')[0], // 오늘 날짜 기본값
+      destinations: [],
+      isNegotiated: false,
+      totalFare: 0,
+      driverFare: 0,
+      ...initialData
+    }
+
+    if (!baseState.loadingPointId) {
+      const legacyCenterId = (initialData as any)?.centerId
+      if (legacyCenterId) {
+        baseState.loadingPointId = legacyCenterId
+      }
+    }
+
+    if (baseState.loadingPointId && !baseState.centerId) {
+      baseState.centerId = baseState.loadingPointId
+    }
+
+    return baseState
   })
 
   // UI 상태
@@ -61,9 +79,7 @@ export default function CharterForm({ onSubmit, isLoading, onCancel, initialData
   const [showErrorSummary, setShowErrorSummary] = useState(false)
   
   // 데이터 로딩 상태
-  const [centers, setCenters] = useState<Array<{id: string, centerName: string}>>([])
   const [drivers, setDrivers] = useState<Array<{id: string, name: string, phone: string, vehicleNumber: string}>>([])
-  const [isLoadingCenters, setIsLoadingCenters] = useState(false)
   const [isLoadingDrivers, setIsLoadingDrivers] = useState(false)
 
   // 요금 계산 상태
@@ -80,27 +96,6 @@ export default function CharterForm({ onSubmit, isLoading, onCancel, initialData
 
   // refs
   const driverDropdownRef = useRef<HTMLDivElement>(null)
-
-  // 센터 목록 로드
-  useEffect(() => {
-    const loadCenters = async () => {
-      setIsLoadingCenters(true)
-      try {
-        const response = await fetch('/api/loading-points?limit=100&isActive=true')
-        if (response.ok) {
-          const data = await response.json()
-          setCenters(data.data?.loadingPoints || [])
-        }
-      } catch (error) {
-        console.error('Failed to load centers:', error)
-        toast.error('센터 목록 로드 실패')
-      } finally {
-        setIsLoadingCenters(false)
-      }
-    }
-
-    loadCenters()
-  }, [])
 
   // 기사 검색
   const searchDrivers = useCallback(async (searchTerm: string) => {
@@ -150,7 +145,16 @@ export default function CharterForm({ onSubmit, isLoading, onCancel, initialData
 
   // 필드 변경 핸들러
   const handleFieldChange = (name: string, value: any) => {
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => {
+      const next = { ...prev, [name]: value }
+
+      if (name === 'loadingPointId') {
+        next.loadingPointId = value
+        next.centerId = value
+      }
+
+      return next
+    })
     
     // 에러 클리어
     if (errors[name]) {
@@ -201,8 +205,8 @@ export default function CharterForm({ onSubmit, isLoading, onCancel, initialData
 
   // 요금 계산
   const calculateFare = async () => {
-    if (!formData.centerId || !formData.vehicleType || !formData.destinations?.length) {
-      toast.error('센터, 차량타입, 목적지를 입력해주세요')
+    if (!formData.loadingPointId || !formData.vehicleType || !formData.destinations?.length) {
+      toast.error('상차지, 차량타입, 목적지를 입력해주세요')
       return
     }
 
@@ -214,7 +218,8 @@ export default function CharterForm({ onSubmit, isLoading, onCancel, initialData
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          centerId: formData.centerId,
+          loadingPointId: formData.loadingPointId,
+          centerId: formData.loadingPointId, // backwards compatibility with center-based APIs
           vehicleType: formData.vehicleType,
           regions: formData.destinations.map(d => d.region),
           stopCount: formData.destinations.length,
@@ -291,7 +296,7 @@ export default function CharterForm({ onSubmit, isLoading, onCancel, initialData
     // 필수 필드 검증
     const newErrors: Record<string, string> = {}
     
-    if (!formData.centerId) newErrors.centerId = '센터는 필수입니다'
+    if (!formData.loadingPointId) newErrors.loadingPointId = '상차지는 필수입니다'
     if (!formData.vehicleType) newErrors.vehicleType = '차량타입은 필수입니다'
     if (!formData.date) newErrors.date = '운행일은 필수입니다'
     if (!formData.destinations?.length) newErrors.destinations = '목적지는 필수입니다'
@@ -361,23 +366,13 @@ export default function CharterForm({ onSubmit, isLoading, onCancel, initialData
               </div>
 
               <div>
-                <Label htmlFor="centerId">센터 *</Label>
-                <Select
-                  value={formData.centerId || ''}
-                  onValueChange={(value) => handleFieldChange('centerId', value)}
-                >
-                  <SelectTrigger className={errors.centerId ? 'border-destructive' : ''}>
-                    <SelectValue placeholder="센터 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {centers.map((center) => (
-                      <SelectItem key={center.id} value={center.id}>
-                        {center.centerName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.centerId && <p className="text-sm text-destructive mt-1">{errors.centerId}</p>}
+                <Label htmlFor="loadingPointId">상차지 *</Label>
+                <LoadingPointSelector
+                  value={formData.loadingPointId || ''}
+                  onValueChange={(value) => handleFieldChange('loadingPointId', value)}
+                  className={errors.loadingPointId ? 'border-destructive' : ''}
+                />
+                {errors.loadingPointId && <p className="text-sm text-destructive mt-1">{errors.loadingPointId}</p>}
               </div>
 
               <div>
@@ -502,7 +497,7 @@ export default function CharterForm({ onSubmit, isLoading, onCancel, initialData
                   type="button"
                   variant="outline"
                   onClick={calculateFare}
-                  disabled={isCalculating || !formData.centerId || !formData.vehicleType || !formData.destinations?.length}
+                  disabled={isCalculating || !formData.loadingPointId || !formData.vehicleType || !formData.destinations?.length}
                 >
                   <Calculator className="w-4 h-4 mr-2" />
                   요금 계산

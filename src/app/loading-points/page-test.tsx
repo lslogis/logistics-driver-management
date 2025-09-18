@@ -9,7 +9,7 @@ export default function LoadingPointsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const { data, isLoading, error } = useLoadingPoints(searchTerm)
   
-  const loadingPointsData = data?.pages?.flatMap((page: any) => page.items || []) || []
+  const loadingPointsData = data?.pages?.flatMap((page: any) => (page.items || page.data || [])) || []
   const totalCount = data?.pages?.[0]?.totalCount || 0
 
   return (

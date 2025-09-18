@@ -4,9 +4,9 @@ import { prisma } from '@/lib/prisma'
 
 // Request validation schema
 const CreateRequestSchema = z.object({
-  centerId: z.number().int().min(1),
+  loadingPointId: z.string().min(1),
   requestDate: z.string().transform((str) => new Date(str)),
-  centerCarNo: z.string().min(1).max(50),
+  centerCarNo: z.string().optional(),
   vehicleTon: z.number().min(0.1).max(999.9),
   regions: z.array(z.string()).min(1).max(10),
   stops: z.number().int().min(1).max(50),
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const centerCarNo = searchParams.get('centerCarNo')
-    const centerId = searchParams.get('centerId')
+    const loadingPointId = searchParams.get('loadingPointId')
     const skip = (page - 1) * limit
 
     const where: any = {}
@@ -44,17 +44,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (centerId) {
-      where.centerId = parseInt(centerId, 10)
+    if (loadingPointId) {
+      where.loadingPointId = loadingPointId
     }
 
-    const [requests, total] = await Promise.all([
+    const [requestRows, total] = await Promise.all([
       prisma.request.findMany({
         where,
         include: {
-          center: {
-            select: { id: true, name: true, location: true }
-          },
           dispatches: {
             include: {
               driver: {
@@ -69,6 +66,44 @@ export async function GET(request: NextRequest) {
       }),
       prisma.request.count({ where }),
     ])
+
+    const loadingPointIds = Array.from(new Set(requestRows.map(request => request.loadingPointId)))
+    const loadingPointMap = new Map<string, {
+      id: string
+      name: string | null
+      centerName: string
+      loadingPointName: string
+      lotAddress: string | null
+      roadAddress: string | null
+    }>()
+
+    if (loadingPointIds.length > 0) {
+      const loadingPoints = await prisma.loadingPoint.findMany({
+        where: { id: { in: loadingPointIds } },
+        select: {
+          id: true,
+          name: true,
+          centerName: true,
+          loadingPointName: true,
+          lotAddress: true,
+          roadAddress: true
+        }
+      })
+
+      for (const loadingPoint of loadingPoints) {
+        loadingPointMap.set(loadingPoint.id, loadingPoint)
+      }
+
+      if (loadingPointIds.length > loadingPointMap.size) {
+        const missingIds = loadingPointIds.filter(id => !loadingPointMap.has(id))
+        console.warn('Requests referencing missing loading points', missingIds)
+      }
+    }
+
+    const requests = requestRows.map(request => ({
+      ...request,
+      loadingPoint: loadingPointMap.get(request.loadingPointId) ?? null
+    }))
 
     return NextResponse.json({
       data: requests,
@@ -102,21 +137,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate center exists
-    const center = await prisma.center.findUnique({
-      where: { id: validatedData.centerId }
+    // Validate loadingPoint exists
+    const loadingPoint = await prisma.loadingPoint.findUnique({
+      where: { id: validatedData.loadingPointId }
     })
 
-    if (!center) {
+    if (!loadingPoint) {
       return NextResponse.json(
-        { error: 'Center not found' },
+        { error: 'Loading point not found' },
         { status: 400 }
       )
     }
 
-    if (!center.isActive) {
+    if (!loadingPoint.isActive) {
       return NextResponse.json(
-        { error: 'Center is not active' },
+        { error: 'Loading point is not active' },
         { status: 400 }
       )
     }
@@ -124,8 +159,8 @@ export async function POST(request: NextRequest) {
     const newRequest = await prisma.request.create({
       data: validatedData,
       include: {
-        center: {
-          select: { id: true, name: true, location: true }
+        loadingPoint: {
+          select: { id: true, name: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         },
         dispatches: {
           include: {

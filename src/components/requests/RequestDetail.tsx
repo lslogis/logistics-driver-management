@@ -22,48 +22,7 @@ import {
   DollarSignIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-interface Request {
-  id: string
-  requestDate: string
-  centerCarNo: string
-  vehicleTon: number
-  regions: string[]
-  stops: number
-  notes?: string
-  extraAdjustment: number
-  adjustmentReason?: string
-  createdAt: string
-  updatedAt: string
-  dispatches: Dispatch[]
-  financialSummary: {
-    centerBilling: number
-    totalDriverFees: number
-    totalMargin: number
-    marginPercentage: number
-    dispatchCount: number
-  }
-}
-
-interface Dispatch {
-  id: string
-  requestId: string
-  driverId?: string
-  driverName: string
-  driverPhone: string
-  driverVehicle: string
-  deliveryTime?: string
-  driverFee: number
-  driverNotes?: string
-  createdAt: string
-  updatedAt: string
-  driver?: {
-    id: string
-    name: string
-    phone: string
-    vehicleNumber: string
-  }
-}
+import { Request, Dispatch, LoadingPoint } from '@/types'
 
 interface RequestDetailProps {
   request: Request
@@ -168,6 +127,32 @@ export function RequestDetail({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* LoadingPoint Information */}
+          {request.loadingPoint && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MapPinIcon className="h-5 w-5 text-blue-600" />
+                <h3 className="font-medium text-blue-800">상차지 정보</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-blue-600">상차지명</div>
+                  <div className="font-medium text-blue-800">
+                    {request.loadingPoint.name || request.loadingPoint.loadingPointName || request.loadingPoint.centerName}
+                  </div>
+                </div>
+                {request.loadingPoint.lotAddress && (
+                  <div>
+                    <div className="text-sm text-blue-600">주소</div>
+                    <div className="font-medium text-blue-800">
+                      {request.loadingPoint.lotAddress}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4 text-gray-500" />
@@ -179,8 +164,8 @@ export function RequestDetail({
             <div className="flex items-center gap-2">
               <TruckIcon className="h-4 w-4 text-gray-500" />
               <div>
-                <div className="text-sm text-gray-600">센터호차</div>
-                <div className="font-medium">{request.centerCarNo}</div>
+                <div className="text-sm text-gray-600">호차번호</div>
+                <div className="font-medium">{request.centerCarNo ?? '미지정'}</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -229,7 +214,7 @@ export function RequestDetail({
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="text-sm text-blue-600 mb-1">센터청구</div>
+              <div className="text-sm text-blue-600 mb-1">상차지청구</div>
               <div className="text-lg font-semibold text-blue-800">
                 {formatCurrency(request.financialSummary.centerBilling)}
               </div>
@@ -377,7 +362,7 @@ export function RequestDetail({
           <div className={cn("p-4 border rounded-lg", overallMarginStatus.color)}>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
               <div className="text-center">
-                <div className="text-sm opacity-75 mb-1">센터청구금액</div>
+                <div className="text-sm opacity-75 mb-1">상차지청구금액</div>
                 <div className="text-lg font-semibold">
                   {formatCurrency(request.financialSummary.centerBilling)}
                 </div>

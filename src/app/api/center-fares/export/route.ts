@@ -5,6 +5,7 @@ import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import * as XLSX from 'xlsx'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/center-fares/export - Excel 파일 내보내기
@@ -27,11 +28,11 @@ export const GET = withAuth(
       
       // 필터 적용
       const where: any = {}
-      const centerName = searchParams.get('centerName')
+      const loadingPointId = searchParams.get('loadingPointId')
       const vehicleType = searchParams.get('vehicleType')
       const fareType = searchParams.get('fareType')
-      
-      if (centerName) where.centerName = centerName
+
+      if (loadingPointId) where.loadingPointId = loadingPointId
       if (vehicleType) where.vehicleType = vehicleType
       if (fareType) where.fareType = fareType
 
@@ -40,15 +41,27 @@ export const GET = withAuth(
         where,
         orderBy: [
           { fareType: 'asc' },
-          { centerName: 'asc' },
+          { loadingPoint: { centerName: 'asc' } },
           { vehicleType: 'asc' },
           { region: 'asc' }
-        ]
+        ],
+        include: {
+          loadingPoint: {
+            select: {
+              id: true,
+              name: true,
+              centerName: true,
+              loadingPointName: true,
+            }
+          }
+        }
       })
 
       // XLSX 라이브러리로 Excel 생성
       const excelData = fares.map(fare => ({
-        '센터명': fare.centerName,
+        '상차지ID': fare.loadingPointId,
+        '센터명': fare.loadingPoint?.centerName ?? '',
+        '상차지명': fare.loadingPoint?.loadingPointName ?? fare.loadingPoint?.name ?? '',
         '차량톤수': fare.vehicleType,
         '지역': fare.region || '',
         '요율종류': fare.fareType === 'BASIC' ? '기본운임' : '경유운임',
@@ -64,7 +77,9 @@ export const GET = withAuth(
 
       // 컬럼 너비 설정
       const colWidths = [
-        { wch: 20 }, // 센터명
+        { wch: 26 }, // 상차지ID
+        { wch: 18 }, // 센터명
+        { wch: 20 }, // 상차지명
         { wch: 12 }, // 차량톤수
         { wch: 15 }, // 지역
         { wch: 12 }, // 요율종류

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import * as XLSX from 'xlsx'
 
 interface ExcelRow {
+  centerName: string
   requestDate: string
   centerCarNo: string
   vehicleTon: number
@@ -156,10 +157,30 @@ async function importExcelFile(file: File): Promise<ImportResult> {
           })))
         }
 
-        // Step 4: Create request and dispatch
+        // Step 4: Resolve loading point by center name
+        const loadingPoint = await prisma.loadingPoint.findFirst({
+          where: {
+            OR: [
+              { name: excelRow.data.centerName },
+              { centerName: excelRow.data.centerName }
+            ],
+            isActive: true
+          }
+        })
+
+        if (!loadingPoint) {
+          errors.push({
+            row: rowIndex,
+            message: `Loading point not found for center: ${excelRow.data.centerName}`
+          })
+          progress.errorCount++
+          continue
+        }
+
+        // Step 5: Create request and dispatch
         progress.step = 'importing'
         
-        const requestData = mapExcelToRequest(excelRow.data)
+        const requestData = mapExcelToRequest(excelRow.data, loadingPoint.id)
         const dispatchData = mapExcelToDispatch(excelRow.data, driverResolution.driverId)
 
         // Use transaction for atomicity
@@ -226,6 +247,7 @@ function parseExcelRow(row: any, rowIndex: number) {
 
   // Required field validation
   const requiredFields = {
+    '센터명': 'centerName',
     '요청일': 'requestDate',
     '센터호차': 'centerCarNo', 
     '톤수': 'vehicleTon',
@@ -429,8 +451,9 @@ async function resolveDriver(name: string, phone: string, vehicle: string) {
   }
 }
 
-function mapExcelToRequest(row: ExcelRow) {
+function mapExcelToRequest(row: ExcelRow, loadingPointId: string) {
   return {
+    loadingPointId,
     requestDate: new Date(row.requestDate),
     centerCarNo: row.centerCarNo,
     vehicleTon: row.vehicleTon,

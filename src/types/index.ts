@@ -53,6 +53,62 @@ export interface RouteTemplate {
   updatedAt: string;
 }
 
+export interface LoadingPoint {
+  id: string;
+  name: string | null;
+  centerName: string;
+  loadingPointName: string;
+  lotAddress?: string | null;
+  roadAddress?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Request {
+  id: string;
+  loadingPointId: string;
+  loadingPoint?: LoadingPoint;
+  requestDate: string;
+  centerCarNo: string | null;
+  vehicleTon: number;
+  regions: string[];
+  stops: number;
+  notes?: string;
+  extraAdjustment: number;
+  adjustmentReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  dispatches: Dispatch[];
+  financialSummary?: {
+    centerBilling: number;
+    totalDriverFees: number;
+    totalMargin: number;
+    marginPercentage: number;
+    dispatchCount: number;
+  };
+}
+
+export interface Dispatch {
+  id: string;
+  requestId: string;
+  driverId?: string;
+  driverName: string;
+  driverPhone: string;
+  driverVehicle: string;
+  deliveryTime?: string;
+  driverFee: number;
+  driverNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+  driver?: {
+    id: string;
+    name: string;
+    phone: string;
+    vehicleNumber: string;
+  };
+}
+
 
 export interface Settlement {
   id: string;

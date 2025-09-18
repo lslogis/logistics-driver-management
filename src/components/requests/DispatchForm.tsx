@@ -393,7 +393,7 @@ export function DispatchForm({
             <div className="bg-gray-50 border rounded-lg p-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-3">
                 <div>
-                  <div className="text-gray-600">센터청구</div>
+                  <div className="text-gray-600">상차지청구</div>
                   <div className="font-medium text-lg">{centerBilling.toLocaleString()}원</div>
                 </div>
                 <div>

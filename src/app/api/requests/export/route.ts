@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
         id: { in: requestIds }
       },
       include: {
-        center: {
-          select: { id: true, name: true, location: true }
+        loadingPoint: {
+          select: { id: true, name: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         },
         dispatches: {
           include: {
@@ -80,8 +80,8 @@ export async function GET(request: NextRequest) {
     const requests = await prisma.request.findMany({
       where,
       include: {
-        center: {
-          select: { id: true, name: true, location: true }
+        loadingPoint: {
+          select: { id: true, name: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         },
         dispatches: {
           include: {
@@ -124,10 +124,10 @@ async function generateDetailedExport(requests: any[], format: string) {
     if (request.dispatches.length === 0) {
       // Request without dispatches
       rows.push({
-        '센터명': request.center?.name || '',
+        '상차지명': request.loadingPoint?.name || request.loadingPoint?.loadingPointName || '',
         '요청ID': request.id,
         '요청일': request.requestDate.toISOString().split('T')[0],
-        '센터호차': request.centerCarNo,
+        '호차번호': request.centerCarNo,
         '톤수': parseFloat(request.vehicleTon.toString()),
         '배송지역': Array.isArray(request.regions) ? request.regions.join(',') : request.regions,
         '착지수': request.stops,
@@ -153,10 +153,10 @@ async function generateDetailedExport(requests: any[], format: string) {
         const marginPercentage = centerBilling > 0 ? (margin / centerBilling) * 100 : 0
 
         rows.push({
-          '센터명': request.center?.name || '',
+          '상차지명': request.loadingPoint?.name || request.loadingPoint?.loadingPointName || '',
           '요청ID': request.id,
           '요청일': request.requestDate.toISOString().split('T')[0],
-          '센터호차': request.centerCarNo,
+          '호차번호': request.centerCarNo,
           '톤수': parseFloat(request.vehicleTon.toString()),
           '배송지역': Array.isArray(request.regions) ? request.regions.join(',') : request.regions,
           '착지수': request.stops,
@@ -182,10 +182,10 @@ async function generateDetailedExport(requests: any[], format: string) {
 
   // Set column widths
   const columnWidths = [
-    { wch: 15 }, // 센터명
+    { wch: 15 }, // 상차지명
     { wch: 10 }, // 요청ID
     { wch: 12 }, // 요청일
-    { wch: 15 }, // 센터호차
+    { wch: 15 }, // 호차번호
     { wch: 8 },  // 톤수
     { wch: 30 }, // 배송지역
     { wch: 8 },  // 착지수

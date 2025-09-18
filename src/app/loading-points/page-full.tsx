@@ -185,7 +185,7 @@ export default function LoadingPointsPage() {
   } = useLoadingPoints(searchTerm)
   
   // Flatten infinite query data
-  const loadingPointsData = data?.pages?.flatMap((page: any) => page.items || []) || []
+  const loadingPointsData = data?.pages?.flatMap((page: any) => (page.items || page.data || [])) || []
   const totalCount = data?.pages?.[0]?.totalCount || 0
   
   // Infinite scroll handler

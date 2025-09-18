@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { loadingPointsAPI } from '@/lib/api/loading-points'
 
 // 타입 정의
 export type CenterFareData = {
@@ -81,14 +82,23 @@ export default function CenterFareCreateModal({
   const loadCenters = async () => {
     setIsLoadingCenters(true)
     try {
-      const response = await fetch('/api/loading-points?limit=100&isActive=true')
-      if (response.ok) {
-        const data = await response.json()
-        setCenters(data.data?.loadingPoints || [])
-      }
+      const payload = await loadingPointsAPI.list({ limit: 100, isActive: true })
+
+      const rawItems = Array.isArray(payload.data)
+        ? payload.data
+        : []
+
+      const normalizedCenters = rawItems
+        .map((item: any) => ({
+          id: String(item.id ?? item.loadingPointId ?? ''),
+          centerName: item.centerName ?? item.name ?? item.loadingPointName ?? ''
+        }))
+        .filter(center => center.id && center.centerName)
+
+      setCenters(normalizedCenters)
     } catch (error) {
       console.error('Failed to load centers:', error)
-      toast.error('센터 목록 로드 실패')
+      toast.error('상차지 목록 로드 실패')
     } finally {
       setIsLoadingCenters(false)
     }

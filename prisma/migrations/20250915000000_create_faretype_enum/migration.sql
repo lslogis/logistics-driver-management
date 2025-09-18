@@ -1,0 +1,1 @@
+CREATE TYPE "FareType" AS ENUM ('BASIC', 'STOP_FEE');

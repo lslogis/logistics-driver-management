@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -13,30 +13,63 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { CalendarIcon, PlusIcon, XIcon, CalculatorIcon, RefreshCwIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LoadingPointSelector } from '@/components/ui/LoadingPointSelector'
+import { baseRequestSchema } from '@/lib/validations/request'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-const RequestFormSchema = z.object({
+const RequestFormSchema = baseRequestSchema.extend({
   requestDate: z.string().min(1, '요청일을 선택해주세요'),
-  centerCarNo: z.string().min(1, '센터호차를 입력해주세요').max(50),
+  loadingPointId: z.string().min(1, '상차지를 선택해주세요'),
   vehicleTon: z.number().min(0.1, '최소 0.1톤').max(999.9, '최대 999.9톤'),
   regions: z.array(z.string().min(1, '지역을 입력해주세요')).min(1, '최소 1개 지역 필요').max(10, '최대 10개 지역'),
   stops: z.number().int().min(1, '최소 1개 착지').max(50, '최대 50개 착지'),
-  notes: z.string().optional(),
-  extraAdjustment: z.number().int().default(0),
-  adjustmentReason: z.string().optional(),
-}).refine(
-  (data) => {
-    if (data.extraAdjustment !== 0 && !data.adjustmentReason) {
-      return false
+}).superRefine((data, ctx) => {
+  if ((data.extraAdjustment ?? 0) !== 0) {
+    const hasReason = typeof data.adjustmentReason === 'string' && data.adjustmentReason.trim().length > 0
+    if (!hasReason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '추가 조정 시 조정 사유가 필요합니다',
+        path: ['adjustmentReason']
+      })
     }
-    return true
-  },
-  {
-    message: '추가 조정 시 조정 사유가 필요합니다',
-    path: ['adjustmentReason']
   }
-)
+})
 
 type RequestFormData = z.infer<typeof RequestFormSchema>
+
+type VehicleOption = {
+  value: string
+  label: string
+  ton: number
+}
+
+const parseVehicleTypeLabels = (input: unknown): VehicleOption[] => {
+  if (!Array.isArray(input)) {
+    return []
+  }
+
+  return input
+    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .map(item => item.trim())
+    .filter((value, index, self) => self.indexOf(value) === index)
+    .map(value => {
+      const match = value.match(/[0-9]+(?:\.[0-9]+)?/)
+      const ton = match ? parseFloat(match[0]) : NaN
+      return {
+        value,
+        label: value,
+        ton: Number.isNaN(ton) ? 0 : ton
+      }
+    })
+    .filter(option => option.ton > 0)
+    .sort((a, b) => {
+      if (a.ton === b.ton) {
+        return a.label.localeCompare(b.label, 'ko')
+      }
+      return a.ton - b.ton
+    })
+}
 
 interface FareCalculationResult {
   baseFare: number
@@ -69,8 +102,9 @@ export function RequestForm({ initialData, onSubmit, onCancel, isLoading }: Requ
   const form = useForm<RequestFormData>({
     resolver: zodResolver(RequestFormSchema),
     defaultValues: {
+      loadingPointId: initialData?.loadingPointId || '',
       requestDate: initialData?.requestDate || new Date().toISOString().split('T')[0],
-      centerCarNo: initialData?.centerCarNo || '',
+      centerCarNo: initialData?.centerCarNo ?? '',
       vehicleTon: initialData?.vehicleTon || 3.5,
       regions: initialData?.regions || [''],
       stops: initialData?.stops || 1,
@@ -80,40 +114,67 @@ export function RequestForm({ initialData, onSubmit, onCancel, isLoading }: Requ
     }
   })
 
+  const [vehicleTypeOptions, setVehicleTypeOptions] = useState<VehicleOption[]>([])
+  const [selectedVehicleTonOption, setSelectedVehicleTonOption] = useState<string>('')
+
   const { fields: regionFields, append: appendRegion, remove: removeRegion } = useFieldArray({
     control: form.control,
     name: 'regions'
   })
 
   const watchedValues = form.watch()
+  const watchedVehicleTon = watchedValues.vehicleTon
 
-  // Auto-calculate fare when key fields change
   useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (['centerCarNo', 'vehicleTon', 'regions', 'stops'].includes(name || '')) {
-        if (value.centerCarNo && value.vehicleTon && value.regions?.length && value.stops) {
-          calculateFare()
+    let isMounted = true
+
+    const loadVehicleTypes = async () => {
+      try {
+        const response = await fetch('/api/vehicle-types')
+        if (!response.ok) {
+          return
         }
+
+        const payload = await response.json()
+        const labels = Array.isArray(payload?.data) ? payload.data : payload
+        const parsed = parseVehicleTypeLabels(labels)
+        if (!isMounted) return
+
+        setVehicleTypeOptions(parsed)
+      } catch (error) {
+        console.error('Failed to load vehicle types:', error)
       }
-    })
-    return () => subscription.unsubscribe()
+    }
+
+    loadVehicleTypes()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
-  const calculateFare = async () => {
+  useEffect(() => {
+    const match = vehicleTypeOptions.find(option => option.ton === watchedVehicleTon)
+    setSelectedVehicleTonOption(match?.value ?? '')
+  }, [watchedVehicleTon, vehicleTypeOptions])
+
+  const calculateFare = useCallback(async () => {
     const values = form.getValues()
     
-    if (!values.centerCarNo || !values.vehicleTon || !values.regions?.length || !values.stops) {
+    if (!values.loadingPointId || !values.vehicleTon || !values.regions?.length || !values.stops) {
       return
     }
 
     setIsCalculating(true)
     
     try {
+      const centerCarNo = values.centerCarNo?.trim()
       const response = await fetch('/api/requests/calculate-fare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          centerCarNo: values.centerCarNo,
+          loadingPointId: values.loadingPointId,
+          centerCarNo: centerCarNo ? centerCarNo : undefined,
           vehicleTon: values.vehicleTon,
           regions: values.regions.filter(r => r.trim()),
           stops: values.stops,
@@ -130,10 +191,27 @@ export function RequestForm({ initialData, onSubmit, onCancel, isLoading }: Requ
     } finally {
       setIsCalculating(false)
     }
-  }
+  }, [form])
+
+  // Auto-calculate fare when key fields change
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (['loadingPointId', 'vehicleTon', 'regions', 'stops'].includes(name || '')) {
+        if (value.loadingPointId && value.vehicleTon && value.regions?.length && value.stops) {
+          calculateFare()
+        }
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [form, calculateFare])
 
   const handleSubmit = async (data: RequestFormData) => {
-    await onSubmit(data)
+    const normalized: RequestFormData = {
+      ...data,
+      centerCarNo: data.centerCarNo?.trim() ? data.centerCarNo.trim() : undefined
+    }
+
+    await onSubmit(normalized)
   }
 
   const finalBillingAmount = fareCalculation 
@@ -150,6 +228,21 @@ export function RequestForm({ initialData, onSubmit, onCancel, isLoading }: Requ
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* LoadingPoint Selection */}
+          <div>
+            <Label>상차지 *</Label>
+            <LoadingPointSelector
+              value={form.watch('loadingPointId')}
+              onValueChange={(loadingPointId) => form.setValue('loadingPointId', loadingPointId)}
+              className={cn(form.formState.errors.loadingPointId && 'border-red-500')}
+            />
+            {form.formState.errors.loadingPointId && (
+              <p className="text-sm text-red-500 mt-1">
+                {form.formState.errors.loadingPointId.message}
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="requestDate">요청일 *</Label>
@@ -167,11 +260,11 @@ export function RequestForm({ initialData, onSubmit, onCancel, isLoading }: Requ
             </div>
 
             <div>
-              <Label htmlFor="centerCarNo">센터호차 *</Label>
+              <Label htmlFor="centerCarNo">상차지호차</Label>
               <Input
                 id="centerCarNo"
                 {...form.register('centerCarNo')}
-                placeholder="C001"
+                placeholder="C001 (선택사항)"
                 className={cn(form.formState.errors.centerCarNo && 'border-red-500')}
               />
               {form.formState.errors.centerCarNo && (
@@ -183,20 +276,28 @@ export function RequestForm({ initialData, onSubmit, onCancel, isLoading }: Requ
 
             <div>
               <Label htmlFor="vehicleTon">차량톤수 *</Label>
-              <div className="flex">
-                <Input
-                  id="vehicleTon"
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  max="999.9"
-                  {...form.register('vehicleTon', { valueAsNumber: true })}
-                  className={cn(form.formState.errors.vehicleTon && 'border-red-500', 'rounded-r-none')}
-                />
-                <div className="bg-gray-50 border border-l-0 rounded-r px-3 flex items-center text-sm text-gray-600">
-                  톤
-                </div>
-              </div>
+              <Select
+                value={selectedVehicleTonOption || undefined}
+                onValueChange={(value) => {
+                  const option = vehicleTypeOptions.find(opt => opt.value === value)
+                  if (!option) {
+                    return
+                  }
+
+                  form.setValue('vehicleTon', option.ton, { shouldDirty: true, shouldValidate: true, shouldTouch: true })
+                }}
+              >
+                <SelectTrigger id="vehicleTon" className={cn(form.formState.errors.vehicleTon && 'border-red-500')}>
+                  <SelectValue placeholder="톤수 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicleTypeOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {form.formState.errors.vehicleTon && (
                 <p className="text-sm text-red-500 mt-1">
                   {form.formState.errors.vehicleTon.message}
@@ -329,7 +430,7 @@ export function RequestForm({ initialData, onSubmit, onCancel, isLoading }: Requ
               </div>
               <Separator className="my-3" />
               <div className="flex justify-between items-center font-semibold">
-                <span>💳 총 센터청구금액:</span>
+                <span>💳 총 상차지청구금액:</span>
                 <span className="text-lg text-blue-600">
                   {fareCalculation.subtotal.toLocaleString()}원
                 </span>

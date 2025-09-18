@@ -154,22 +154,8 @@ export function CharterForm({
   }, [watchedValues.centerId, watchedValues.vehicleType, watchedValues.destinations])
   */
 
-  // Keyboard shortcut for quote calculation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + Enter to calculate quote
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !isReadOnly) {
-        e.preventDefault()
-        handleCalculateQuote()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isReadOnly])
-
   // Calculate quote with improved validation and error handling
-  const handleCalculateQuote = async () => {
+  const handleCalculateQuote = useCallback(async () => {
     const { centerId, vehicleType, destinations, extraFare, isNegotiated, negotiatedFare } = getValues()
     
     // Enhanced validation with specific error messages
@@ -270,7 +256,7 @@ export function CharterForm({
     } finally {
       setIsQuoteLoading(false)
     }
-  }
+  }, [getValues, quoteMutation, setValue])
 
   // Handle fare modal success
   const handleFareCreated = () => {
@@ -280,6 +266,20 @@ export function CharterForm({
       handleCalculateQuote()
     }, 500)
   }
+
+  // Keyboard shortcut for quote calculation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + Enter to calculate quote
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !isReadOnly) {
+        e.preventDefault()
+        handleCalculateQuote()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isReadOnly, handleCalculateQuote])
 
   // Add destination
   const addDestination = () => {

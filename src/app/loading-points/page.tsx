@@ -60,8 +60,17 @@ export default function LoadingPointsPage() {
     isFetchingNextPage 
   } = useLoadingPoints(searchTerm, normalizedStatusFilter)
   
-  const loadingPointsData = data?.pages?.flatMap((page: any) => page.items || []) || []
-  const totalCount = data?.pages?.[data?.pages?.length - 1]?.totalCount || data?.pages?.[0]?.totalCount || 0
+  const loadingPointsData = useMemo(() => {
+    return data?.pages?.flatMap((page: any) => (page.items || page.data || [])) || []
+  }, [data])
+
+  const totalCount = useMemo(() => {
+    const pages = data?.pages || []
+    if (pages.length === 0) return 0
+    const lastPage = pages[pages.length - 1]
+    const firstPage = pages[0]
+    return lastPage?.totalCount || firstPage?.totalCount || 0
+  }, [data])
   
   // Mutations
   const createMutation = useCreateLoadingPoint()

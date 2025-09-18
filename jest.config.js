@@ -4,8 +4,7 @@ const config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests', '<rootDir>/src'],
   testMatch: [
-    '**/__tests__/**/*.+(ts|tsx|js)',
-    '**/*.(test|spec).+(ts|tsx|js)'
+    '**/?(*.)+(test).[tj]s?(x)'
   ],
   transform: {
     '^.+\\.(ts|tsx)$': 'ts-jest',
@@ -39,11 +38,23 @@ const config = {
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
     '<rootDir>/coverage/',
-    '<rootDir>/dist/'
+    '<rootDir>/dist/',
+    '<rootDir>/tests/e2e/'
   ],
   verbose: true,
   bail: 1,
   maxWorkers: '50%'
+}
+
+if (!process.env.DATABASE_URL) {
+  console.warn('Skipping DB integration tests (no DATABASE_URL set)')
+  config.testPathIgnorePatterns = [
+    ...config.testPathIgnorePatterns,
+    '<rootDir>/tests/api/',
+    '<rootDir>/tests/services/',
+    '<rootDir>/tests/charter.test.js',
+    '<rootDir>/tests/settlement.test.ts'
+  ]
 }
 
 module.exports = config

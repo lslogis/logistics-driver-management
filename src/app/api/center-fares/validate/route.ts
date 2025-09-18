@@ -8,13 +8,17 @@ export const runtime = 'nodejs'
 
 // 검증 요청 스키마
 const ValidateRowSchema = z.object({
-  centerName: z.string(),
+  loadingPointId: z.string().optional(),
+  loadingPointName: z.string().optional(),
   vehicleType: z.string(),
   region: z.string().nullable(),
   fareType: z.enum(['BASIC', 'STOP_FEE']),
   baseFare: z.number().nullable().optional(),
   extraStopFee: z.number().nullable().optional(),
   extraRegionFee: z.number().nullable().optional()
+}).refine(row => row.loadingPointId || row.loadingPointName, {
+  message: '상차지를 지정해야 합니다',
+  path: ['loadingPointId']
 })
 
 const ValidateRequestSchema = z.object({

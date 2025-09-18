@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { loadingPointsAPI } from '@/lib/api/loading-points'
 
 export interface Center {
   id: string
@@ -19,30 +20,24 @@ const DEFAULT_CENTERS: Center[] = [
 
 export function useCenters() {
   // loading-points API에서 센터명 목록 추출
-  const { data: loadingPointsData, isLoading, error } = useQuery({
+  const { data: loadingPoints = [], isLoading, error } = useQuery({
     queryKey: ['centers-from-loading-points'],
     queryFn: async () => {
-      const response = await fetch('/api/loading-points?limit=1000')
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Failed to fetch loading points')
-      }
-      
-      return result.data
+      const response = await loadingPointsAPI.list({ limit: 1000 })
+      return response.data || []
     },
     staleTime: 5 * 60 * 1000, // 5분 동안 fresh
     retry: 2
   })
 
   const centers = useMemo(() => {
-    if (!loadingPointsData?.items) {
-      return DEFAULT_CENTERS.sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+    if (!loadingPoints.length) {
+      return DEFAULT_CENTERS.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'))
     }
     
     // 중복 제거하여 고유한 센터명 추출
     const uniqueCenterNames = Array.from(
-      new Set(loadingPointsData.items.map((item: any) => item.centerName).filter(Boolean))
+      new Set(loadingPoints.map((item: any) => item.centerName ?? item.name).filter(Boolean))
     )
     
     // Center 객체로 변환하고 가나다순 정렬
@@ -53,8 +48,10 @@ export function useCenters() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
     
-    return centersFromApi.length > 0 ? centersFromApi : DEFAULT_CENTERS.sort((a, b) => a.name.localeCompare(b.name, 'ko'))
-  }, [loadingPointsData])
+    return centersFromApi.length > 0
+      ? centersFromApi
+      : DEFAULT_CENTERS.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  }, [loadingPoints])
   
   const getCenterByName = useMemo(() => {
     return (name: string) => centers.find(center => center.name === name)

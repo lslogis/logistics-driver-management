@@ -71,12 +71,19 @@ export default function FixedRoutesPage() {
     isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined
   })
   
-  const fixedContractsData = (data as any)?.contracts || []
-  const totalCount = (data as any)?.pagination?.totalCount || 0
+  const fixedContractsData = useMemo(() => {
+    return (data as any)?.contracts || []
+  }, [data])
+
+  const totalCount = useMemo(() => {
+    return (data as any)?.pagination?.totalCount || 0
+  }, [data])
   
   // Fetch all fixed routes for statistics
   const allRoutesQuery = useFixedContracts({ limit: 1000 })
-  const allRoutesData = (allRoutesQuery.data as any)?.contracts || []
+  const allRoutesData = useMemo(() => {
+    return (allRoutesQuery.data as any)?.contracts || []
+  }, [allRoutesQuery.data])
   
   // Statistics calculation
   const stats = useMemo(() => {

@@ -36,14 +36,17 @@ interface RouteScheduleWidgetProps {
   className?: string
 }
 
+const WEEK_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const
+const WEEK_DAYS_KO = ['월', '화', '수', '목', '금', '토', '일'] as const
+
 const RouteScheduleWidget: React.FC<RouteScheduleWidgetProps> = ({
   data,
   isLoading = false,
   selectedDate = new Date(),
   className
 }) => {
-  const weekDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-  const weekDaysKo = ['월', '화', '수', '목', '금', '토', '일']
+  const weekDays = WEEK_DAYS
+  const weekDaysKo = WEEK_DAYS_KO
   
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }) // Monday
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -58,7 +61,7 @@ const RouteScheduleWidget: React.FC<RouteScheduleWidgetProps> = ({
     })
     
     return schedule
-  }, [data])
+  }, [data, weekDays])
 
   const getStatusColor = (status: string) => {
     switch (status) {

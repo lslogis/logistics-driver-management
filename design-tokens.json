@@ -1,0 +1,127 @@
+{
+  "loading-points": {
+    "colors": {
+      "semantic": {
+        "location": {
+          "primary": "#10B981",
+          "primaryHover": "#059669",
+          "primaryActive": "#047857",
+          "secondary": "#D1FAE5",
+          "accent": "#6EE7B7"
+        },
+        "center": {
+          "primary": "#6B7280",
+          "primaryHover": "#4B5563",
+          "primaryActive": "#374151",
+          "secondary": "#F3F4F6",
+          "accent": "#9CA3AF"
+        },
+        "status": {
+          "active": "#10B981",
+          "inactive": "#9CA3AF",
+          "maintenance": "#F59E0B",
+          "error": "#EF4444",
+          "pending": "#8B5CF6"
+        },
+        "hierarchy": {
+          "level1": "#0F172A",
+          "level2": "#1E293B",
+          "level3": "#334155",
+          "level4": "#64748B"
+        }
+      },
+      "functional": {
+        "background": {
+          "primary": "#FFFFFF",
+          "secondary": "#F8FAFC",
+          "tertiary": "#F1F5F9",
+          "overlay": "rgba(15, 23, 42, 0.8)"
+        },
+        "border": {
+          "default": "#E2E8F0",
+          "hover": "#CBD5E1",
+          "focus": "#10B981",
+          "error": "#EF4444"
+        },
+        "text": {
+          "primary": "#0F172A",
+          "secondary": "#475569",
+          "tertiary": "#64748B",
+          "inverse": "#FFFFFF",
+          "accent": "#059669"
+        }
+      }
+    },
+    "typography": {
+      "sizes": [12, 14, 16, 18, 20, 24, 28, 32],
+      "leading": {
+        "tight": 1.2,
+        "normal": 1.45,
+        "loose": 1.7
+      },
+      "families": {
+        "sans": ["Inter", "system-ui", "sans-serif"],
+        "mono": ["JetBrains Mono", "Consolas", "monospace"],
+        "data": ["SF Mono", "Monaco", "monospace"]
+      },
+      "weights": {
+        "normal": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      }
+    },
+    "spacing": {
+      "scale": [4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96],
+      "semantic": {
+        "component": {
+          "padding": 16,
+          "margin": 24,
+          "gap": 12
+        },
+        "hierarchy": {
+          "indent": 24,
+          "groupSpacing": 32,
+          "levelSpacing": 16
+        }
+      }
+    },
+    "radius": {
+      "scale": [2, 4, 6, 8, 12, 16, 24],
+      "semantic": {
+        "card": 8,
+        "button": 6,
+        "input": 6,
+        "badge": 12,
+        "modal": 16
+      }
+    },
+    "shadows": {
+      "card": "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+      "cardHover": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+      "dropdown": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+      "modal": "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+      "focus": "0 0 0 3px rgba(16, 185, 129, 0.3)"
+    },
+    "animation": {
+      "duration": {
+        "fast": 150,
+        "normal": 200,
+        "slow": 300,
+        "slower": 500
+      },
+      "easing": {
+        "ease": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "easeIn": "cubic-bezier(0.4, 0, 1, 1)",
+        "easeOut": "cubic-bezier(0, 0, 0.2, 1)",
+        "easeInOut": "cubic-bezier(0.4, 0, 0.2, 1)"
+      },
+      "presets": {
+        "hierarchyExpand": "200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "searchFilter": "150ms cubic-bezier(0, 0, 0.2, 1)",
+        "statusChange": "300ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "modalOpen": "200ms cubic-bezier(0.4, 0, 0.2, 1)"
+      }
+    }
+  }
+}

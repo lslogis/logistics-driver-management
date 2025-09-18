@@ -8,7 +8,7 @@ WHERE "fareType" = 'STOP_FEE' AND (region = '' OR region IS NULL);
 
 -- 2. 기본운임인데 region이 빈 경우가 있다면 에러로 처리하기 위해 확인
 -- (이 쿼리는 실행만 하고 결과가 있으면 수동으로 처리해야 함)
-SELECT id, "centerName", "vehicleType", region, "fareType"
+SELECT id, "loadingPointId", "vehicleType", region, "fareType"
 FROM center_fares 
 WHERE "fareType" = 'BASIC' AND (region = '' OR region IS NULL);
 

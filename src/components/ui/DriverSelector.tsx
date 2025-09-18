@@ -74,7 +74,7 @@ function DriverSelector({
         setSelectedDriver(driver)
       }
     }
-  }, [value, drivers, selectedDriver?.id])
+  }, [value, drivers, selectedDriver])
   
   // Filter drivers based on search term
   const filteredDrivers = drivers.filter(driver => {

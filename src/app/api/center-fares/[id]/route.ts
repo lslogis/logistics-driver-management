@@ -9,9 +9,9 @@ const centerFareService = new CenterFareService(prisma)
 
 // 센터 요율 수정 스키마
 const UpdateCenterFareSchema = z.object({
-  centerId: z.string().min(1).optional(),
+  loadingPointId: z.string().min(1).optional(),
   vehicleType: z.string().min(1).optional(),
-  region: z.string().optional(),
+  region: z.string().optional().nullable(),
   fareType: z.enum(['BASIC', 'STOP_FEE']).optional(),
   baseFare: z.number().int().positive().optional(),
   extraStopFee: z.number().int().positive().optional(),
@@ -129,7 +129,13 @@ export const PATCH = withAuth(
 
       // 요청 데이터 검증
       const body = await req.json()
-      const data = UpdateCenterFareSchema.parse(body)
+      const parsed = UpdateCenterFareSchema.parse(body)
+      const data = {
+        ...parsed,
+        region: parsed.fareType === 'STOP_FEE'
+          ? null
+          : parsed.region?.trim() ?? parsed.region ?? existingFare.region,
+      }
       
       // 센터 요율 수정
       const updatedFare = await centerFareService.updateCenterFare(id, data)
@@ -140,10 +146,10 @@ export const PATCH = withAuth(
         'UPDATE',
         'CenterFare',
         id,
-        { 
+        {
           before: existingFare,
-          after: data,
-          changes: data
+          after: updatedFare,
+          changes: data,
         },
         { source: 'web_api' }
       )

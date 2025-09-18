@@ -35,7 +35,7 @@ export default function LoadingPointMapView({
 }: LoadingPointMapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const [map, setMap] = useState<any>(null)
-  const [markers, setMarkers] = useState<any[]>([])
+  const markersRef = useRef<any[]>([])
   const [isKakaoLoaded, setIsKakaoLoaded] = useState(false)
 
   // Kakao Maps SDK 로드
@@ -73,8 +73,8 @@ export default function LoadingPointMapView({
     if (!map || !window.kakao) return
 
     // 기존 마커 제거
-    markers.forEach(marker => marker.setMap(null))
-    setMarkers([])
+    markersRef.current.forEach(marker => marker.setMap(null))
+    markersRef.current = []
 
     const newMarkers: any[] = []
     const geocoder = new window.kakao.maps.services.Geocoder()
@@ -167,7 +167,7 @@ export default function LoadingPointMapView({
       })
     })
 
-    setMarkers(newMarkers)
+    markersRef.current = newMarkers
   }, [map, loadingPoints, onPointSelect])
 
   // 글로벌 액션 함수 설정

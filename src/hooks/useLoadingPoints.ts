@@ -47,25 +47,46 @@ export function useLoadingPoints(search?: string, status?: string) {
     queryKey: ['loading-points', search, status],
     initialPageParam: 1,
     queryFn: async ({ pageParam }: { pageParam: number }) => {
-      const params = new URLSearchParams({
-        page: pageParam.toString(),
-        limit: '50',
-        ...(search && { search }),
-        ...(status && { status })
-      })
-      
-      const response = await fetch(`/api/loading-points?${params}`)
+      const params = new URLSearchParams()
+      params.set('page', pageParam.toString())
+      params.set('limit', '50')
+      if (search) params.set('search', search)
+      if (status === 'active') params.set('isActive', 'true')
+      if (status === 'inactive') params.set('isActive', 'false')
+
+      const response = await fetch('/api/loading-points?' + params.toString())
       const result = await response.json()
-      
+
       if (!response.ok) {
         throw new Error(result.error?.message || 'Failed to fetch loading points')
       }
-      
-      return result.data
+
+      const items = Array.isArray(result.data)
+        ? result.data
+        : result.data?.items || []
+
+      const pagination = result.pagination || result.data?.pagination || {}
+      const totalCount = pagination.total ?? result.data?.totalCount ?? items.length
+      const currentPage = pagination.page ?? result.data?.currentPage ?? pageParam
+      const calculatedLimit = pagination.limit ?? 50
+      const pageCount =
+        pagination.totalPages ??
+        result.data?.pageCount ??
+        (pagination.total
+          ? Math.ceil(pagination.total / calculatedLimit)
+          : currentPage)
+
+      return {
+        items,
+        data: items,
+        totalCount,
+        currentPage,
+        pageCount,
+        pagination
+      }
     },
     getNextPageParam: (lastPage: any) => {
-      // API 응답 형식 확인
-      if (lastPage.currentPage && lastPage.pageCount) {
+      if (lastPage?.currentPage && lastPage?.pageCount) {
         if (lastPage.currentPage < lastPage.pageCount) {
           return lastPage.currentPage + 1
         }

@@ -47,17 +47,28 @@ export const POST = withAuth(
       for (const [index, row] of rows.entries()) {
         try {
           // 센터 조회
-          const center = await prisma.loadingPoint.findFirst({
-            where: { 
-              OR: [
-                { centerName: row['센터명'] as string },
-                { id: row['센터ID'] as string }
-              ]
-            }
-          })
+          const loadingPointIdentifier = (row['상차지ID'] as string) || (row['센터ID'] as string)
+          let loadingPoint = null
 
-          if (!center) {
-            errors.push(`행 ${index + 2}: 센터 ${row['센터명'] || row['센터ID']}을(를) 찾을 수 없습니다`)
+          if (loadingPointIdentifier) {
+            loadingPoint = await prisma.loadingPoint.findUnique({
+              where: { id: loadingPointIdentifier }
+            })
+          }
+
+          if (!loadingPoint && row['센터명']) {
+            loadingPoint = await prisma.loadingPoint.findFirst({
+              where: {
+                OR: [
+                  { centerName: row['센터명'] as string },
+                  { name: row['센터명'] as string }
+                ]
+              }
+            })
+          }
+
+          if (!loadingPoint) {
+            errors.push(`행 ${index + 2}: 상차지를 찾을 수 없습니다`)
             continue
           }
 
@@ -83,9 +94,9 @@ export const POST = withAuth(
           }
 
           const data = {
-            centerName: center.centerName,
+            loadingPointId: loadingPoint.id,
             vehicleType: row['차량톤수'] as string,
-            region: fareType === 'STOP_FEE' ? '' : region,
+            region: fareType === 'STOP_FEE' ? null : region,
             fareType,
             baseFare: fareType === 'BASIC' ? parseInt(row['기본운임'] as string) : null,
             extraStopFee: fareType === 'STOP_FEE' ? parseInt(row['경유운임'] as string) : null,
@@ -95,10 +106,10 @@ export const POST = withAuth(
           // Upsert (중복 시 업데이트)
           const fare = await prisma.centerFare.upsert({
             where: {
-              unique_center_vehicle_region: {
-                centerName: data.centerName,
+              unique_loadingPoint_vehicle_region: {
+                loadingPointId: data.loadingPointId,
                 vehicleType: data.vehicleType,
-                region: data.region
+                region: data.region,
               }
             },
             update: data,

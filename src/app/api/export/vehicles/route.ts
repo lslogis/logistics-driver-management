@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 
+export const dynamic = 'force-dynamic'
+
 // 쿼리 파라미터 스키마
 const exportQuerySchema = z.object({
   format: z.enum(['excel', 'csv']).default('excel'),

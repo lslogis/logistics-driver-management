@@ -49,8 +49,17 @@ export default function DriversPage() {
     isFetchingNextPage 
   } = useDrivers(searchTerm, statusFilter)
   
-  const driversData = data?.pages?.flatMap((page: any) => page.drivers) || []
-  const totalCount = data?.pages?.[data?.pages?.length - 1]?.pagination?.total || data?.pages?.[0]?.pagination?.total || 0
+  const driversData = useMemo(() => {
+    return data?.pages?.flatMap((page: any) => page.drivers) || []
+  }, [data])
+
+  const totalCount = useMemo(() => {
+    const pages = data?.pages || []
+    if (pages.length === 0) return 0
+    const lastPage = pages[pages.length - 1]
+    const firstPage = pages[0]
+    return lastPage?.pagination?.total || firstPage?.pagination?.total || 0
+  }, [data])
   
   // Mutations
   const createMutation = useCreateDriver()

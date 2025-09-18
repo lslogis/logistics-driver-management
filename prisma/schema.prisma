@@ -8,23 +8,20 @@ datasource db {
 }
 
 model User {
-  id                   String           @id @default(cuid())
-  email                String           @unique
+  id                   String       @id @default(cuid())
+  email                String       @unique
   name                 String
   password             String?
-  role                 UserRole         @default(DISPATCHER)
-  isActive             Boolean          @default(true)
-  createdAt            DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime         @updatedAt @db.Timestamptz(6)
-  lastLogin            DateTime?        @db.Timestamptz(6)
+  role                 UserRole     @default(DISPATCHER)
+  isActive             Boolean      @default(true)
+  createdAt            DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime     @updatedAt @db.Timestamptz(6)
+  lastLogin            DateTime?    @db.Timestamptz(6)
   accounts             Account[]
   auditLogs            AuditLog[]
-  charterRequests      CharterRequest[] @relation("CharterRequestCreator")
-  fixedContracts       FixedContract[]  @relation("FixedContractCreator")
   sessions             Session[]
-  confirmedSettlements Settlement[]     @relation("SettlementConfirmer")
-  settlements          Settlement[]     @relation("SettlementCreator")
-  requests             Request[]        @relation("RequestCreator")
+  confirmedSettlements Settlement[] @relation("SettlementConfirmer")
+  settlements          Settlement[] @relation("SettlementCreator")
 
   @@map("users")
 }
@@ -68,39 +65,34 @@ model VerificationToken {
 }
 
 model Driver {
-  id                                      String           @id @default(cuid())
-  name                                    String
-  phone                                   String
-  businessNumber                          String?
-  bankName                                String?
-  accountNumber                           String?
-  remarks                                 String?
-  isActive                                Boolean          @default(true)
-  createdAt                               DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt                               DateTime         @updatedAt @db.Timestamptz(6)
-  vehicleNumber                           String
-  businessName                            String?
-  representative                          String?
-  charterRequests                         CharterRequest[] @relation("CharterRequestDriver")
-  fixedContracts                          FixedContract[]  @relation("FixedContractDriver")
-  routeTemplates                          RouteTemplate[]  @relation("RouteDefaultDriver")
-  settlements                             Settlement[]     @relation("DriverSettlements")
-  dispatches                              Dispatch[]       @relation("DispatchDriver")
+  id             String          @id @default(cuid())
+  name           String
+  phone          String
+  businessNumber String?
+  bankName       String?
+  accountNumber  String?
+  remarks        String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+  vehicleNumber  String
+  businessName   String?
+  representative String?
+  routeTemplates RouteTemplate[] @relation("RouteDefaultDriver")
+  settlements    Settlement[]    @relation("DriverSettlements")
 
-  @@unique([name, phone, vehicleNumber], name: "unique_driver_info")
   @@index([name])
   @@index([phone])
   @@index([vehicleNumber])
   @@index([isActive])
-  @@index([name, phone, vehicleNumber], map: "idx_driver_composite")
   @@map("drivers")
 }
 
 model LoadingPoint {
-  id               String           @id @default(cuid())
-  isActive         Boolean          @default(true)
-  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime         @updatedAt @db.Timestamptz(6)
+  id               String          @id @default(cuid())
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
   centerName       String
   loadingPointName String
   lotAddress       String?
@@ -110,8 +102,8 @@ model LoadingPoint {
   phone1           String?
   phone2           String?
   remarks          String?
-  charterRequests  CharterRequest[] @relation("CharterRequestCenter")
-  fixedContracts   FixedContract[]  @relation("FixedContractLoadingPoint")
+  name             String?
+  centerFares      CenterFare[]    @relation("LoadingPointCenterFares")
   routeTemplates   RouteTemplate[]
 
   @@index([centerName])
@@ -238,9 +230,6 @@ model FixedContract {
   updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
   createdBy          String?
   endDate            DateTime?     @db.Date
-  creator            User?         @relation("FixedContractCreator", fields: [createdBy], references: [id])
-  driver             Driver?       @relation("FixedContractDriver", fields: [driverId], references: [id])
-  loadingPoint       LoadingPoint  @relation("FixedContractLoadingPoint", fields: [loadingPointId], references: [id])
 
   @@unique([loadingPointId, routeName], name: "unique_center_route")
   @@index([driverId, isActive])
@@ -250,65 +239,53 @@ model FixedContract {
   @@map("fixed_contracts")
 }
 
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model CenterFare {
-  id             String   @id @default(cuid())
-  centerName     String
+  id             String       @id @default(cuid())
+  loadingPointId String
   vehicleType    String
-  region         String?
-  createdAt      DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
   fareType       FareType
   baseFare       Int?
   extraStopFee   Int?
   extraRegionFee Int?
+  region         String?
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+  loadingPoint   LoadingPoint @relation("LoadingPointCenterFares", fields: [loadingPointId], references: [id], onDelete: Cascade)
 
-  @@unique([centerName, vehicleType, region], name: "unique_center_vehicle_region")
-  @@index([centerName, vehicleType])
+  @@index([loadingPointId, vehicleType, fareType])
   @@index([region])
   @@map("center_fares")
 }
 
-// NEW CHARTER MANAGEMENT SYSTEM - Request/Dispatch Architecture
-
-// Center Entity - Added for proper center management
 model Center {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  location  String?   
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  location  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  requests  Request[]
-  
   @@index([name])
   @@index([isActive])
   @@map("centers")
 }
 
 model Request {
-  id                String      @id @default(cuid())
-  requestDate       DateTime    @db.Date
-  centerCarNo       String      @db.VarChar(50)
-  vehicleTon        Decimal     @db.Decimal(3,1)
-  regions           Json        // Array of region names
-  stops             Int
-  notes             String?
-  extraAdjustment   Int         @default(0)
-  adjustmentReason  String?     // Reason for adjustment when != 0
-  createdAt         DateTime    @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime    @updatedAt @db.Timestamptz(6)
-  createdBy         String?
-  
-  // Center relationship
-  centerId          Int
-  center            Center      @relation(fields: [centerId], references: [id])
-  
-  // Relations
-  dispatches        Dispatch[]
-  creator           User?       @relation("RequestCreator", fields: [createdBy], references: [id])
-  
-  // Enhanced indexes for performance
+  id               String   @id @default(cuid())
+  requestDate      DateTime @db.Date
+  centerCarNo      String   @db.VarChar(50)
+  vehicleTon       Decimal  @db.Decimal(3, 1)
+  regions          Json
+  stops            Int
+  notes            String?
+  extraAdjustment  Int      @default(0)
+  adjustmentReason String?
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(6)
+  createdBy        String?
+  centerId         Int
+
   @@index([centerId])
   @@index([requestDate, centerCarNo])
   @@index([requestDate])
@@ -318,23 +295,18 @@ model Request {
 }
 
 model Dispatch {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   requestId     String
-  driverId      String?   // Optional FK to drivers table
-  driverName    String    // Manual entry when FK is null
+  driverId      String?
+  driverName    String
   driverPhone   String
   driverVehicle String
-  deliveryTime  String?   // e.g., "09~12시"
+  deliveryTime  String?
   driverFee     Int
   driverNotes   String?
-  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
-  
-  // Relations
-  request       Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  driver        Driver?   @relation("DispatchDriver", fields: [driverId], references: [id])
-  
-  // Enhanced indexes for query optimization
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
   @@index([requestId])
   @@index([driverId])
   @@index([requestId, driverId])
@@ -342,13 +314,12 @@ model Dispatch {
   @@map("dispatches")
 }
 
-// LEGACY - Keep for migration purposes
 model CharterRequest {
-  id             String               @id @default(cuid())
+  id             String   @id @default(cuid())
   centerId       String
   vehicleType    String
-  date           DateTime             @db.Date
-  isNegotiated   Boolean              @default(false)
+  date           DateTime @db.Date
+  isNegotiated   Boolean  @default(false)
   negotiatedFare Int?
   baseFare       Int?
   regionFare     Int?
@@ -358,13 +329,9 @@ model CharterRequest {
   driverId       String
   driverFare     Int
   notes          String?
-  createdAt      DateTime             @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime             @updatedAt @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
   createdBy      String?
-  destinations   CharterDestination[]
-  center         LoadingPoint         @relation("CharterRequestCenter", fields: [centerId], references: [id])
-  creator        User?                @relation("CharterRequestCreator", fields: [createdBy], references: [id])
-  driver         Driver               @relation("CharterRequestDriver", fields: [driverId], references: [id])
 
   @@index([centerId, date])
   @@index([driverId, date])
@@ -375,18 +342,15 @@ model CharterRequest {
 }
 
 model CharterDestination {
-  id        String         @id @default(cuid())
+  id        String @id @default(cuid())
   requestId String
   region    String
   order     Int
-  request   CharterRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@unique([requestId, order], name: "unique_request_order")
   @@index([requestId])
   @@map("charter_destinations")
 }
-
-
 
 enum SettlementStatus {
   DRAFT
@@ -407,10 +371,10 @@ enum AuditAction {
   IMPORT
   EXPORT
   CONFIRM
-  ACTIVATE
-  DEACTIVATE
   LOGIN
   LOGOUT
+  ACTIVATE
+  DEACTIVATE
 }
 
 enum ContractType {
@@ -431,4 +395,3 @@ enum SettlementItemType {
   ADDITION
   ADJUSTMENT
 }
-

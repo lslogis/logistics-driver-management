@@ -36,7 +36,7 @@ export default function LandingPage() {
       hasRedirected.current = true
       router.replace('/dashboard') // push 대신 replace 사용
     }
-  }, [status, session, pathname]) // router 제거
+  }, [status, session, pathname, router])
 
   // 로딩 중일 때는 로딩 화면 표시
   if (status === 'loading') {
