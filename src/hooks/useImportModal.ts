@@ -6,7 +6,6 @@ import {
   useLoadingPointsImportWorkflow,
   useFixedContractsImportWorkflow,
   useVehiclesImportWorkflow,
-  useRoutesImportWorkflow,
   useChartersImportWorkflow,
   useCenterFaresImportWorkflow
 } from '@/hooks/useImports'
@@ -28,7 +27,6 @@ export function useImportModal(type: ImportType) {
   const loadingPointsWorkflow = useLoadingPointsImportWorkflow()
   const fixedContractsWorkflow = useFixedContractsImportWorkflow()
   const vehiclesWorkflow = useVehiclesImportWorkflow()
-  const routesWorkflow = useRoutesImportWorkflow()
   const chartersWorkflow = useChartersImportWorkflow()
   const centerFaresWorkflow = useCenterFaresImportWorkflow()
 
@@ -42,8 +40,6 @@ export function useImportModal(type: ImportType) {
         return fixedContractsWorkflow
       case 'vehicles':
         return vehiclesWorkflow
-      case 'routes':
-        return routesWorkflow
       case 'trips':
         return chartersWorkflow
       case 'center-fares':
@@ -51,7 +47,7 @@ export function useImportModal(type: ImportType) {
       default:
         throw new Error(`Unsupported import type: ${type}`)
     }
-  }, [type, driversWorkflow, loadingPointsWorkflow, fixedContractsWorkflow, vehiclesWorkflow, routesWorkflow, chartersWorkflow, centerFaresWorkflow])
+  }, [type, driversWorkflow, loadingPointsWorkflow, fixedContractsWorkflow, vehiclesWorkflow, chartersWorkflow, centerFaresWorkflow])
 
   // 파일 선택 처리
   const handleFileSelect = useCallback((file: File) => {

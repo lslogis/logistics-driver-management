@@ -168,9 +168,6 @@ export interface LoadingPointResponse {
   isActive: boolean
   createdAt: string
   updatedAt: string
-  _count?: {
-    routeTemplates: number
-  }
 }
 
 export interface LoadingPointsListResponse {

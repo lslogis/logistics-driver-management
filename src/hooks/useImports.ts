@@ -373,55 +373,6 @@ export function useDownloadVehicleTemplate() {
   })
 }
 
-// Routes import hooks
-export function useValidateRoutesCSV() {
-  return useMutation<ImportResponse, Error, File>({
-    mutationFn: (file: File) => importsAPI.validateRoutesCSV(file),
-    onSuccess: (data) => {
-      const results = data.data.results
-      toast.success(`검증 완료: ${results.valid}개 유효, ${results.invalid}개 오류`)
-    },
-    onError: (error: Error) => {
-      toast.error(`검증 실패: ${error.message}`)
-    }
-  })
-}
-
-export function useImportRoutesCSV() {
-  const queryClient = useQueryClient()
-  
-  return useMutation<ImportResponse, Error, File>({
-    mutationFn: (file: File) => importsAPI.importRoutesCSV(file),
-    onSuccess: (data) => {
-      const results = data.data.results
-      toast.success(`가져오기 완료: ${results.imported}개 노선템플릿이 등록되었습니다`)
-      queryClient.invalidateQueries({ queryKey: ['routes'] })
-    },
-    onError: (error: Error) => {
-      toast.error(`가져오기 실패: ${error.message}`)
-    }
-  })
-}
-
-export function useDownloadRouteTemplate() {
-  return useMutation<Blob, Error, void>({
-    mutationFn: () => importsAPI.downloadRouteTemplate(),
-    onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = '노선템플릿등록템플릿.csv'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      toast.success('템플릿 다운로드 완료')
-    },
-    onError: (error: Error) => {
-      toast.error(`템플릿 다운로드 실패: ${error.message}`)
-    }
-  })
-}
 
 // Export hooks
 export function useExportDrivers() {
@@ -448,17 +399,6 @@ export function useExportVehicles() {
   })
 }
 
-export function useExportRoutes() {
-  return useMutation<void, Error, 'excel' | 'csv'>({
-    mutationFn: (format: 'excel' | 'csv') => importsAPI.exportRoutes(format),
-    onSuccess: () => {
-      toast.success('노선 목록 다운로드 완료')
-    },
-    onError: (error: Error) => {
-      toast.error(`다운로드 실패: ${error.message}`)
-    }
-  })
-}
 
 export function useExportTrips() {
   return useMutation<void, Error, 'excel' | 'csv'>({
@@ -544,65 +484,6 @@ export function useVehiclesImportWorkflow() {
   }
 }
 
-// Routes import workflow
-export function useRoutesImportWorkflow() {
-  const validateMutation = useValidateRoutesCSV()
-  const importMutation = useImportRoutesCSV()
-  const downloadTemplateMutation = useDownloadRouteTemplate()
-  const { progress, isUploading, uploadError, resetProgress, simulateProgress, completeProgress, setError } = useFileUploadProgress()
-  const { validateFile } = useFileValidation()
-
-  const validate = useCallback(async (file: File) => {
-    const validation = validateFile(file)
-    if (!validation.isValid) {
-      setError(validation.error!)
-      return null
-    }
-
-    const cleanup = simulateProgress()
-    try {
-      const result = await validateMutation.mutateAsync(file)
-      completeProgress()
-      cleanup()
-      return result
-    } catch (error) {
-      cleanup()
-      setError(error instanceof Error ? error.message : '검증 중 오류가 발생했습니다')
-      throw error
-    }
-  }, [validateMutation, validateFile, simulateProgress, completeProgress, setError])
-
-  const importData = useCallback(async (file: File) => {
-    const validation = validateFile(file)
-    if (!validation.isValid) {
-      setError(validation.error!)
-      return null
-    }
-
-    const cleanup = simulateProgress()
-    try {
-      const result = await importMutation.mutateAsync(file)
-      completeProgress()
-      cleanup()
-      return result
-    } catch (error) {
-      cleanup()
-      setError(error instanceof Error ? error.message : '가져오기 중 오류가 발생했습니다')
-      throw error
-    }
-  }, [importMutation, validateFile, simulateProgress, completeProgress, setError])
-
-  return {
-    validate,
-    importData,
-    downloadTemplate: () => downloadTemplateMutation.mutate(),
-    isLoading: validateMutation.isPending || importMutation.isPending || downloadTemplateMutation.isPending,
-    progress,
-    isUploading,
-    uploadError,
-    resetProgress
-  }
-}
 
 // Loading Points import hooks
 export function useValidateLoadingPointsCSV() {

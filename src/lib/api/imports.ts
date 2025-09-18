@@ -244,69 +244,6 @@ export class ImportsAPI {
     }
   }
 
-  // Routes Import/Export
-  async validateRoutesCSV(file: File): Promise<ImportResponse> {
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('mode', 'simulate')
-
-      const response = await fetch('/api/import/routes', {
-        method: 'POST',
-        body: formData
-      })
-
-      return await this.handleAPIResponse(response)
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('네트워크 연결을 확인해주세요.')
-      }
-      throw error
-    }
-  }
-
-  async importRoutesCSV(file: File): Promise<ImportResponse> {
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('mode', 'commit')
-
-      const response = await fetch('/api/import/routes', {
-        method: 'POST',
-        body: formData
-      })
-
-      return await this.handleAPIResponse(response)
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('네트워크 연결을 확인해주세요.')
-      }
-      throw error
-    }
-  }
-
-  async downloadRouteTemplate(): Promise<Blob> {
-    try {
-      const response = await fetch('/api/templates/routes')
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('템플릿 파일을 찾을 수 없습니다.')
-        }
-        if (response.status >= 500) {
-          throw new Error('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
-        }
-        throw new Error('템플릿 다운로드에 실패했습니다.')
-      }
-
-      return response.blob()
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('네트워크 연결을 확인해주세요.')
-      }
-      throw error
-    }
-  }
 
   // Export functionality
   private async handleExportResponse(response: Response, filename: string): Promise<void> {
@@ -363,21 +300,6 @@ export class ImportsAPI {
     }
   }
 
-  async exportRoutes(format: 'excel' | 'csv' = 'excel'): Promise<void> {
-    try {
-      const response = await fetch(`/api/export/routes?format=${format}`)
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '_')
-      const extension = format === 'excel' ? 'xlsx' : 'csv'
-      const filename = `노선템플릿목록_${timestamp}.${extension}`
-      
-      await this.handleExportResponse(response, filename)
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('네트워크 연결을 확인해주세요.')
-      }
-      throw error
-    }
-  }
 
   async exportTrips(format: 'excel' | 'csv' = 'excel'): Promise<void> {
     try {

@@ -26,13 +26,13 @@ const importModules = [
     templateUrl: '/api/templates/loading-points'
   },
   {
-    title: '고정노선 가져오기',
-    description: '고정노선 정보를 CSV 파일로 일괄 등록',
+    title: '고정계약 가져오기',
+    description: '고정계약 정보를 CSV 파일로 일괄 등록',
     icon: Route,
-    type: 'fixed-routes',
+    type: 'fixed-contracts',
     color: 'purple',
     features: ['노선명, 계약형태 필수', '매출/비용 정보', '중복 노선명 자동 제외'],
-    templateUrl: '/api/templates/fixed-routes'
+    templateUrl: '/api/templates/fixed-contracts'
   }
 ]
 

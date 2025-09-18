@@ -78,7 +78,6 @@ model Driver {
   vehicleNumber  String
   businessName   String?
   representative String?
-  routeTemplates RouteTemplate[] @relation("RouteDefaultDriver")
   settlements    Settlement[]    @relation("DriverSettlements")
 
   @@index([name])
@@ -104,37 +103,14 @@ model LoadingPoint {
   remarks          String?
   name             String?
   centerFares      CenterFare[]    @relation("LoadingPointCenterFares")
-  routeTemplates   RouteTemplate[]
 
+  @@unique([centerName])
   @@index([centerName])
   @@index([loadingPointName])
   @@index([isActive])
   @@map("loading_points")
 }
 
-model RouteTemplate {
-  id              String        @id @default(cuid())
-  name            String        @unique
-  loadingPoint    String
-  distance        Float?
-  driverFare      Decimal       @db.Decimal(12, 2)
-  billingFare     Decimal       @db.Decimal(12, 2)
-  weekdayPattern  Int[]
-  defaultDriverId String?
-  isActive        Boolean       @default(true)
-  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
-  loadingPointId  String?
-  defaultDriver   Driver?       @relation("RouteDefaultDriver", fields: [defaultDriverId], references: [id])
-  loadingPointRef LoadingPoint? @relation(fields: [loadingPointId], references: [id])
-
-  @@index([name])
-  @@index([loadingPoint])
-  @@index([loadingPointId])
-  @@index([defaultDriverId])
-  @@index([isActive])
-  @@map("route_templates")
-}
 
 model Settlement {
   id              String           @id @default(cuid())
@@ -258,18 +234,6 @@ model CenterFare {
   @@map("center_fares")
 }
 
-model Center {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  location  String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
-
-  @@index([name])
-  @@index([isActive])
-  @@map("centers")
-}
 
 model Request {
   id               String   @id @default(cuid())

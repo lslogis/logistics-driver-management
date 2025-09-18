@@ -33,25 +33,6 @@ export interface Vehicle {
   updatedAt: string;
 }
 
-export interface RouteTemplate {
-  id: string;
-  name: string;
-  loadingPoint: string;
-  unloadingPoint: string;
-  driverFare: number;
-  billingFare: number;
-  weekdayPattern: number[];
-  distance?: number;
-  defaultDriverId?: string;
-  defaultDriver?: {
-    id: string;
-    name: string;
-    phone: string;
-  };
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export interface LoadingPoint {
   id: string;
@@ -173,10 +154,6 @@ export interface VehiclesResponse {
   pagination: PaginationInfo;
 }
 
-export interface RoutesResponse {
-  routes: RouteTemplate[];
-  pagination: PaginationInfo;
-}
 
 
 export interface SettlementsResponse {
@@ -209,18 +186,6 @@ export interface CreateVehicleData {
 
 export interface UpdateVehicleData extends Partial<CreateVehicleData> {}
 
-export interface CreateRouteData {
-  name: string;
-  loadingPoint: string;
-  unloadingPoint: string;
-  driverFare: number;
-  billingFare: number;
-  weekdayPattern: number[];
-  distance?: number;
-  defaultDriverId?: string;
-}
-
-export interface UpdateRouteData extends Partial<CreateRouteData> {}
 
 
 // Settlement preview data
@@ -258,12 +223,6 @@ export interface VehiclesQuery {
   isActive?: boolean;
 }
 
-export interface RoutesQuery {
-  page?: number;
-  limit?: number;
-  search?: string;
-  isActive?: boolean;
-}
 
 
 export interface SettlementsQuery {

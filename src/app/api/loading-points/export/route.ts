@@ -36,11 +36,6 @@ export async function GET(request: NextRequest) {
           phone2: true,
           remarks: true,
           isActive: true,
-          _count: {
-            select: {
-              routeTemplates: true
-            }
-          }
         },
         orderBy: [
           { isActive: 'desc' },

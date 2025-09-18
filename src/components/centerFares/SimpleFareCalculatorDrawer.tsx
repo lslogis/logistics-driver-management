@@ -27,7 +27,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Calculator, Copy, CheckCircle2, Plus, AlertCircle } from 'lucide-react'
 import { type FareRow, VEHICLE_TYPE_OPTIONS } from '@/lib/utils/center-fares'
 import { toast } from 'react-hot-toast'
-import { useCenters } from '@/hooks/useCenters'
+import { useLoadingPoints } from '@/hooks/useLoadingPoints'
 import { useCenterFares, useCalculateFare } from '@/hooks/useCenterFares'
 import { centerFareApi } from '@/lib/api/center-fares-api'
 
@@ -91,7 +91,7 @@ export function SimpleFareCalculatorDrawer({
     vehicleTypeId: string
     vehicleTypeName: string
   } | null>(null)
-  const { centers } = useCenters()
+  const { data: loadingPointsData } = useLoadingPoints()
   const { data: centerFaresData } = useCenterFares()
   const calculateFareMutation = useCalculateFare()
 
@@ -161,9 +161,9 @@ export function SimpleFareCalculatorDrawer({
         .map(region => region.trim())
         .filter(region => region.length > 0)
 
-      // API를 통한 요율 계산 (centerName 직접 사용)
+      // API를 통한 요율 계산 (loadingPointId 사용)
       const calculateInput = {
-        centerName: data.centerName, // 직접 centerName 사용
+        centerName: data.loadingPointId, // loadingPointId를 centerName으로 전달
         vehicleType: data.vehicleTypeId,
         regions: regions,
         stopCount: data.stopCount
@@ -193,8 +193,8 @@ export function SimpleFareCalculatorDrawer({
           setMissingData({
             type: 'basic',
             region: error.missingData.region,
-            centerId: data.centerName, // centerName을 centerId로 사용
-            centerName: data.centerName,
+            loadingPointId: data.loadingPointId,
+            loadingPointName: data.loadingPointId,
             vehicleTypeId: data.vehicleTypeId,
             vehicleTypeName: vehicleType?.name || ''
           })
@@ -202,8 +202,8 @@ export function SimpleFareCalculatorDrawer({
         } else if (error.missingData.type === 'extra') {
           setMissingData({
             type: 'extra',
-            centerId: data.centerName, // centerName을 centerId로 사용
-            centerName: data.centerName,
+            loadingPointId: data.loadingPointId,
+            loadingPointName: data.loadingPointId,
             vehicleTypeId: data.vehicleTypeId,
             vehicleTypeName: vehicleType?.name || ''
           })
@@ -242,8 +242,8 @@ export function SimpleFareCalculatorDrawer({
     if (!missingData || !onOpenCreate) return
     
     const prefilledData = {
-      centerId: missingData.centerId,
-      centerName: missingData.centerName,
+      loadingPointId: missingData.loadingPointId,
+      loadingPointName: missingData.loadingPointName,
       vehicleTypeId: missingData.vehicleTypeId,
       vehicleTypeName: missingData.vehicleTypeName,
       region: missingData.type === 'basic' ? missingData.region : '',
@@ -254,18 +254,18 @@ export function SimpleFareCalculatorDrawer({
     onOpenCreate(prefilledData)
   }
 
-  // Get available options - use all centers and vehicle types, but only registered regions
+  // Get available options - use all loading points and vehicle types, but only registered regions
   const getAvailableOptions = () => {
-    // 모든 센터 옵션 표시
-    const centerOptions = centers
+    // 모든 상차지 옵션 표시
+    const loadingPointOptions = loadingPointsData?.data || []
     
     // 모든 차량톤수 옵션 표시
     const vehicleTypeOptionsList = VEHICLE_TYPE_OPTIONS
     
-    return { centerOptions, vehicleTypeOptionsList }
+    return { loadingPointOptions, vehicleTypeOptionsList }
   }
 
-  const { centerOptions, vehicleTypeOptionsList: availableVehicleTypes } = getAvailableOptions()
+  const { loadingPointOptions, vehicleTypeOptionsList: availableVehicleTypes } = getAvailableOptions()
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -284,23 +284,23 @@ export function SimpleFareCalculatorDrawer({
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleCalculate)} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                {/* 센터 선택 */}
+                {/* 상차지 선택 */}
                 <FormField
                   control={form.control}
-                  name="centerName"
+                  name="loadingPointId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-sm font-semibold text-gray-700">센터명 *</FormLabel>
+                      <FormLabel className="text-sm font-semibold text-gray-700">상차지 *</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="h-11 rounded-xl border-2 focus:border-blue-500">
-                            <SelectValue placeholder="센터 선택" />
+                            <SelectValue placeholder="상차지 선택" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {centerOptions.map(center => (
-                            <SelectItem key={center.id} value={center.name}>
-                              {center.name}
+                          {loadingPointOptions.map(loadingPoint => (
+                            <SelectItem key={loadingPoint.id} value={loadingPoint.id}>
+                              {loadingPoint.centerName} - {loadingPoint.loadingPointName}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -407,13 +407,13 @@ export function SimpleFareCalculatorDrawer({
                     <p className="font-medium text-orange-800">
                       {missingData.type === 'basic' 
                         ? `${missingData.region} 지역의 기본운임이 등록되지 않았습니다.`
-                        : `${missingData.centerName} - ${missingData.vehicleTypeName}의 경유운임 요율이 등록되지 않았습니다.`
+                        : `${missingData.loadingPointName} - ${missingData.vehicleTypeName}의 경유운임 요율이 등록되지 않았습니다.`
                       }
                     </p>
                     <div className="text-sm text-orange-700">
                       <p><strong>필요한 정보:</strong></p>
                       <ul className="list-disc list-inside mt-1 space-y-1">
-                        <li>센터: {missingData.centerName}</li>
+                        <li>상차지: {missingData.loadingPointName}</li>
                         <li>차량톤수: {missingData.vehicleTypeName}</li>
                         {missingData.region && <li>지역: {missingData.region}</li>}
                         <li>요율종류: {missingData.type === 'basic' ? '기본운임' : '경유운임'}</li>

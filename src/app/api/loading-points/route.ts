@@ -31,16 +31,6 @@ export async function GET(request: NextRequest) {
     const [loadingPoints, total] = await Promise.all([
       prisma.loadingPoint.findMany({
         where,
-        include: {
-          _count: {
-            select: {
-              charterRequests: true,
-              fixedContracts: true,
-              routeTemplates: true,
-              centerFares: true
-            }
-          }
-        },
         orderBy: [
           { isActive: "desc" },
           { name: "asc" },

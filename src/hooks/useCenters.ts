@@ -37,7 +37,7 @@ export function useCenters() {
     
     // 중복 제거하여 고유한 센터명 추출
     const uniqueCenterNames = Array.from(
-      new Set(loadingPoints.map((item: any) => item.centerName ?? item.name).filter(Boolean))
+      new Set(loadingPoints.map((item: any) => item.centerName).filter(Boolean))
     )
     
     // Center 객체로 변환하고 가나다순 정렬

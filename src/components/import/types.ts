@@ -1,7 +1,7 @@
 import { ImportResult } from '@/lib/api/imports'
 
 // 임포트 가능한 데이터 타입
-export type ImportType = 'drivers' | 'loading-points' | 'fixed-contracts' | 'vehicles' | 'routes' | 'trips' | 'center-fares'
+export type ImportType = 'drivers' | 'loading-points' | 'fixed-contracts' | 'vehicles' | 'trips' | 'center-fares'
 
 // 모달 단계
 export type ImportStep = 'upload' | 'validate' | 'import' | 'complete'
@@ -83,15 +83,6 @@ export const IMPORT_TYPE_CONFIGS: Record<ImportType, ImportTypeConfig> = {
     maxFileSize: 10,
     sampleFields: ['차량번호', '차량종류', '소유구분', '연식', '배정기사'],
     icon: 'truck'
-  },
-  routes: {
-    title: '노선템플릿 가져오기',
-    description: 'CSV 또는 Excel 파일로 노선템플릿을 일괄 등록할 수 있습니다.',
-    templateFileName: '노선템플릿등록템플릿.csv',
-    acceptedFileTypes: ['.csv', '.xlsx', '.xls'],
-    maxFileSize: 10,
-    sampleFields: ['노선명', '출발지', '도착지', '거리', '기본요금'],
-    icon: 'navigation'
   },
   trips: {
     title: '용차 가져오기',

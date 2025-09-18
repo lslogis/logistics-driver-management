@@ -29,16 +29,27 @@ import { FileDropZone } from './FileDropZone'
 import { cn } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 
-// 센터요율 전용 타입 정의
-type CenterFarePreviewRow = {
+// Import 데이터 타입 정의 (통합)
+type ImportPreviewRow = {
   id: string
   centerName: string
-  vehicleType: string
-  region: string | null
-  fareType: '기본운임' | '경유운임'
+  // Center Fares 필드
+  vehicleType?: string
+  region?: string | null
+  fareType?: '기본운임' | '경유운임'
   baseFare?: number | null
   extraStopFee?: number | null
   extraRegionFee?: number | null
+  // Loading Points 필드
+  loadingPointName?: string
+  lotAddress?: string
+  roadAddress?: string
+  manager1?: string
+  phone1?: string
+  manager2?: string
+  phone2?: string
+  remarks?: string
+  // 공통 필드
   status: 'valid' | 'error'
   errorMessage?: string
 }
@@ -60,7 +71,7 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
   // 센터요율 전용 상태
   const [step, setStep] = useState<'upload' | 'validate' | 'import' | 'complete'>('upload')
   const [file, setFile] = useState<File | null>(null)
-  const [previewRows, setPreviewRows] = useState<CenterFarePreviewRow[]>([])
+  const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -393,9 +404,150 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
     return stepIndex < currentIndex || (stepKey === 'complete' && step === 'complete')
   }
 
-  // 센터요율이 아닌 경우 기존 로직 사용
-  if (type !== 'center-fares') {
-    return <div className="p-4 text-center">센터요율 전용 ImportModal입니다.</div>
+  // loading-points import 로직
+  const handleLoadingPointsImport = useCallback(async () => {
+    if (!file || type !== 'loading-points') return
+
+    setIsLoading(true)
+    setError(null)
+    setUploadProgress(0)
+
+    try {
+      // FormData 생성
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('mode', 'commit')
+
+      // 프로그레스 시뮬레이션
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90))
+      }, 300)
+
+      // API 호출
+      const response = await fetch('/api/import/loading-points', {
+        method: 'POST',
+        body: formData
+      })
+
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || '가져오기 실패')
+      }
+
+      const result = await response.json()
+      setUploadProgress(100)
+      
+      toast.success(`상차지 가져오기 완료: ${result.data.results.imported}개가 등록되었습니다`)
+      setStep('complete')
+
+    } catch (error) {
+      console.error('상차지 가져오기 중 오류:', error)
+      setError(error instanceof Error ? error.message : '가져오기 중 오류가 발생했습니다')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [file, type])
+
+  // 상차지 검증 로직
+  const validateLoadingPointsFile = useCallback(async () => {
+    if (!file || type !== 'loading-points') return
+
+    setIsLoading(true)
+    setError(null)
+    setUploadProgress(0)
+
+    try {
+      // FormData 생성 (simulate 모드)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('mode', 'simulate')
+
+      // 프로그레스 시뮬레이션
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90))
+      }, 300)
+
+      // API 호출
+      const response = await fetch('/api/import/loading-points', {
+        method: 'POST',
+        body: formData
+      })
+
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || '검증 실패')
+      }
+
+      const result = await response.json()
+      setUploadProgress(100)
+      
+      // 결과를 previewRows 형태로 변환
+      const previewData = result.data.results.preview.map((row: any, index: number) => ({
+        id: `row-${index}`,
+        centerName: row.centerName,
+        loadingPointName: row.loadingPointName,
+        lotAddress: row.lotAddress || '',
+        roadAddress: row.roadAddress || '',
+        manager1: row.manager1 || '',
+        phone1: row.phone1 || '',
+        status: 'valid' as const
+      }))
+
+      // 오류 항목들 추가
+      result.data.results.errors.forEach((error: any) => {
+        previewData.push({
+          id: `error-${error.row}`,
+          centerName: error.data?.centerName || '',
+          loadingPointName: error.data?.loadingPointName || '',
+          lotAddress: error.data?.lotAddress || '',
+          roadAddress: error.data?.roadAddress || '',
+          manager1: error.data?.manager1 || '',
+          phone1: error.data?.phone1 || '',
+          status: 'error' as const,
+          errorMessage: error.error
+        })
+      })
+
+      setPreviewRows(previewData)
+      setStep('validate')
+
+    } catch (error) {
+      console.error('상차지 검증 중 오류:', error)
+      setError(error instanceof Error ? error.message : '검증 중 오류가 발생했습니다')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [file, type])
+
+  // 템플릿 다운로드 (loading-points)
+  const downloadLoadingPointsTemplate = useCallback(async () => {
+    try {
+      const response = await fetch('/api/import/loading-points')
+      if (!response.ok) throw new Error('템플릿 다운로드 실패')
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'loading_points_template.csv'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast.success('템플릿 다운로드 완료')
+    } catch (error) {
+      toast.error('템플릿 다운로드 실패')
+    }
+  }, [])
+
+  // 센터요율이 아닌 경우 일반 import 로직 사용
+  if (type !== 'center-fares' && type !== 'loading-points') {
+    return <div className="p-4 text-center">현재 지원하지 않는 import 타입입니다.</div>
   }
 
   const renderStepContent = () => {
@@ -406,7 +558,11 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <div className="flex items-start">
                 <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded mr-3">
-                  <Navigation className="h-5 w-5 text-blue-600" />
+                  {type === 'center-fares' ? (
+                    <Navigation className="h-5 w-5 text-blue-600" />
+                  ) : (
+                    <MapPin className="h-5 w-5 text-blue-600" />
+                  )}
                 </div>
                 <div className="flex-1">
                   <h3 className="text-base font-medium text-gray-900 mb-1">
@@ -446,7 +602,7 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
               <Button
                 variant="outline"
                 size="sm"
-                onClick={downloadTemplate}
+                onClick={type === 'center-fares' ? downloadTemplate : downloadLoadingPointsTemplate}
                 className="text-blue-600 border-blue-300 hover:bg-blue-50"
               >
                 <Download className="h-4 w-4 mr-2" />
@@ -463,7 +619,11 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center space-x-4">
                 <div className="w-8 h-8 text-gray-600">
-                  <Navigation className="h-6 w-6 text-teal-600" />
+                  {type === 'center-fares' ? (
+                    <Navigation className="h-6 w-6 text-teal-600" />
+                  ) : (
+                    <MapPin className="h-6 w-6 text-teal-600" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">검증 결과</h3>
@@ -504,13 +664,26 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                       <tr>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-12">상태</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-12">#</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">센터명</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">차량톤수</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">지역</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">요율종류</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">기본운임</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">경유운임</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">지역운임</th>
+                        {type === 'center-fares' ? (
+                          <>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">센터명</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">차량톤수</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">지역</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">요율종류</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">기본운임</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">경유운임</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">지역운임</th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">센터명</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">상차지명</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">지번주소</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">도로명주소</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">담당자1</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">연락처1</th>
+                          </>
+                        )}
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-32">오류사유</th>
                       </tr>
                     </thead>
@@ -521,19 +694,32 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                             <div className={`w-2 h-2 rounded-full ${row.status === 'valid' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                           </td>
                           <td className="px-3 py-2 text-xs text-gray-500">{index + 1}</td>
-                          <td className="px-3 py-2 text-sm">{row.centerName}</td>
-                          <td className="px-3 py-2 text-sm">{row.vehicleType}</td>
-                          <td className="px-3 py-2 text-sm">{row.region || '-'}</td>
-                          <td className="px-3 py-2 text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              row.fareType === '기본운임' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                            }`}>
-                              {row.fareType}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-sm text-right">₩{row.baseFare?.toLocaleString() || '0'}</td>
-                          <td className="px-3 py-2 text-sm text-right">₩{row.extraStopFee?.toLocaleString() || '0'}</td>
-                          <td className="px-3 py-2 text-sm text-right">₩{row.extraRegionFee?.toLocaleString() || '0'}</td>
+                          {type === 'center-fares' ? (
+                            <>
+                              <td className="px-3 py-2 text-sm">{row.centerName}</td>
+                              <td className="px-3 py-2 text-sm">{row.vehicleType}</td>
+                              <td className="px-3 py-2 text-sm">{row.region || '-'}</td>
+                              <td className="px-3 py-2 text-sm">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  row.fareType === '기본운임' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                                }`}>
+                                  {row.fareType}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-right">₩{row.baseFare?.toLocaleString() || '0'}</td>
+                              <td className="px-3 py-2 text-sm text-right">₩{row.extraStopFee?.toLocaleString() || '0'}</td>
+                              <td className="px-3 py-2 text-sm text-right">₩{row.extraRegionFee?.toLocaleString() || '0'}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 py-2 text-sm">{row.centerName}</td>
+                              <td className="px-3 py-2 text-sm">{row.loadingPointName || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.lotAddress || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.roadAddress || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.manager1 || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.phone1 || '-'}</td>
+                            </>
+                          )}
                           <td className="px-3 py-2 text-xs text-red-600 max-w-32 truncate" title={row.errorMessage}>
                             {row.errorMessage || '-'}
                           </td>
@@ -594,7 +780,7 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                   </h3>
                   <div className="mt-2 text-sm text-green-700">
                     <p>
-                      {stats.valid}개의 센터요율이 성공적으로 등록되었습니다.
+                      {stats.valid}개의 {type === 'center-fares' ? '센터요율' : '상차지'}이 성공적으로 등록되었습니다.
                       <button
                         onClick={handleSuccess}
                         className="ml-2 font-medium text-green-600 hover:text-green-800"
@@ -628,7 +814,7 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
               취소
             </Button>
             <Button 
-              onClick={validateFile}
+              onClick={type === 'center-fares' ? validateFile : validateLoadingPointsFile}
               disabled={!file || isLoading}
               size="lg"
               className="bg-blue-600 hover:bg-blue-700 px-8 py-3 text-base font-medium"
@@ -671,7 +857,7 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                 취소
               </Button>
               <Button 
-                onClick={importFile}
+                onClick={type === 'center-fares' ? importFile : handleLoadingPointsImport}
                 disabled={stats.valid === 0 || isLoading}
                 size="lg"
                 className="bg-green-600 hover:bg-green-700 px-8 py-3 text-base font-medium"
@@ -732,7 +918,11 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold flex items-center">
               <div className="w-5 h-5 mr-2">
-                <Navigation className="h-5 w-5" />
+                {type === 'center-fares' ? (
+                  <Navigation className="h-5 w-5" />
+                ) : (
+                  <MapPin className="h-5 w-5" />
+                )}
               </div>
               <span>{config.title}</span>
             </DialogTitle>

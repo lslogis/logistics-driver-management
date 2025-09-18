@@ -58,14 +58,8 @@ export class LoadingPointService {
 
     // 상차지 목록 조회 (raw SQL 사용)
     let selectQuery = `
-      SELECT lp.*, COALESCE(rt_count.count, 0) as route_count
+      SELECT lp.*, 0 as route_count
       FROM "loading_points" lp
-      LEFT JOIN (
-        SELECT "loadingPointId", COUNT(*) as count 
-        FROM "route_templates" 
-        WHERE "loadingPointId" IS NOT NULL 
-        GROUP BY "loadingPointId"
-      ) rt_count ON lp.id = rt_count."loadingPointId"
       WHERE 1=1
     `
     const selectParams: any[] = []
@@ -111,9 +105,6 @@ export class LoadingPointService {
         isActive: lp.isActive,
         createdAt: lp.createdAt.toISOString(),
         updatedAt: lp.updatedAt.toISOString(),
-        _count: {
-          routeTemplates: Number(lp.route_count || 0)
-        }
       })),
       pagination
     }
@@ -125,13 +116,6 @@ export class LoadingPointService {
   async getLoadingPointById(id: string): Promise<LoadingPointResponse | null> {
     const loadingPoint = await this.prisma.loadingPoint.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            routeTemplates: true
-          }
-        }
-      }
     })
 
     if (!loadingPoint) {
@@ -159,13 +143,6 @@ export class LoadingPointService {
 
     const loadingPoint = await this.prisma.loadingPoint.create({
       data,
-      include: {
-        _count: {
-          select: {
-            routeTemplates: true
-          }
-        }
-      }
     })
 
     return this.formatLoadingPointResponse(loadingPoint)
@@ -202,13 +179,6 @@ export class LoadingPointService {
     const loadingPoint = await this.prisma.loadingPoint.update({
       where: { id },
       data,
-      include: {
-        _count: {
-          select: {
-            routeTemplates: true
-          }
-        }
-      }
     })
 
     return this.formatLoadingPointResponse(loadingPoint)
@@ -221,23 +191,12 @@ export class LoadingPointService {
     // 상차지 존재 확인
     const existingLoadingPoint = await this.prisma.loadingPoint.findUnique({
       where: { id },
-      include: {
-        routeTemplates: {
-          where: {
-            isActive: true
-          }
-        }
-      }
     })
 
     if (!existingLoadingPoint) {
       throw new Error('상차지를 찾을 수 없습니다')
     }
 
-    // 관련 데이터 확인
-    if (existingLoadingPoint.routeTemplates.length > 0) {
-      throw new Error('사용 중인 노선이 있는 상차지는 삭제할 수 없습니다. 비활성화 처리해주세요.')
-    }
 
     // 소프트 삭제 (비활성화)
     await this.prisma.loadingPoint.update({
@@ -251,18 +210,11 @@ export class LoadingPointService {
    */
   async hardDeleteLoadingPoint(id: string): Promise<void> {
     const existingLoadingPoint = await this.prisma.loadingPoint.findUnique({
-      where: { id },
-      include: {
-        routeTemplates: true
-      }
+      where: { id }
     })
 
     if (!existingLoadingPoint) {
       throw new Error('상차지를 찾을 수 없습니다')
-    }
-
-    if (existingLoadingPoint.routeTemplates.length > 0) {
-      throw new Error('연결된 노선이 있는 상차지는 삭제할 수 없습니다')
     }
 
     // 하드 삭제 - DB에서 완전 제거
@@ -286,13 +238,6 @@ export class LoadingPointService {
     const updatedLoadingPoint = await this.prisma.loadingPoint.update({
       where: { id },
       data: { isActive: !loadingPoint.isActive },
-      include: {
-        _count: {
-          select: {
-            routeTemplates: true
-          }
-        }
-      }
     })
 
     return this.formatLoadingPointResponse(updatedLoadingPoint)
@@ -349,7 +294,6 @@ export class LoadingPointService {
       isActive: loadingPoint.isActive,
       createdAt: loadingPoint.createdAt.toISOString(),
       updatedAt: loadingPoint.updatedAt.toISOString(),
-      _count: loadingPoint._count
     }
   }
 }
