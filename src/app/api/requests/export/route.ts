@@ -30,6 +30,9 @@ export async function POST(request: NextRequest) {
         id: { in: requestIds }
       },
       include: {
+        center: {
+          select: { id: true, name: true, location: true }
+        },
         dispatches: {
           include: {
             driver: {
@@ -77,6 +80,9 @@ export async function GET(request: NextRequest) {
     const requests = await prisma.request.findMany({
       where,
       include: {
+        center: {
+          select: { id: true, name: true, location: true }
+        },
         dispatches: {
           include: {
             driver: {
@@ -118,6 +124,7 @@ async function generateDetailedExport(requests: any[], format: string) {
     if (request.dispatches.length === 0) {
       // Request without dispatches
       rows.push({
+        '센터명': request.center?.name || '',
         '요청ID': request.id,
         '요청일': request.requestDate.toISOString().split('T')[0],
         '센터호차': request.centerCarNo,
@@ -146,6 +153,7 @@ async function generateDetailedExport(requests: any[], format: string) {
         const marginPercentage = centerBilling > 0 ? (margin / centerBilling) * 100 : 0
 
         rows.push({
+          '센터명': request.center?.name || '',
           '요청ID': request.id,
           '요청일': request.requestDate.toISOString().split('T')[0],
           '센터호차': request.centerCarNo,
@@ -174,6 +182,7 @@ async function generateDetailedExport(requests: any[], format: string) {
 
   // Set column widths
   const columnWidths = [
+    { wch: 15 }, // 센터명
     { wch: 10 }, // 요청ID
     { wch: 12 }, // 요청일
     { wch: 15 }, // 센터호차

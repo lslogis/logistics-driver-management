@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 
 // Request validation schema
 const CreateRequestSchema = z.object({
+  centerId: z.number().int().min(1),
   requestDate: z.string().transform((str) => new Date(str)),
   centerCarNo: z.string().min(1).max(50),
   vehicleTon: z.number().min(0.1).max(999.9),
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const centerCarNo = searchParams.get('centerCarNo')
+    const centerId = searchParams.get('centerId')
     const skip = (page - 1) * limit
 
     const where: any = {}
@@ -42,10 +44,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (centerId) {
+      where.centerId = parseInt(centerId, 10)
+    }
+
     const [requests, total] = await Promise.all([
       prisma.request.findMany({
         where,
         include: {
+          center: {
+            select: { id: true, name: true, location: true }
+          },
           dispatches: {
             include: {
               driver: {
@@ -93,9 +102,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate center exists
+    const center = await prisma.center.findUnique({
+      where: { id: validatedData.centerId }
+    })
+
+    if (!center) {
+      return NextResponse.json(
+        { error: 'Center not found' },
+        { status: 400 }
+      )
+    }
+
+    if (!center.isActive) {
+      return NextResponse.json(
+        { error: 'Center is not active' },
+        { status: 400 }
+      )
+    }
+
     const newRequest = await prisma.request.create({
       data: validatedData,
       include: {
+        center: {
+          select: { id: true, name: true, location: true }
+        },
         dispatches: {
           include: {
             driver: {

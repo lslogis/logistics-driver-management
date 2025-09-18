@@ -270,6 +270,22 @@ model CenterFare {
 
 // NEW CHARTER MANAGEMENT SYSTEM - Request/Dispatch Architecture
 
+// Center Entity - Added for proper center management
+model Center {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  location  String?   
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  requests  Request[]
+  
+  @@index([name])
+  @@index([isActive])
+  @@map("centers")
+}
+
 model Request {
   id                String      @id @default(cuid())
   requestDate       DateTime    @db.Date
@@ -284,11 +300,16 @@ model Request {
   updatedAt         DateTime    @updatedAt @db.Timestamptz(6)
   createdBy         String?
   
+  // Center relationship
+  centerId          Int
+  center            Center      @relation(fields: [centerId], references: [id])
+  
   // Relations
   dispatches        Dispatch[]
   creator           User?       @relation("RequestCreator", fields: [createdBy], references: [id])
   
   // Enhanced indexes for performance
+  @@index([centerId])
   @@index([requestDate, centerCarNo])
   @@index([requestDate])
   @@index([centerCarNo])
