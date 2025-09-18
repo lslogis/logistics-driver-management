@@ -34,9 +34,10 @@ export async function GET(request: NextRequest) {
         include: {
           _count: {
             select: {
-              requests: true,
+              charterRequests: true,
               fixedContracts: true,
-              routeTemplates: true
+              routeTemplates: true,
+              centerFares: true
             }
           }
         },
