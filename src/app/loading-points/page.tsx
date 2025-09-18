@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import React, { useState, useMemo, useEffect } from 'react'
 import { Plus, MapPin, Upload, Download, CheckCircle, XCircle, TrendingUp, Phone, Navigation, Building2, QrCode, Map as MapIcon } from 'lucide-react'
 import { toast } from 'react-hot-toast'

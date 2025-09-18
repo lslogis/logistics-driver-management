@@ -4,6 +4,9 @@ import { DriverService } from '@/lib/services/driver.service'
 import { withAuth } from '@/lib/auth/rbac'
 import { apiResponse } from '@/lib/auth/server'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 const driverService = new DriverService(prisma)
 
 /**

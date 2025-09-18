@@ -6,6 +6,7 @@ import { withAuth } from '@/lib/auth/rbac'
 const fixedContractService = new FixedContractService(prisma)
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/fixed-contracts/stats - 고정계약 통계 조회

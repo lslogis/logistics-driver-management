@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         loadingPoint: {
-          select: { id: true, name: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
+          select: { id: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         },
         dispatches: {
           include: {
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         loadingPoint: {
-          select: { id: true, name: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
+          select: { id: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         },
         dispatches: {
           include: {
@@ -124,7 +124,7 @@ async function generateDetailedExport(requests: any[], format: string) {
     if (request.dispatches.length === 0) {
       // Request without dispatches
       rows.push({
-        '상차지명': request.loadingPoint?.name || request.loadingPoint?.loadingPointName || '',
+        '상차지명': request.loadingPoint?.loadingPointName || '',
         '요청ID': request.id,
         '요청일': request.requestDate.toISOString().split('T')[0],
         '호차번호': request.centerCarNo,
@@ -153,7 +153,7 @@ async function generateDetailedExport(requests: any[], format: string) {
         const marginPercentage = centerBilling > 0 ? (margin / centerBilling) * 100 : 0
 
         rows.push({
-          '상차지명': request.loadingPoint?.name || request.loadingPoint?.loadingPointName || '',
+          '상차지명': request.loadingPoint?.loadingPointName || '',
           '요청ID': request.id,
           '요청일': request.requestDate.toISOString().split('T')[0],
           '호차번호': request.centerCarNo,

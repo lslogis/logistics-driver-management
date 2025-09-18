@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ZodError, z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { SettlementApiService } from '@/lib/services/settlement-api.service'
-import { SettlementService } from '@/lib/services/settlement.service'
+import { CharterSettlementService } from '@/lib/services/settlement-charter.service'
 import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 const settlementApiService = new SettlementApiService(prisma)
-const settlementService = new SettlementService(prisma)
+const settlementService = new CharterSettlementService(prisma)
 
 const finalizeSettlementSchema = z.object({
   driverId: z

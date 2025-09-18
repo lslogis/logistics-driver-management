@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // GET /api/loading-points - List loading points with pagination and filtering
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +19,6 @@ export async function GET(request: NextRequest) {
     
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
         { centerName: { contains: search, mode: "insensitive" } },
         { loadingPointName: { contains: search, mode: "insensitive" } },
         { lotAddress: { contains: search, mode: "insensitive" } },
@@ -33,7 +35,6 @@ export async function GET(request: NextRequest) {
         where,
         orderBy: [
           { isActive: "desc" },
-          { name: "asc" },
           { centerName: "asc" }
         ],
         skip,
@@ -59,3 +60,4 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+

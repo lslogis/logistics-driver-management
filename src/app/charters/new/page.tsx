@@ -10,6 +10,8 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'react-hot-toast'
 
+export const dynamic = 'force-dynamic'
+
 export default function NewCharterPage() {
   const router = useRouter()
   const { user } = useAuth()

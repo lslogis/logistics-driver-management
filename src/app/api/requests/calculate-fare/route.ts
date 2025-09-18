@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Use LoadingPoint name (or centerName) to find matching center fare rates
-    const centerName = loadingPoint.name || loadingPoint.centerName
+    // Use LoadingPoint centerName to find matching center fare rates
+    const centerName = loadingPoint.centerName
     const vehicleTypePattern = `${data.vehicleTon}톤`
 
     const centerFares = await prisma.centerFare.findMany({

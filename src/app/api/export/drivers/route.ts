@@ -7,6 +7,9 @@ import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import { formatDriversForExport, formatPhoneForDisplay, formatAccountNumberForExcel } from '@/lib/utils/data-processing'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // 쿼리 파라미터 스키마
 const exportQuerySchema = z.object({
   format: z.enum(['excel', 'csv']).default('excel'),

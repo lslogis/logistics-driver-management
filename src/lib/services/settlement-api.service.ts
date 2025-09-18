@@ -1,12 +1,12 @@
 import { PrismaClient, SettlementStatus } from '@prisma/client'
 import { CreateSettlementData, UpdateSettlementData, GetSettlementsQuery, SettlementResponse, SettlementsListResponse, ConfirmSettlementData, PreviewSettlementData, SettlementPreviewResponse, SettlementItem, getYearMonthRange } from '@/lib/validations/settlement'
-import { SettlementService } from './settlement.service'
+import { CharterSettlementService } from './settlement-charter.service'
 
 export class SettlementApiService {
-  private settlementService: SettlementService
+  private settlementService: CharterSettlementService
 
   constructor(private prisma: PrismaClient) {
-    this.settlementService = new SettlementService(prisma)
+    this.settlementService = new CharterSettlementService(prisma)
   }
 
   /**

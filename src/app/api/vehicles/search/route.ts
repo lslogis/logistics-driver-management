@@ -5,6 +5,9 @@ import { VehicleService } from '@/lib/services/vehicle.service'
 import { withAuth } from '@/lib/auth/rbac'
 import { apiResponse } from '@/lib/auth/server'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 const vehicleService = new VehicleService(prisma)
 
 // 검색 쿼리 스키마
