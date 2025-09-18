@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DispatchForm } from './DispatchForm'
 import { 
   EditIcon, 
@@ -229,21 +229,27 @@ export function RequestDetail({
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="text-sm text-blue-600 mb-1">기본료</div>
-              <div className="text-lg font-semibold text-blue-800">150,000원</div>
+              <div className="text-sm text-blue-600 mb-1">센터청구</div>
+              <div className="text-lg font-semibold text-blue-800">
+                {formatCurrency(request.financialSummary.centerBilling)}
+              </div>
             </div>
             <div className="text-center p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="text-sm text-green-600 mb-1">지역료</div>
-              <div className="text-lg font-semibold text-green-800">20,000원</div>
+              <div className="text-sm text-green-600 mb-1">기사운임</div>
+              <div className="text-lg font-semibold text-green-800">
+                {formatCurrency(request.financialSummary.totalDriverFees)}
+              </div>
             </div>
             <div className="text-center p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <div className="text-sm text-purple-600 mb-1">콜료</div>
-              <div className="text-lg font-semibold text-purple-800">30,000원</div>
+              <div className="text-sm text-purple-600 mb-1">총 마진</div>
+              <div className="text-lg font-semibold text-purple-800">
+                {formatCurrency(request.financialSummary.totalMargin)}
+              </div>
             </div>
             <div className="text-center p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="text-sm text-orange-600 mb-1">최종금액</div>
+              <div className="text-sm text-orange-600 mb-1">마진율</div>
               <div className="text-lg font-semibold text-orange-800">
-                {formatCurrency(200000 + request.extraAdjustment)}
+                {request.financialSummary.marginPercentage.toFixed(1)}%
               </div>
             </div>
           </div>
@@ -271,25 +277,10 @@ export function RequestDetail({
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             🚛 배차 정보
-            <Dialog open={showAddDispatch} onOpenChange={setShowAddDispatch}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  배차 추가
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>새 배차 등록</DialogTitle>
-                </DialogHeader>
-                <DispatchForm
-                  requestId={request.id}
-                  centerBilling={200000 + request.extraAdjustment} // TODO: Use calculated fare
-                  onSubmit={handleAddDispatch}
-                  onCancel={() => setShowAddDispatch(false)}
-                />
-              </DialogContent>
-            </Dialog>
+            <Button size="sm" onClick={() => setShowAddDispatch(true)}>
+              <PlusIcon className="h-4 w-4 mr-1" />
+              배차 추가
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -301,9 +292,9 @@ export function RequestDetail({
             </div>
           ) : (
             request.dispatches.map((dispatch, index) => {
-              const margin = (200000 + request.extraAdjustment) - dispatch.driverFee
-              const marginPercentage = ((200000 + request.extraAdjustment) > 0) 
-                ? (margin / (200000 + request.extraAdjustment)) * 100 
+              const margin = request.financialSummary.centerBilling - dispatch.driverFee
+              const marginPercentage = request.financialSummary.centerBilling > 0 
+                ? (margin / request.financialSummary.centerBilling) * 100 
                 : 0
               const marginStatus = getMarginStatus(marginPercentage)
 
@@ -312,31 +303,13 @@ export function RequestDetail({
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-medium">배차 #{index + 1}</h4>
                     <div className="flex gap-2">
-                      <Dialog open={editingDispatch?.id === dispatch.id} onOpenChange={(open) => {
-                        if (!open) setEditingDispatch(null)
-                      }}>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditingDispatch(dispatch)}
-                          >
-                            수정
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>배차 수정</DialogTitle>
-                          </DialogHeader>
-                          <DispatchForm
-                            requestId={request.id}
-                            centerBilling={200000 + request.extraAdjustment}
-                            initialData={dispatch}
-                            onSubmit={handleEditDispatch}
-                            onCancel={() => setEditingDispatch(null)}
-                          />
-                        </DialogContent>
-                      </Dialog>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingDispatch(dispatch)}
+                      >
+                        수정
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -406,7 +379,7 @@ export function RequestDetail({
               <div className="text-center">
                 <div className="text-sm opacity-75 mb-1">센터청구금액</div>
                 <div className="text-lg font-semibold">
-                  {formatCurrency(200000 + request.extraAdjustment)}
+                  {formatCurrency(request.financialSummary.centerBilling)}
                 </div>
               </div>
               <div className="text-center">
@@ -449,6 +422,38 @@ export function RequestDetail({
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <Dialog open={showAddDispatch} onOpenChange={setShowAddDispatch}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>새 배차 등록</DialogTitle>
+          </DialogHeader>
+          <DispatchForm
+            requestId={request.id}
+            centerBilling={request.financialSummary.centerBilling}
+            onSubmit={handleAddDispatch}
+            onCancel={() => setShowAddDispatch(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingDispatch} onOpenChange={(open) => { if (!open) setEditingDispatch(null) }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>배차 수정</DialogTitle>
+          </DialogHeader>
+          {editingDispatch && (
+            <DispatchForm
+              requestId={request.id}
+              centerBilling={request.financialSummary.centerBilling}
+              initialData={editingDispatch}
+              onSubmit={handleEditDispatch}
+              onCancel={() => setEditingDispatch(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

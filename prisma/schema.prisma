@@ -24,6 +24,7 @@ model User {
   sessions             Session[]
   confirmedSettlements Settlement[]     @relation("SettlementConfirmer")
   settlements          Settlement[]     @relation("SettlementCreator")
+  requests             Request[]        @relation("RequestCreator")
 
   @@map("users")
 }
@@ -267,6 +268,60 @@ model CenterFare {
   @@map("center_fares")
 }
 
+// NEW CHARTER MANAGEMENT SYSTEM - Request/Dispatch Architecture
+
+model Request {
+  id                String      @id @default(cuid())
+  requestDate       DateTime    @db.Date
+  centerCarNo       String      @db.VarChar(50)
+  vehicleTon        Decimal     @db.Decimal(3,1)
+  regions           Json        // Array of region names
+  stops             Int
+  notes             String?
+  extraAdjustment   Int         @default(0)
+  adjustmentReason  String?     // Reason for adjustment when != 0
+  createdAt         DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime    @updatedAt @db.Timestamptz(6)
+  createdBy         String?
+  
+  // Relations
+  dispatches        Dispatch[]
+  creator           User?       @relation("RequestCreator", fields: [createdBy], references: [id])
+  
+  // Enhanced indexes for performance
+  @@index([requestDate, centerCarNo])
+  @@index([requestDate])
+  @@index([centerCarNo])
+  @@index([createdAt])
+  @@map("requests")
+}
+
+model Dispatch {
+  id            String    @id @default(cuid())
+  requestId     String
+  driverId      String?   // Optional FK to drivers table
+  driverName    String    // Manual entry when FK is null
+  driverPhone   String
+  driverVehicle String
+  deliveryTime  String?   // e.g., "09~12시"
+  driverFee     Int
+  driverNotes   String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  request       Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  driver        Driver?   @relation("DispatchDriver", fields: [driverId], references: [id])
+  
+  // Enhanced indexes for query optimization
+  @@index([requestId])
+  @@index([driverId])
+  @@index([requestId, driverId])
+  @@index([createdAt])
+  @@map("dispatches")
+}
+
+// LEGACY - Keep for migration purposes
 model CharterRequest {
   id             String               @id @default(cuid())
   centerId       String
@@ -310,54 +365,6 @@ model CharterDestination {
   @@map("charter_destinations")
 }
 
-model Request {
-  id                String      @id @default(cuid())
-  requestDate       DateTime    @db.Date
-  centerCarNo       String      @db.VarChar(50)
-  vehicleTon        Decimal     @db.Decimal(3,1)
-  regions           Json        // Stored as JSON array for multi-select UI
-  stops             Int         @db.SmallInt
-  notes             String?     @db.Text
-  extraAdjustment   Int         @default(0)
-  adjustmentReason  String?     @db.VarChar(200)
-  createdAt         DateTime    @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime    @updatedAt @db.Timestamptz(6)
-
-  // Relationships
-  dispatches        Dispatch[]
-
-  // Indexes for performance
-  @@index([requestDate, centerCarNo], name: "idx_request_date_carno")
-  @@index([requestDate], name: "idx_request_date")
-  @@index([centerCarNo], name: "idx_request_carno")
-  
-  @@map("requests")
-}
-
-model Dispatch {
-  id            String      @id @default(cuid())
-  requestId     String
-  driverId      String?     // Optional FK to drivers table
-  driverName    String      @db.VarChar(100)
-  driverPhone   String      @db.VarChar(20)
-  driverVehicle String      @db.VarChar(50)
-  deliveryTime  String?     @db.VarChar(50)
-  driverFee     Int
-  driverNotes   String?     @db.Text
-  createdAt     DateTime    @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime    @updatedAt @db.Timestamptz(6)
-
-  // Relationships
-  request       Request     @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  driver        Driver?     @relation("DispatchDriver", fields: [driverId], references: [id], onDelete: SetNull)
-
-  // Indexes for performance
-  @@index([requestId], name: "idx_dispatch_request")
-  @@index([driverId], name: "idx_dispatch_driver")
-  @@index([requestId, driverId], name: "idx_dispatch_request_driver")
-  
-  @@map("dispatches")
-}
 
 
 enum SettlementStatus {

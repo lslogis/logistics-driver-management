@@ -12,6 +12,46 @@ const ExportQuerySchema = z.object({
   template: z.enum(['detailed', 'summary']).default('detailed')
 })
 
+// POST /api/requests/export - Export selected requests to Excel
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { requestIds } = body as { requestIds: string[] }
+
+    if (!requestIds || !Array.isArray(requestIds) || requestIds.length === 0) {
+      return NextResponse.json(
+        { error: 'Request IDs are required' },
+        { status: 400 }
+      )
+    }
+
+    const requests = await prisma.request.findMany({
+      where: {
+        id: { in: requestIds }
+      },
+      include: {
+        dispatches: {
+          include: {
+            driver: {
+              select: { id: true, name: true, phone: true, vehicleNumber: true }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        }
+      },
+      orderBy: { requestDate: 'desc' }
+    })
+
+    return generateDetailedExport(requests, 'xlsx')
+  } catch (error) {
+    console.error('Export error:', error)
+    return NextResponse.json(
+      { error: 'Failed to export data' },
+      { status: 500 }
+    )
+  }
+}
+
 // GET /api/requests/export - Export requests to Excel/CSV
 export async function GET(request: NextRequest) {
   try {
