@@ -95,22 +95,32 @@ RUN apk add --no-cache openssl libc6-compat bash git curl
 
 WORKDIR /app
 
-# Create cache directory for better Windows performance
-RUN mkdir -p /.npm && chown -R node:node /.npm
-
-# Copy package files
+# Copy package files first
 COPY package*.json ./
 
-# Install with cache optimization
-RUN npm install --prefer-offline --no-audit
+# Install dependencies as root user with proper permissions
+RUN npm install --prefer-offline --no-audit --unsafe-perm && \
+    npm cache clean --force
 
-# Create user directories
-RUN mkdir -p uploads logs && \
-    chown -R node:node uploads logs
+# Copy prisma schema for generation
+COPY prisma ./prisma
 
+# Generate Prisma client with proper permissions
+RUN npx prisma generate --schema=prisma/schema.prisma && \
+    chmod -R 755 node_modules/.prisma && \
+    chmod -R 755 node_modules/@prisma
+
+# Create required directories
+RUN mkdir -p uploads logs /.npm && \
+    chmod -R 777 /.npm uploads logs
+
+# Fix all permissions for node user
+RUN chown -R node:node /app
+
+# Switch to node user after fixing permissions
 USER node
 
 EXPOSE 3000
 
-# Use nodemon for better file watching on Windows
-CMD ["npx", "nodemon", "--legacy-watch", "--watch", "src", "--watch", "prisma", "--ext", "ts,tsx,js,jsx,prisma", "--exec", "npm run dev"]
+# Use direct dev command instead of nodemon for stability
+CMD ["npm", "run", "dev"]
