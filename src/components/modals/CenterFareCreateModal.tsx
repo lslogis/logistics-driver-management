@@ -104,6 +104,10 @@ export default function CenterFareCreateModal({
         }))
         .filter(point => point.id)
 
+      console.log('📍 Loading points loaded:', { 
+        count: normalizedPoints.length, 
+        first3: normalizedPoints.slice(0, 3) 
+      })
       setLoadingPoints(normalizedPoints)
     } catch (error) {
       console.error('Failed to load loading points:', error)
@@ -115,6 +119,7 @@ export default function CenterFareCreateModal({
 
   // 필드 변경 핸들러
   const handleFieldChange = (name: string, value: any) => {
+    console.log('🔧 Field change:', { name, value, type: typeof value })
     setFormData(prev => ({ ...prev, [name]: value }))
     
     // 에러 클리어
@@ -209,7 +214,12 @@ export default function CenterFareCreateModal({
 
     try {
       // 최종 검증 (API 호출 전)
+      console.log('🚀 Final validation - formData:', formData)
       if (!formData.loadingPointId || formData.loadingPointId.trim() === '') {
+        console.error('❌ loadingPointId validation failed:', { 
+          loadingPointId: formData.loadingPointId, 
+          type: typeof formData.loadingPointId 
+        })
         throw new Error('상차지를 선택해주세요')
       }
       if (!formData.vehicleType || formData.vehicleType.trim() === '') {
