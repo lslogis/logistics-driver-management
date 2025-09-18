@@ -104,8 +104,9 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
       return { isValid: false, errorMessage: '센터명 필수' }
     }
 
-    // vehicleType 검증
-    if (!row.vehicleType || row.vehicleType.trim() === '') {
+    // vehicleType 검증 (파싱에서는 vehicleTypeName을 사용)
+    const vehicleType = row.vehicleTypeName || row.vehicleType
+    if (!vehicleType || vehicleType.trim() === '') {
       return { isValid: false, errorMessage: '차량톤수 필수' }
     }
 
@@ -140,14 +141,15 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
+      const vehicleType = row.vehicleTypeName || row.vehicleType
       let key: string
 
       if (row.fareType === '경유운임') {
         // STOP_FEE: (centerName, vehicleType) 조합
-        key = `${row.centerName}:${row.vehicleType}:STOP_FEE`
+        key = `${row.centerName}:${vehicleType}:STOP_FEE`
       } else {
         // BASIC: (centerName, vehicleType, region) 조합
-        key = `${row.centerName}:${row.vehicleType}:${row.region || ''}:BASIC`
+        key = `${row.centerName}:${vehicleType}:${row.region || ''}:BASIC`
       }
 
       if (seen.has(key)) {
@@ -155,11 +157,12 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
         // 이전에 나온 같은 키의 인덱스도 찾아서 추가
         for (let j = 0; j < i; j++) {
           const prevRow = rows[j]
+          const prevVehicleType = prevRow.vehicleTypeName || prevRow.vehicleType
           let prevKey: string
           if (prevRow.fareType === '경유운임') {
-            prevKey = `${prevRow.centerName}:${prevRow.vehicleType}:STOP_FEE`
+            prevKey = `${prevRow.centerName}:${prevVehicleType}:STOP_FEE`
           } else {
-            prevKey = `${prevRow.centerName}:${prevRow.vehicleType}:${prevRow.region || ''}:BASIC`
+            prevKey = `${prevRow.centerName}:${prevVehicleType}:${prevRow.region || ''}:BASIC`
           }
           if (prevKey === key) {
             duplicateIndexes.add(j)

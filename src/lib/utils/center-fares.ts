@@ -19,14 +19,20 @@ export interface FareRow {
 // 차량 톤수 옵션 (크기순 정렬)
 export const VEHICLE_TYPE_OPTIONS = [
   { id: '1톤', name: '1톤' },
+  { id: '1.0톤', name: '1.0톤' },
   { id: '1.4톤', name: '1.4톤' },
   { id: '2.5톤', name: '2.5톤' },
   { id: '3.5톤', name: '3.5톤' },
+  { id: '3.5광', name: '3.5광' },
   { id: '3.5톤광폭', name: '3.5톤광폭' },
   { id: '5톤', name: '5톤' },
-  { id: '5톤축', name: '5톤축' },
+  { id: '5.0톤', name: '5.0톤' },
+  { id: '5축', name: '5축' },
+  { id: '8.0톤', name: '8.0톤' },
   { id: '11톤', name: '11톤' },
+  { id: '11.0톤', name: '11.0톤' },
   { id: '14톤', name: '14톤' },
+  { id: '상온', name: '상온' },
 ]
 
 // 중복 체크 함수
@@ -192,11 +198,20 @@ export const parseExcelFile = (file: File): Promise<ParsedExcelResult> => {
             }
           }
 
-          // 차량 ID 매칭
+          // 차량 ID 매칭 - 더 유연한 매칭을 위해 정확한 매칭과 유사 매칭 모두 시도
           console.log('Finding vehicle for:', vehicleTypeName, 'Available options:', VEHICLE_TYPE_OPTIONS.map(v => v.name))
-          const vehicle = VEHICLE_TYPE_OPTIONS.find(v => v.name === vehicleTypeName)
+          let vehicle = VEHICLE_TYPE_OPTIONS.find(v => v.name === vehicleTypeName)
+          
+          // 정확한 매칭이 안 되면 유사 매칭 시도
           if (!vehicle) {
-            errors.push(`${rowNumber}행: 유효하지 않은 차량톤수입니다 (입력값: ${vehicleTypeName})`)
+            vehicle = VEHICLE_TYPE_OPTIONS.find(v => 
+              v.name.toLowerCase().trim() === vehicleTypeName.toLowerCase().trim() ||
+              v.id.toLowerCase().trim() === vehicleTypeName.toLowerCase().trim()
+            )
+          }
+          
+          if (!vehicle) {
+            errors.push(`${rowNumber}행: 유효하지 않은 차량톤수입니다 (입력값: ${vehicleTypeName}, 사용 가능한 값: ${VEHICLE_TYPE_OPTIONS.map(v => v.name).join(', ')})`)
             continue
           }
 
