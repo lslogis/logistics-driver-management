@@ -302,6 +302,7 @@ export class CenterFareService {
 export type ValidateCenterFareRow = {
   loadingPointId?: string
   loadingPointName?: string
+  centerName?: string
   vehicleType: string
   region: string | null
   fareType: 'BASIC' | 'STOP_FEE'
@@ -314,6 +315,7 @@ export type CenterFareDuplicate = {
   index: number
   loadingPointId?: string
   loadingPointName?: string
+  centerName?: string
   vehicleType: string
   region: string | null
   fareType: 'BASIC' | 'STOP_FEE'
@@ -332,13 +334,14 @@ export async function validateCenterFares(
 
       let loadingPointId = row.loadingPointId
 
-      if (!loadingPointId && row.loadingPointName) {
+      if (!loadingPointId && (row.loadingPointName || row.centerName)) {
+        const searchName = row.loadingPointName || row.centerName
         const lp = await db.loadingPoint.findFirst({
           where: {
             OR: [
-              { name: row.loadingPointName },
-              { centerName: row.loadingPointName },
-              { loadingPointName: row.loadingPointName },
+              { name: searchName },
+              { centerName: searchName },
+              { loadingPointName: searchName },
             ],
           },
         })
@@ -363,6 +366,7 @@ export async function validateCenterFares(
           index: i,
           loadingPointId,
           loadingPointName: row.loadingPointName,
+          centerName: row.centerName,
           vehicleType: row.vehicleType,
           region: row.region,
           fareType: row.fareType,

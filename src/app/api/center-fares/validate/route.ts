@@ -10,13 +10,14 @@ export const runtime = 'nodejs'
 const ValidateRowSchema = z.object({
   loadingPointId: z.string().optional(),
   loadingPointName: z.string().optional(),
+  centerName: z.string().optional(),
   vehicleType: z.string(),
   region: z.string().nullable(),
   fareType: z.enum(['BASIC', 'STOP_FEE']),
   baseFare: z.number().nullable().optional(),
   extraStopFee: z.number().nullable().optional(),
   extraRegionFee: z.number().nullable().optional()
-}).refine(row => row.loadingPointId || row.loadingPointName, {
+}).refine(row => row.loadingPointId || row.loadingPointName || row.centerName, {
   message: '상차지를 지정해야 합니다',
   path: ['loadingPointId']
 })
