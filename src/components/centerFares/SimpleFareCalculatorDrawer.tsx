@@ -32,7 +32,7 @@ import { useCenterFares, useCalculateFare } from '@/hooks/useCenterFares'
 import { centerFareApi } from '@/lib/api/center-fares-api'
 
 const calculatorSchema = z.object({
-  centerName: z.string().min(1, '센터를 선택하세요'),
+  loadingPointId: z.string().min(1, '상차지를 선택하세요'),
   vehicleTypeId: z.string().min(1, '차량톤수를 선택하세요'),
   regions: z.string().min(1, '지역을 입력하세요 (쉼표로 구분)'),
   stopCount: z.coerce.number().int().min(1, '착지 수는 1 이상이어야 합니다'),
@@ -64,8 +64,8 @@ interface SimpleFareCalculatorDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onOpenCreate?: (prefilledData: {
-    centerId: string
-    centerName: string
+    loadingPointId: string
+    loadingPointName: string
     vehicleTypeId: string
     vehicleTypeName: string
     region?: string
@@ -86,8 +86,8 @@ export function SimpleFareCalculatorDrawer({
   const [missingData, setMissingData] = useState<{
     type: 'basic' | 'extra'
     region?: string
-    centerId: string
-    centerName: string
+    loadingPointId: string
+    loadingPointName: string
     vehicleTypeId: string
     vehicleTypeName: string
   } | null>(null)
@@ -100,10 +100,10 @@ export function SimpleFareCalculatorDrawer({
     if (!centerFaresData?.fares) return []
     return centerFaresData.fares.map(dbRow => ({
       id: dbRow.id,
-      centerId: dbRow.centerName, // centerName을 centerId로 사용
-      centerName: dbRow.centerName,
+      loadingPointId: dbRow.loadingPointId,
+      loadingPointName: dbRow.loadingPoint?.name || '',
       vehicleTypeId: dbRow.vehicleType,
-      vehicleTypeName: dbRow.vehicleType, // CenterFareDto에는 vehicleTypeName이 없음
+      vehicleTypeName: dbRow.vehicleType,
       region: dbRow.region || '',
       fareType: dbRow.fareType === 'BASIC' ? '기본운임' as const : '경유운임' as const,
       baseFare: dbRow.baseFare,
@@ -116,7 +116,7 @@ export function SimpleFareCalculatorDrawer({
   const form = useForm<CalculatorForm>({
     resolver: zodResolver(calculatorSchema),
     defaultValues: {
-      centerName: '',
+      loadingPointId: '',
       vehicleTypeId: '',
       stopCount: 1,
       regions: '',

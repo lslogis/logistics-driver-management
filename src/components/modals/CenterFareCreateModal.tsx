@@ -12,7 +12,7 @@ import { loadingPointsAPI } from '@/lib/api/loading-points'
 
 // 타입 정의
 export type CenterFareData = {
-  centerId: string
+  loadingPointId: string
   vehicleType: string
   region: string
   fare: number
@@ -23,7 +23,7 @@ export type CenterFareCreateModalProps = {
   onClose: () => void
   onSuccess: (data: CenterFareData) => void
   prefillData?: {
-    centerId?: string
+    loadingPointId?: string
     vehicleType?: string
     regions?: string[]
   }
@@ -47,8 +47,8 @@ export default function CenterFareCreateModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   // 데이터 상태
-  const [centers, setCenters] = useState<Array<{ id: string; centerName: string }>>([])
-  const [isLoadingCenters, setIsLoadingCenters] = useState(false)
+  const [loadingPoints, setLoadingPoints] = useState<Array<{ id: string; name: string; centerName: string; loadingPointName: string }>>([])
+  const [isLoadingPoints, setIsLoadingPoints] = useState(false)
   
   // 다중 지역 처리
   const [regionInput, setRegionInput] = useState('')
@@ -60,7 +60,7 @@ export default function CenterFareCreateModal({
     if (isOpen) {
       // 기본값 설정
       const initialData: Partial<CenterFareData> = {
-        centerId: prefillData?.centerId || '',
+        loadingPointId: prefillData?.loadingPointId || '',
         vehicleType: prefillData?.vehicleType || '',
         region: '', // 개별 입력
         fare: 0
@@ -73,14 +73,14 @@ export default function CenterFareCreateModal({
       setCreatedRates([])
       setIsSubmitting(false)
       
-      // 센터 목록 로드
-      loadCenters()
+      // 상차지 목록 로드
+      loadLoadingPoints()
     }
   }, [isOpen, prefillData])
 
-  // 센터 목록 로드
-  const loadCenters = async () => {
-    setIsLoadingCenters(true)
+  // 상차지 목록 로드
+  const loadLoadingPoints = async () => {
+    setIsLoadingPoints(true)
     try {
       const payload = await loadingPointsAPI.list({ limit: 100, isActive: true })
 
@@ -88,19 +88,21 @@ export default function CenterFareCreateModal({
         ? payload.data
         : []
 
-      const normalizedCenters = rawItems
+      const normalizedPoints = rawItems
         .map((item: any) => ({
-          id: String(item.id ?? item.loadingPointId ?? ''),
-          centerName: item.centerName ?? item.name ?? item.loadingPointName ?? ''
+          id: String(item.id ?? ''),
+          name: item.name ?? '',
+          centerName: item.centerName ?? '',
+          loadingPointName: item.loadingPointName ?? ''
         }))
-        .filter(center => center.id && center.centerName)
+        .filter(point => point.id)
 
-      setCenters(normalizedCenters)
+      setLoadingPoints(normalizedPoints)
     } catch (error) {
-      console.error('Failed to load centers:', error)
+      console.error('Failed to load loading points:', error)
       toast.error('상차지 목록 로드 실패')
     } finally {
-      setIsLoadingCenters(false)
+      setIsLoadingPoints(false)
     }
   }
 
@@ -168,7 +170,7 @@ export default function CenterFareCreateModal({
     // 기본 검증
     const newErrors: Record<string, string> = {}
     
-    if (!formData.centerId) newErrors.centerId = '센터는 필수입니다'
+    if (!formData.loadingPointId) newErrors.loadingPointId = '상차지는 필수입니다'
     if (!formData.vehicleType) newErrors.vehicleType = '차량타입은 필수입니다'
     if (!formData.fare || formData.fare < 0) newErrors.fare = '요율은 0 이상이어야 합니다'
     
@@ -194,7 +196,7 @@ export default function CenterFareCreateModal({
       // 개별 지역이 있는 경우
       if (hasIndividualRegion) {
         const fareData: CenterFareData = {
-          centerId: formData.centerId!,
+          loadingPointId: formData.loadingPointId!,
           vehicleType: formData.vehicleType!,
           region: formData.region!.trim(),
           fare: formData.fare!
@@ -208,7 +210,7 @@ export default function CenterFareCreateModal({
       if (hasMultipleRegions) {
         for (const region of regions) {
           const fareData: CenterFareData = {
-            centerId: formData.centerId!,
+            loadingPointId: formData.loadingPointId!,
             vehicleType: formData.vehicleType!,
             region: region,
             fare: formData.fare!
@@ -244,7 +246,7 @@ export default function CenterFareCreateModal({
   // 모달이 닫혀있으면 렌더링하지 않음
   if (!isOpen) return null
 
-  const selectedCenter = centers.find(c => c.id === formData.centerId)
+  const selectedLoadingPoint = loadingPoints.find(lp => lp.id === formData.loadingPointId)
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
@@ -277,26 +279,26 @@ export default function CenterFareCreateModal({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 센터 선택 */}
+          {/* 상차지 선택 */}
           <div>
-            <Label htmlFor="centerId">센터 *</Label>
+            <Label htmlFor="loadingPointId">상차지 *</Label>
             <Select
-              value={formData.centerId || ''}
-              onValueChange={(value) => handleFieldChange('centerId', value)}
+              value={formData.loadingPointId || ''}
+              onValueChange={(value) => handleFieldChange('loadingPointId', value)}
               disabled={isSubmitting}
             >
-              <SelectTrigger className={errors.centerId ? 'border-destructive' : ''}>
-                <SelectValue placeholder="센터 선택" />
+              <SelectTrigger className={errors.loadingPointId ? 'border-destructive' : ''}>
+                <SelectValue placeholder="상차지 선택" />
               </SelectTrigger>
               <SelectContent>
-                {centers.map((center) => (
-                  <SelectItem key={center.id} value={center.id}>
-                    {center.centerName}
+                {loadingPoints.map((lp) => (
+                  <SelectItem key={lp.id} value={lp.id}>
+                    {lp.centerName} - {lp.loadingPointName || lp.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.centerId && <p className="text-sm text-destructive mt-1">{errors.centerId}</p>}
+            {errors.loadingPointId && <p className="text-sm text-destructive mt-1">{errors.loadingPointId}</p>}
           </div>
 
           {/* 차량타입 선택 */}
