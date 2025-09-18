@@ -545,8 +545,149 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
     }
   }, [])
 
-  // 센터요율이 아닌 경우 일반 import 로직 사용
-  if (type !== 'center-fares' && type !== 'loading-points') {
+  // drivers import 로직 (기존 workflow 방식 사용)
+  const handleDriversImport = useCallback(async () => {
+    if (!file || type !== 'drivers') return
+
+    setIsLoading(true)
+    setError(null)
+    setUploadProgress(0)
+
+    try {
+      // FormData 생성
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('mode', 'commit')
+
+      // 프로그레스 시뮬레이션
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90))
+      }, 300)
+
+      // API 호출
+      const response = await fetch('/api/import/drivers', {
+        method: 'POST',
+        body: formData
+      })
+
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || '가져오기 실패')
+      }
+
+      const result = await response.json()
+      setUploadProgress(100)
+      
+      toast.success(`기사 가져오기 완료: ${result.data.results.imported}개가 등록되었습니다`)
+      setStep('complete')
+
+    } catch (error) {
+      console.error('기사 가져오기 중 오류:', error)
+      setError(error instanceof Error ? error.message : '가져오기 중 오류가 발생했습니다')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [file, type])
+
+  // 기사 검증 로직
+  const validateDriversFile = useCallback(async () => {
+    if (!file || type !== 'drivers') return
+
+    setIsLoading(true)
+    setError(null)
+    setUploadProgress(0)
+
+    try {
+      // FormData 생성 (simulate 모드)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('mode', 'simulate')
+
+      // 프로그레스 시뮬레이션
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90))
+      }, 300)
+
+      // API 호출
+      const response = await fetch('/api/import/drivers', {
+        method: 'POST',
+        body: formData
+      })
+
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || '검증 실패')
+      }
+
+      const result = await response.json()
+      setUploadProgress(100)
+      
+      // 결과를 previewRows 형태로 변환
+      const previewData = result.data.results.preview.map((row: any, index: number) => ({
+        id: `row-${index}`,
+        centerName: row.name, // 기사명을 centerName에 매핑
+        loadingPointName: row.phone, // 연락처를 loadingPointName에 매핑  
+        lotAddress: row.vehicleNumber || '', // 차량번호
+        roadAddress: row.businessName || '', // 사업상호
+        manager1: row.representative || '', // 대표자
+        phone1: row.bankName || '', // 은행명
+        status: 'valid' as const
+      }))
+
+      // 오류 항목들 추가
+      result.data.results.errors.forEach((error: any) => {
+        previewData.push({
+          id: `error-${error.row}`,
+          centerName: error.data?.name || '',
+          loadingPointName: error.data?.phone || '',
+          lotAddress: error.data?.vehicleNumber || '',
+          roadAddress: error.data?.businessName || '',
+          manager1: error.data?.representative || '',
+          phone1: error.data?.bankName || '',
+          status: 'error' as const,
+          errorMessage: error.error
+        })
+      })
+
+      setPreviewRows(previewData)
+      setStep('validate')
+
+    } catch (error) {
+      console.error('기사 검증 중 오류:', error)
+      setError(error instanceof Error ? error.message : '검증 중 오류가 발생했습니다')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [file, type])
+
+  // 템플릿 다운로드 (drivers)
+  const downloadDriversTemplate = useCallback(async () => {
+    try {
+      const response = await fetch('/api/import/drivers')
+      if (!response.ok) throw new Error('템플릿 다운로드 실패')
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'drivers_template.csv'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast.success('템플릿 다운로드 완료')
+    } catch (error) {
+      toast.error('템플릿 다운로드 실패')
+    }
+  }, [])
+
+  // 센터요율, 상차지, 기사가 아닌 경우 일반 import 로직 사용
+  if (type !== 'center-fares' && type !== 'loading-points' && type !== 'drivers') {
     return <div className="p-4 text-center">현재 지원하지 않는 import 타입입니다.</div>
   }
 
@@ -560,6 +701,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                 <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded mr-3">
                   {type === 'center-fares' ? (
                     <Navigation className="h-5 w-5 text-blue-600" />
+                  ) : type === 'drivers' ? (
+                    <Users className="h-5 w-5 text-blue-600" />
                   ) : (
                     <MapPin className="h-5 w-5 text-blue-600" />
                   )}
@@ -602,7 +745,12 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
               <Button
                 variant="outline"
                 size="sm"
-                onClick={type === 'center-fares' ? downloadTemplate : downloadLoadingPointsTemplate}
+                onClick={
+                  type === 'center-fares' ? downloadTemplate : 
+                  type === 'loading-points' ? downloadLoadingPointsTemplate :
+                  type === 'drivers' ? downloadDriversTemplate : 
+                  downloadTemplate
+                }
                 className="text-blue-600 border-blue-300 hover:bg-blue-50"
               >
                 <Download className="h-4 w-4 mr-2" />
@@ -621,6 +769,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                 <div className="w-8 h-8 text-gray-600">
                   {type === 'center-fares' ? (
                     <Navigation className="h-6 w-6 text-teal-600" />
+                  ) : type === 'drivers' ? (
+                    <Users className="h-6 w-6 text-teal-600" />
                   ) : (
                     <MapPin className="h-6 w-6 text-teal-600" />
                   )}
@@ -674,6 +824,15 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">경유운임</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">지역운임</th>
                           </>
+                        ) : type === 'drivers' ? (
+                          <>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">기사명</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">연락처</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">차량번호</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">사업상호</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">대표자</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">은행명</th>
+                          </>
                         ) : (
                           <>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">센터명</th>
@@ -709,6 +868,15 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                               <td className="px-3 py-2 text-sm text-right">₩{row.baseFare?.toLocaleString() || '0'}</td>
                               <td className="px-3 py-2 text-sm text-right">₩{row.extraStopFee?.toLocaleString() || '0'}</td>
                               <td className="px-3 py-2 text-sm text-right">₩{row.extraRegionFee?.toLocaleString() || '0'}</td>
+                            </>
+                          ) : type === 'drivers' ? (
+                            <>
+                              <td className="px-3 py-2 text-sm">{row.centerName}</td>
+                              <td className="px-3 py-2 text-sm">{row.loadingPointName || '-'}</td>
+                              <td className="px-3 py-2 text-sm font-mono">{row.lotAddress || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.roadAddress || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.manager1 || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.phone1 || '-'}</td>
                             </>
                           ) : (
                             <>
@@ -780,7 +948,11 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                   </h3>
                   <div className="mt-2 text-sm text-green-700">
                     <p>
-                      {stats.valid}개의 {type === 'center-fares' ? '센터요율' : '상차지'}이 성공적으로 등록되었습니다.
+                      {stats.valid}개의 {
+                        type === 'center-fares' ? '센터요율' : 
+                        type === 'drivers' ? '기사' : 
+                        '상차지'
+                      }이 성공적으로 등록되었습니다.
                       <button
                         onClick={handleSuccess}
                         className="ml-2 font-medium text-green-600 hover:text-green-800"
@@ -814,7 +986,12 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
               취소
             </Button>
             <Button 
-              onClick={type === 'center-fares' ? validateFile : validateLoadingPointsFile}
+              onClick={
+                type === 'center-fares' ? validateFile : 
+                type === 'loading-points' ? validateLoadingPointsFile :
+                type === 'drivers' ? validateDriversFile : 
+                validateFile
+              }
               disabled={!file || isLoading}
               size="lg"
               className="bg-blue-600 hover:bg-blue-700 px-8 py-3 text-base font-medium"
@@ -857,7 +1034,12 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                 취소
               </Button>
               <Button 
-                onClick={type === 'center-fares' ? importFile : handleLoadingPointsImport}
+                onClick={
+                  type === 'center-fares' ? importFile : 
+                  type === 'loading-points' ? handleLoadingPointsImport :
+                  type === 'drivers' ? handleDriversImport : 
+                  importFile
+                }
                 disabled={stats.valid === 0 || isLoading}
                 size="lg"
                 className="bg-green-600 hover:bg-green-700 px-8 py-3 text-base font-medium"
@@ -920,6 +1102,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
               <div className="w-5 h-5 mr-2">
                 {type === 'center-fares' ? (
                   <Navigation className="h-5 w-5" />
+                ) : type === 'drivers' ? (
+                  <Users className="h-5 w-5" />
                 ) : (
                   <MapPin className="h-5 w-5" />
                 )}
