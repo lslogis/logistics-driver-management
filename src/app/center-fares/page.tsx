@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,27 +19,35 @@ const ImportModal = dynamic(() => import('@/components/import/ImportModal').then
 import { ExportButton } from '@/components/centerFares/ExportButton'
 import { SimpleFiltersBar } from '@/components/centerFares/SimpleFiltersBar'
 import { type FareRow } from '@/lib/utils/center-fares'
+import { normalizeVehicleTypeName } from '@/lib/utils/vehicle-types'
 import { useCenterFares, useCreateCenterFare, useUpdateCenterFare, useDeleteCenterFare } from '@/hooks/useCenterFares'
 import { type CenterFareDto, type CreateCenterFareDto } from '@/lib/api/center-fares-api'
 
 // DB 타입을 FareRow로 변환하는 어댑터 함수
-const convertDbToFareRow = (dbRow: CenterFareDto): FareRow => ({
-  id: dbRow.id,
-  centerId: dbRow.centerName, // FareRow의 centerId는 이제 centerName을 저장
-  centerName: dbRow.centerName,
-  vehicleTypeId: dbRow.vehicleType,
-  vehicleTypeName: dbRow.vehicleType, // CenterFareDto에는 vehicleTypeName이 없음
-  region: dbRow.region, // null을 그대로 전달
-  fareType: dbRow.fareType === 'BASIC' ? '기본운임' : '경유운임',
-  baseFare: dbRow.baseFare,
-  extraStopFee: dbRow.extraStopFee,
-  extraRegionFee: dbRow.extraRegionFee,
-  createdAt: new Date(dbRow.createdAt).toISOString().slice(0, 10)
-})
+const convertDbToFareRow = (dbRow: CenterFareDto): FareRow => {
+  const centerName = dbRow.loadingPoint?.centerName ?? dbRow.centerName ?? ''
+
+  const canonicalVehicleType = normalizeVehicleTypeName(dbRow.vehicleType) ?? dbRow.vehicleType
+
+  return {
+    id: dbRow.id,
+    centerId: dbRow.loadingPointId,
+    centerName,
+    vehicleTypeId: canonicalVehicleType,
+    vehicleTypeName: canonicalVehicleType,
+    region: dbRow.region,
+    fareType: dbRow.fareType === 'BASIC' ? '기본운임' : '경유운임',
+    baseFare: dbRow.baseFare,
+    extraStopFee: dbRow.extraStopFee,
+    extraRegionFee: dbRow.extraRegionFee,
+    createdAt: new Date(dbRow.createdAt).toISOString().slice(0, 10)
+  }
+}
+
 
 // FareRow를 DB 생성 DTO로 변환하는 어댑터 함수
 const convertFareRowToCreateDto = (fareRow: Omit<FareRow, 'id' | 'createdAt'>): CreateCenterFareDto => ({
-  centerName: fareRow.centerName,
+  loadingPointId: fareRow.centerId,
   vehicleType: fareRow.vehicleTypeId,
   region: fareRow.fareType === '기본운임' ? (fareRow.region || '') : null,
   fareType: fareRow.fareType === '기본운임' ? 'BASIC' : 'STOP_FEE',
@@ -49,6 +58,7 @@ const convertFareRowToCreateDto = (fareRow: Omit<FareRow, 'id' | 'createdAt'>): 
 
 export default function CenterFaresPage() {
   // API 호출
+  const queryClient = useQueryClient()
   const { data: centerFaresData, isLoading, error } = useCenterFares()
   const createMutation = useCreateCenterFare()
   const updateMutation = useUpdateCenterFare()
@@ -175,8 +185,8 @@ export default function CenterFaresPage() {
   }
 
   const handleImportSuccess = () => {
-    // 공통 ImportModal은 자체적으로 성공 처리함
-    // 데이터 새로고침만 필요
+    queryClient.invalidateQueries({ queryKey: ['centerFares'] })
+    queryClient.invalidateQueries({ queryKey: ['centerBaseFares'] })
   }
 
   const handleFilterChange = (newFilters: { center?: string; fareType?: string; searchText?: string }) => {

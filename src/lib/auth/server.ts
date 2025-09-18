@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
-import { UserRole } from '@prisma/client'
+import { Prisma, UserRole } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
 export interface AuthUser {
@@ -115,27 +115,46 @@ export async function requireDispatchPermission(req: NextRequest): Promise<AuthU
  * 감사 로그 기록 유틸리티
  */
 export async function createAuditLog(
-  user: AuthUser,
+  user: AuthUser | null,
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'IMPORT' | 'EXPORT' | 'CONFIRM' | 'ACTIVATE' | 'DEACTIVATE',
   entityType: string,
   entityId: string,
   changes?: any,
   metadata?: any
 ) {
+  const baseLogData = {
+    userId: user?.id ?? null,
+    userName: user?.name ?? 'System',
+    action,
+    entityType,
+    entityId,
+    changes,
+    metadata
+  }
+
   try {
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        userName: user.name,
-        action,
-        entityType,
-        entityId,
-        changes,
-        metadata
-      }
-    })
+    await prisma.auditLog.create({ data: baseLogData })
   } catch (error) {
-    console.error('Failed to create audit log:', error)
+    if (baseLogData.userId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+      try {
+        await prisma.auditLog.create({
+          data: {
+            ...baseLogData,
+            userId: null,
+            metadata: {
+              ...(baseLogData.metadata ?? {}),
+              auditFallback: true,
+              originalUserId: baseLogData.userId,
+            }
+          }
+        })
+        return
+      } catch (retryError) {
+        console.error('Failed to create audit log after FK fallback:', retryError)
+      }
+    } else {
+      console.error('Failed to create audit log:', error)
+    }
     // 감사 로그 실패가 주요 작업을 방해하지 않도록 에러를 throw하지 않음
   }
 }

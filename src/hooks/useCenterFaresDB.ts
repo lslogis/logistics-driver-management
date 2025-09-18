@@ -109,7 +109,7 @@ export function useExportCenterFares() {
 export function useCalculateFare() {
   return useMutation({
     mutationFn: (params: {
-      centerId: string
+      centerName: string
       vehicleType: string
       regions: string[]
       stopCount: number

@@ -49,7 +49,6 @@ export const GET = withAuth(
           loadingPoint: {
             select: {
               id: true,
-              name: true,
               centerName: true,
               loadingPointName: true,
             }
@@ -59,16 +58,13 @@ export const GET = withAuth(
 
       // XLSX 라이브러리로 Excel 생성
       const excelData = fares.map(fare => ({
-        '상차지ID': fare.loadingPointId,
         '센터명': fare.loadingPoint?.centerName ?? '',
-        '상차지명': fare.loadingPoint?.loadingPointName ?? fare.loadingPoint?.name ?? '',
         '차량톤수': fare.vehicleType,
         '지역': fare.region || '',
         '요율종류': fare.fareType === 'BASIC' ? '기본운임' : '경유운임',
-        '기본운임': fare.baseFare || 0,
-        '경유운임': fare.extraStopFee || 0,
-        '지역운임': fare.extraRegionFee || 0,
-        '등록일': new Date(fare.createdAt).toLocaleDateString('ko-KR')
+        '기본운임': fare.baseFare ?? '',
+        '경유운임': fare.extraStopFee ?? '',
+        '지역운임': fare.extraRegionFee ?? ''
       }))
 
       const ws = XLSX.utils.json_to_sheet(excelData)
@@ -77,16 +73,13 @@ export const GET = withAuth(
 
       // 컬럼 너비 설정
       const colWidths = [
-        { wch: 26 }, // 상차지ID
         { wch: 18 }, // 센터명
-        { wch: 20 }, // 상차지명
         { wch: 12 }, // 차량톤수
         { wch: 15 }, // 지역
         { wch: 12 }, // 요율종류
         { wch: 15 }, // 기본운임
         { wch: 15 }, // 경유운임
-        { wch: 15 }, // 지역운임
-        { wch: 12 }  // 등록일
+        { wch: 15 }  // 지역운임
       ]
       ws['!cols'] = colWidths
 

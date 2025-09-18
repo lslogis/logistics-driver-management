@@ -5,6 +5,8 @@ const nextConfig = {
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   },
+  // 정적 최적화 완전 비활성화
+  trailingSlash: false,
   // TypeScript 엄격 모드
   typescript: {
     // 빌드 시 타입 에러가 있어도 계속 진행 (개발 단계)

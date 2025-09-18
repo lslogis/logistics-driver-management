@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import React, { useState } from 'react'
 import { DollarSign, Plus, Eye, Download, Lock, Calendar, User, FileText, BarChart3 } from 'lucide-react'
 import { toast } from 'react-hot-toast'

@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import React, { useState } from 'react'
 import { RequestList } from '@/components/requests/RequestList'
 import { RequestForm } from '@/components/requests/RequestForm'

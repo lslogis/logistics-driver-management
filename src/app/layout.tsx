@@ -28,6 +28,10 @@ const inter = Inter({
   variable: '--font-inter'
 })
 
+// 전역 동적 렌더링 강제
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export const metadata: Metadata = {
   title: '운송기사관리 시스템',
   description: '운송 기사, 차량, 운행, 정산을 통합 관리하는 시스템',

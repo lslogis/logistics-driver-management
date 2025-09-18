@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/rbac'
 import { generateCSV } from '@/lib/services/import.service'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // 템플릿 헤더 정의 (담당자1-연락처1, 담당자2-연락처2 순서)
 const TEMPLATE_HEADERS = ['센터명', '상차지명', '지번주소', '도로명주소', '담당자1', '연락처1', '담당자2', '연락처2', '비고']
 

@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma, FareType } from '@prisma/client'
+import { normalizeVehicleTypeName } from '@/lib/utils/vehicle-types'
 
 type PrismaCenterFare = Prisma.CenterFareGetPayload<{
   include: {
@@ -51,7 +52,6 @@ export interface CenterFareResponse {
   loadingPointId: string
   loadingPoint?: {
     id: string
-    name: string | null
     centerName: string
     loadingPointName: string
     isActive: boolean
@@ -74,7 +74,6 @@ export class CenterFareService {
       loadingPoint: {
         select: {
           id: true,
-          name: true,
           centerName: true,
           loadingPointName: true,
           isActive: true,
@@ -125,7 +124,6 @@ export class CenterFareService {
             OR: [
               { centerName: { contains: search, mode: 'insensitive' } },
               { loadingPointName: { contains: search, mode: 'insensitive' } },
-              { name: { contains: search, mode: 'insensitive' } },
             ],
           },
         },
@@ -196,10 +194,13 @@ export class CenterFareService {
       ? null
       : (data.region?.trim() || '')
 
+    const canonicalVehicleType = normalizeVehicleTypeName(data.vehicleType) ?? data.vehicleType.trim()
+
+
     const duplicate = await this.prisma.centerFare.findFirst({
       where: {
         loadingPointId: data.loadingPointId,
-        vehicleType: data.vehicleType,
+        vehicleType: canonicalVehicleType,
         region: normalizedRegion,
       },
     })
@@ -221,7 +222,7 @@ export class CenterFareService {
     const fare = await this.prisma.centerFare.create({
       data: {
         loadingPointId: data.loadingPointId,
-        vehicleType: data.vehicleType,
+        vehicleType: canonicalVehicleType,
         region: normalizedRegion,
         fareType: data.fareType,
         baseFare: data.fareType === 'BASIC' ? data.baseFare ?? null : null,
@@ -262,11 +263,15 @@ export class CenterFareService {
       ? null
       : (prospectiveRegion?.trim() || null)
 
+    const prospectiveVehicleType = data.vehicleType !== undefined
+      ? (normalizeVehicleTypeName(data.vehicleType) ?? data.vehicleType.trim())
+      : existing.vehicleType
+
     const duplicate = await this.prisma.centerFare.findFirst({
       where: {
         id: { not: id },
         loadingPointId,
-        vehicleType: data.vehicleType ?? existing.vehicleType,
+        vehicleType: prospectiveVehicleType,
         region: normalizedRegion,
       },
     })
@@ -278,7 +283,7 @@ export class CenterFareService {
     const updateData: Prisma.CenterFareUpdateInput = {}
 
     if (data.loadingPointId !== undefined) updateData.loadingPointId = data.loadingPointId
-    if (data.vehicleType !== undefined) updateData.vehicleType = data.vehicleType
+    if (data.vehicleType !== undefined) updateData.vehicleType = prospectiveVehicleType
     if (data.region !== undefined) updateData.region = normalizedRegion
     if (data.fareType !== undefined) updateData.fareType = data.fareType
     if (data.baseFare !== undefined) updateData.baseFare = data.baseFare
@@ -335,27 +340,31 @@ export async function validateCenterFares(
       let loadingPointId = row.loadingPointId
 
       if (!loadingPointId && (row.loadingPointName || row.centerName)) {
-        const searchName = row.loadingPointName || row.centerName
-        const lp = await db.loadingPoint.findFirst({
-          where: {
-            OR: [
-              { name: searchName },
-              { centerName: searchName },
-              { loadingPointName: searchName },
-            ],
-          },
-        })
-        loadingPointId = lp?.id
+        const searchNameRaw = row.loadingPointName ?? row.centerName ?? ''
+        const searchName = typeof searchNameRaw === 'string' ? searchNameRaw.trim() : ''
+        if (searchName) {
+          const lp = await db.loadingPoint.findFirst({
+            where: {
+              OR: [
+                { centerName: searchName },
+                { loadingPointName: searchName },
+              ],
+            },
+          })
+          loadingPointId = lp?.id
+        }
       }
 
       if (!loadingPointId) {
         continue
       }
 
+      const canonicalVehicleType = normalizeVehicleTypeName(row.vehicleType) ?? row.vehicleType
+
       const duplicate = await db.centerFare.findFirst({
         where: {
           loadingPointId,
-          vehicleType: row.vehicleType,
+          vehicleType: canonicalVehicleType,
           region: row.fareType === 'STOP_FEE' ? null : row.region,
           fareType: row.fareType,
         },
@@ -367,7 +376,7 @@ export async function validateCenterFares(
           loadingPointId,
           loadingPointName: row.loadingPointName,
           centerName: row.centerName,
-          vehicleType: row.vehicleType,
+          vehicleType: canonicalVehicleType,
           region: row.region,
           fareType: row.fareType,
         })

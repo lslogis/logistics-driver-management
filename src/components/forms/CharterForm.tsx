@@ -44,8 +44,8 @@ export type CharterFormProps = {
 
 // 차량 타입 옵션
 const VEHICLE_TYPES = [
-  '1.0톤', '1.4톤', '2.5톤', '3.5톤', '3.5광',
-  '5.0톤', '5축', '8.0톤', '11톤', '11.0톤', '14톤', '상온'
+  '1.0톤', '1.4톤', '2.5톤', '3.5톤', '3.5톤광폭',
+  '5.0톤', '5톤축', '8.0톤', '11톤', '11.0톤', '14톤', '상온'
 ]
 
 export default function CharterForm({ onSubmit, isLoading, onCancel, initialData }: CharterFormProps) {

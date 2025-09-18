@@ -79,6 +79,7 @@ model Driver {
   businessName   String?
   representative String?
   settlements    Settlement[]    @relation("DriverSettlements")
+  dispatches     Dispatch[]
 
   @@index([name])
   @@index([phone])
@@ -101,8 +102,8 @@ model LoadingPoint {
   phone1           String?
   phone2           String?
   remarks          String?
-  name             String?
   centerFares      CenterFare[]    @relation("LoadingPointCenterFares")
+  requests         Request[]
 
   @@unique([centerName])
   @@index([centerName])
@@ -236,21 +237,23 @@ model CenterFare {
 
 
 model Request {
-  id               String   @id @default(cuid())
-  requestDate      DateTime @db.Date
-  centerCarNo      String   @db.VarChar(50)
-  vehicleTon       Decimal  @db.Decimal(3, 1)
+  id               String       @id @default(cuid())
+  requestDate      DateTime     @db.Date
+  centerCarNo      String       @db.VarChar(50)
+  vehicleTon       Decimal      @db.Decimal(3, 1)
   regions          Json
   stops            Int
   notes            String?
-  extraAdjustment  Int      @default(0)
+  extraAdjustment  Int          @default(0)
   adjustmentReason String?
-  createdAt        DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @db.Timestamptz(6)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(6)
   createdBy        String?
-  centerId         Int
+  loadingPointId   String?
+  loadingPoint     LoadingPoint? @relation(fields: [loadingPointId], references: [id])
+  dispatches       Dispatch[]
 
-  @@index([centerId])
+  @@index([loadingPointId])
   @@index([requestDate, centerCarNo])
   @@index([requestDate])
   @@index([centerCarNo])
@@ -261,7 +264,9 @@ model Request {
 model Dispatch {
   id            String   @id @default(cuid())
   requestId     String
+  request       Request  @relation(fields: [requestId], references: [id])
   driverId      String?
+  driver        Driver?  @relation(fields: [driverId], references: [id])
   driverName    String
   driverPhone   String
   driverVehicle String

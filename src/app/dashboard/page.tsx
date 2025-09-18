@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { TomorrowTripsSection } from '@/components/dashboard/TomorrowChartersSection'
 import { DashboardStatsCards } from '@/components/dashboard/DashboardStatsCards'
 import { QuickActionsSection } from '@/components/dashboard/QuickActionsSection'

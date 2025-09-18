@@ -12,7 +12,7 @@ import { loadingPointsAPI } from '@/lib/api/loading-points'
 
 // 타입 정의
 export type CenterFareData = {
-  loadingPointId: string
+  centerName: string
   vehicleType: string
   region: string | null
   fareType: 'BASIC' | 'STOP_FEE'
@@ -26,7 +26,7 @@ export type CenterFareCreateModalProps = {
   onClose: () => void
   onSuccess: (data: CenterFareData) => void
   prefillData?: {
-    loadingPointId?: string
+    centerName?: string
     vehicleType?: string
     fareType?: 'BASIC' | 'STOP_FEE'
     regions?: string[]
@@ -35,8 +35,8 @@ export type CenterFareCreateModalProps = {
 
 // 차량 타입 옵션
 const VEHICLE_TYPES = [
-  '1톤', '1.4톤', '2.5톤', '3.5톤', '3.5광',
-  '5톤', '5축', '8톤', '11톤', '14톤'
+  '1톤', '1.4톤', '2.5톤', '3.5톤', '3.5톤광폭',
+  '5톤', '5톤축', '8톤', '11톤', '14톤'
 ]
 
 export default function CenterFareCreateModal({
@@ -51,7 +51,7 @@ export default function CenterFareCreateModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   // 데이터 상태
-  const [loadingPoints, setLoadingPoints] = useState<Array<{ id: string; name: string; centerName: string; loadingPointName: string }>>([])
+  const [loadingPoints, setLoadingPoints] = useState<Array<{ id: string; centerName: string; loadingPointName: string }>>([])
   const [isLoadingPoints, setIsLoadingPoints] = useState(false)
   
   // 다중 지역 처리
@@ -61,10 +61,11 @@ export default function CenterFareCreateModal({
 
   // 모달이 열릴 때 초기화
   useEffect(() => {
+    console.log('🔥 Modal useEffect triggered:', { isOpen, prefillData })
     if (isOpen) {
       // 기본값 설정
       const initialData: Partial<CenterFareData> = {
-        loadingPointId: prefillData?.loadingPointId || '',
+        centerName: prefillData?.centerName || '',
         vehicleType: prefillData?.vehicleType || '',
         fareType: prefillData?.fareType || 'BASIC',
         region: '', // 개별 입력
@@ -81,6 +82,7 @@ export default function CenterFareCreateModal({
       setIsSubmitting(false)
       
       // 상차지 목록 로드
+      console.log('🔥 About to load loading points...')
       loadLoadingPoints()
     }
   }, [isOpen, prefillData])
@@ -182,7 +184,7 @@ export default function CenterFareCreateModal({
     // 기본 검증
     const newErrors: Record<string, string> = {}
     
-    if (!formData.loadingPointId || formData.loadingPointId.trim() === '') newErrors.loadingPointId = '상차지는 필수입니다'
+    if (!formData.centerName || formData.centerName.trim() === '') newErrors.centerName = '상차지는 필수입니다'
     if (!formData.vehicleType || formData.vehicleType.trim() === '') newErrors.vehicleType = '차량타입은 필수입니다'
     if (!formData.fareType) newErrors.fareType = '요율 종류는 필수입니다'
     
@@ -215,10 +217,10 @@ export default function CenterFareCreateModal({
     try {
       // 최종 검증 (API 호출 전)
       console.log('🚀 Final validation - formData:', formData)
-      if (!formData.loadingPointId || formData.loadingPointId.trim() === '') {
-        console.error('❌ loadingPointId validation failed:', { 
-          loadingPointId: formData.loadingPointId, 
-          type: typeof formData.loadingPointId 
+      if (!formData.centerName || formData.centerName.trim() === '') {
+        console.error('❌ centerName validation failed:', { 
+          centerName: formData.centerName, 
+          type: typeof formData.centerName 
         })
         throw new Error('상차지를 선택해주세요')
       }
@@ -237,7 +239,7 @@ export default function CenterFareCreateModal({
       
       if (formData.fareType === 'BASIC' && hasIndividualRegion) {
         const fareData: CenterFareData = {
-          loadingPointId: formData.loadingPointId!,
+          centerName: formData.centerName!,
           vehicleType: formData.vehicleType!,
           region: formData.region!.trim(),
           fareType: formData.fareType!,
@@ -252,7 +254,7 @@ export default function CenterFareCreateModal({
       if (formData.fareType === 'BASIC' && hasMultipleRegions) {
         for (const region of regions) {
           const fareData: CenterFareData = {
-            loadingPointId: formData.loadingPointId!,
+            centerName: formData.centerName!,
             vehicleType: formData.vehicleType!,
             region: region,
             fareType: formData.fareType!,
@@ -272,7 +274,7 @@ export default function CenterFareCreateModal({
       // STOP_FEE 타입의 경우
       if (formData.fareType === 'STOP_FEE') {
         const fareData: CenterFareData = {
-          loadingPointId: formData.loadingPointId!,
+          centerName: formData.centerName!,
           vehicleType: formData.vehicleType!,
           region: null, // STOP_FEE는 region 없음
           fareType: formData.fareType!,
@@ -304,7 +306,7 @@ export default function CenterFareCreateModal({
   // 모달이 닫혀있으면 렌더링하지 않음
   if (!isOpen) return null
 
-  const selectedLoadingPoint = loadingPoints.find(lp => lp.id === formData.loadingPointId)
+  const selectedLoadingPoint = loadingPoints.find(lp => lp.centerName === formData.centerName)
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
@@ -339,24 +341,24 @@ export default function CenterFareCreateModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* 상차지 선택 */}
           <div>
-            <Label htmlFor="loadingPointId">상차지 *</Label>
+            <Label htmlFor="centerName">상차지 *</Label>
             <Select
-              value={formData.loadingPointId || ''}
-              onValueChange={(value) => handleFieldChange('loadingPointId', value)}
+              value={formData.centerName || ''}
+              onValueChange={(value) => handleFieldChange('centerName', value)}
               disabled={isSubmitting}
             >
-              <SelectTrigger className={errors.loadingPointId ? 'border-destructive' : ''}>
+              <SelectTrigger className={errors.centerName ? 'border-destructive' : ''}>
                 <SelectValue placeholder="상차지 선택" />
               </SelectTrigger>
               <SelectContent>
                 {loadingPoints.map((lp) => (
-                  <SelectItem key={lp.id} value={lp.id}>
-                    {lp.centerName} - {lp.loadingPointName || lp.name}
+                  <SelectItem key={lp.id} value={lp.centerName}>
+                    {lp.centerName}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.loadingPointId && <p className="text-sm text-destructive mt-1">{errors.loadingPointId}</p>}
+            {errors.centerName && <p className="text-sm text-destructive mt-1">{errors.centerName}</p>}
           </div>
 
           {/* 차량타입 선택 */}
@@ -518,11 +520,11 @@ export default function CenterFareCreateModal({
           )}
 
           {/* 미리보기 */}
-          {formData.loadingPointId && formData.vehicleType && formData.fareType && (
+          {formData.centerName && formData.vehicleType && formData.fareType && (
             <div className="p-3 bg-muted/50 rounded-md">
               <div className="text-sm text-muted-foreground mb-1">등록될 요율</div>
               <div className="space-y-1 text-sm">
-                <div><span className="font-medium">센터:</span> {selectedLoadingPoint?.centerName} - {selectedLoadingPoint?.loadingPointName}</div>
+                <div><span className="font-medium">센터:</span> {selectedLoadingPoint?.centerName}</div>
                 <div><span className="font-medium">차량:</span> {formData.vehicleType}</div>
                 <div><span className="font-medium">요율종류:</span> {formData.fareType === 'BASIC' ? '기본운임' : '경유운임'}</div>
                 {formData.fareType === 'BASIC' && (

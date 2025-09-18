@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { CenterFare, CenterFareQuery } from '@/lib/api/center-fares'
 import { formatNumber } from '@/lib/utils/format'
-import { VEHICLE_TYPE_OPTIONS } from '@/lib/utils/center-fares'
+import { VEHICLE_TYPE_OPTIONS } from '@/lib/utils/vehicle-types'
 
 interface CenterFareTableProps {
   data?: {

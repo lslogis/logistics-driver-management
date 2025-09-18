@@ -25,14 +25,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Calculator, Copy, CheckCircle2, Plus, AlertCircle } from 'lucide-react'
-import { type FareRow, VEHICLE_TYPE_OPTIONS } from '@/lib/utils/center-fares'
+import { type FareRow } from '@/lib/utils/center-fares'
+import { VEHICLE_TYPE_OPTIONS } from '@/lib/utils/vehicle-types'
 import { toast } from 'react-hot-toast'
 import { useLoadingPoints } from '@/hooks/useLoadingPoints'
 import { useCenterFares, useCalculateFare } from '@/hooks/useCenterFares'
-import { centerFareApi } from '@/lib/api/center-fares-api'
 
 const calculatorSchema = z.object({
-  loadingPointId: z.string().min(1, '상차지를 선택하세요'),
+  loadingPointId: z.string().min(1, '센터를 선택하세요'),
   vehicleTypeId: z.string().min(1, '차량톤수를 선택하세요'),
   regions: z.string().min(1, '지역을 입력하세요 (쉼표로 구분)'),
   stopCount: z.coerce.number().int().min(1, '착지 수는 1 이상이어야 합니다'),
@@ -64,8 +64,8 @@ interface SimpleFareCalculatorDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onOpenCreate?: (prefilledData: {
-    loadingPointId: string
-    loadingPointName: string
+    centerId: string
+    centerName: string
     vehicleTypeId: string
     vehicleTypeName: string
     region?: string
@@ -87,11 +87,12 @@ export function SimpleFareCalculatorDrawer({
     type: 'basic' | 'extra'
     region?: string
     loadingPointId: string
-    loadingPointName: string
+    centerName: string
+    loadingPointName?: string
     vehicleTypeId: string
     vehicleTypeName: string
   } | null>(null)
-  const { data: loadingPointsData } = useLoadingPoints()
+  const loadingPointsQuery = useLoadingPoints()
   const { data: centerFaresData } = useCenterFares()
   const calculateFareMutation = useCalculateFare()
 
@@ -101,7 +102,8 @@ export function SimpleFareCalculatorDrawer({
     return centerFaresData.fares.map(dbRow => ({
       id: dbRow.id,
       loadingPointId: dbRow.loadingPointId,
-      loadingPointName: dbRow.loadingPoint?.name || '',
+      centerName: dbRow.loadingPoint?.centerName ?? dbRow.centerName ?? '',
+      loadingPointName: dbRow.loadingPoint?.loadingPointName ?? dbRow.loadingPointName ?? (dbRow.loadingPoint?.centerName ?? dbRow.centerName ?? ''),
       vehicleTypeId: dbRow.vehicleType,
       vehicleTypeName: dbRow.vehicleType,
       region: dbRow.region || '',
@@ -113,6 +115,36 @@ export function SimpleFareCalculatorDrawer({
     }))
   }, [centerFaresData])
 
+  const loadingPointOptions = React.useMemo(() => {
+    const pages = loadingPointsQuery.data?.pages ?? []
+    const flattened = pages.flatMap((page: any) => {
+      if (Array.isArray(page.items)) return page.items
+      if (Array.isArray(page.data)) return page.data
+      if (page?.data?.items && Array.isArray(page.data.items)) return page.data.items
+      return [] as any[]
+    })
+
+    const map = new Map<string, { id: string; centerName: string; loadingPointName?: string }>()
+
+    flattened.forEach((lp: any) => {
+      const key = typeof lp.centerName === 'string' ? lp.centerName.trim() : ''
+      if (!key || map.has(key)) return
+      map.set(key, { id: lp.id, centerName: key, loadingPointName: lp.loadingPointName })
+    })
+
+    if (map.size === 0) {
+      rows.forEach(row => {
+        const key = row.centerName?.trim()
+        if (!key || map.has(key)) return
+        map.set(key, { id: row.loadingPointId, centerName: key, loadingPointName: row.loadingPointName })
+      })
+    }
+
+    return Array.from(map.values())
+  }, [loadingPointsQuery.data, rows])
+
+  const availableVehicleTypes = React.useMemo(() => VEHICLE_TYPE_OPTIONS, [])
+
   const form = useForm<CalculatorForm>({
     resolver: zodResolver(calculatorSchema),
     defaultValues: {
@@ -123,91 +155,96 @@ export function SimpleFareCalculatorDrawer({
     },
   })
 
-  const watchedValues = form.watch()
-  
-  // 지역이 변경될 때 착지 수 자동 업데이트
+  const regionsValue = form.watch('regions')
+  const stopCountValue = form.watch('stopCount')
+
+  // 지역이 변경될 때 착지 수를 자동으로 보정
   React.useEffect(() => {
-    const regions = watchedValues.regions || ''
+    const regions = regionsValue || ''
     const regionCount = regions
       .split(',')
       .map(region => region.trim())
       .filter(region => region.length > 0).length
-    
-    const currentStopCount = watchedValues.stopCount || 1
-    
-    // 착지수가 지역수보다 적으면 자동으로 지역수에 맞춤
+
+    const currentStopCount = stopCountValue || 1
+
     if (regionCount > 0 && currentStopCount < regionCount) {
-      form.setValue('stopCount', regionCount)
+      form.setValue('stopCount', regionCount, { shouldValidate: true })
     }
-  }, [watchedValues.regions, watchedValues.stopCount, form])
+  }, [regionsValue, stopCountValue, form])
 
   const handleCalculate = async (data: CalculatorForm) => {
+    const selectedLoadingPoint = loadingPointOptions.find(option => option.id === data.loadingPointId)
+
+    if (!selectedLoadingPoint) {
+      toast.error('센터 정보를 찾을 수 없습니다.')
+      return
+    }
+
     try {
-      // 에러 상태 초기화
       setMissingData(null)
       setResult(null)
-      
-      // 차량톤수명 가져오기
+
       const vehicleType = VEHICLE_TYPE_OPTIONS.find(v => v.id === data.vehicleTypeId)
-      
+
       if (!vehicleType) {
         toast.error('차량톤수 정보를 찾을 수 없습니다.')
         return
       }
 
-      // 지역들을 배열로 변환
       const regions = data.regions
         .split(',')
         .map(region => region.trim())
         .filter(region => region.length > 0)
 
-      // API를 통한 요율 계산 (loadingPointId 사용)
       const calculateInput = {
-        centerName: data.loadingPointId, // loadingPointId를 centerName으로 전달
+        centerName: selectedLoadingPoint.centerName,
         vehicleType: data.vehicleTypeId,
-        regions: regions,
+        regions,
         stopCount: data.stopCount
       }
 
       const calculationResult = await calculateFareMutation.mutateAsync(calculateInput)
 
-      // 결과를 UI에 표시할 형태로 변환
       const uiResult: CalculationResult = {
         baseFare: calculationResult.baseFare || 0,
         extraStopFee: calculationResult.extraStopFee || 0,
         extraRegionFee: calculationResult.extraRegionFee || 0,
         total: calculationResult.total,
-        formula: `기본료 ${(calculationResult.baseFare || 0).toLocaleString()}원 + 착당운임 ${(calculationResult.extraStopFee || 0).toLocaleString()}원 + 지역운임 ${(calculationResult.extraRegionFee || 0).toLocaleString()}원 = ${calculationResult.total.toLocaleString()}원`
+        formula: `기본료 ${(calculationResult.baseFare || 0).toLocaleString()}원 + 경유료 ${(calculationResult.extraStopFee || 0).toLocaleString()}원 + 지역료 ${(calculationResult.extraRegionFee || 0).toLocaleString()}원 = ${calculationResult.total.toLocaleString()}원`
       }
 
       setResult(uiResult)
       toast.success('요율이 계산되었습니다')
     } catch (error: any) {
-      console.error('요율 계산 실패:', error)
-      
-      // centerFareApi.calculateFare의 missingData 구조 처리
+      console.error('요율 계산 오류:', error)
+
       if (error.missingData) {
         const vehicleType = VEHICLE_TYPE_OPTIONS.find(v => v.id === data.vehicleTypeId)
-        
+        const referenceRow = rows.find(row => row.centerName === selectedLoadingPoint.centerName && row.vehicleTypeId === data.vehicleTypeId)
+          ?? rows.find(row => row.centerName === selectedLoadingPoint.centerName)
+
         if (error.missingData.type === 'basic') {
           setMissingData({
             type: 'basic',
             region: error.missingData.region,
-            loadingPointId: data.loadingPointId,
-            loadingPointName: data.loadingPointId,
+            loadingPointId: selectedLoadingPoint.id,
+            centerName: selectedLoadingPoint.centerName,
+            loadingPointName: selectedLoadingPoint.loadingPointName,
             vehicleTypeId: data.vehicleTypeId,
-            vehicleTypeName: vehicleType?.name || ''
+            vehicleTypeName: vehicleType?.name || referenceRow?.vehicleTypeName || ''
           })
           toast.error(`${error.missingData.region} 지역의 기본운임이 등록되지 않았습니다`)
         } else if (error.missingData.type === 'extra') {
           setMissingData({
             type: 'extra',
-            loadingPointId: data.loadingPointId,
-            loadingPointName: data.loadingPointId,
+            loadingPointId: selectedLoadingPoint.id,
+            centerName: selectedLoadingPoint.centerName,
+            loadingPointName: selectedLoadingPoint.loadingPointName,
             vehicleTypeId: data.vehicleTypeId,
-            vehicleTypeName: vehicleType?.name || ''
+            vehicleTypeName: vehicleType?.name || referenceRow?.vehicleTypeName || ''
           })
-          toast.error('경유운임 요율이 등록되지 않았습니다')
+          toast.error('경유/지역 요율이 등록되지 않았습니다')
         }
       } else {
         toast.error('요율 계산에 실패했습니다')
@@ -240,34 +277,20 @@ export function SimpleFareCalculatorDrawer({
 
   const handleCreateMissingFare = () => {
     if (!missingData || !onOpenCreate) return
-    
+
     const prefilledData = {
-      loadingPointId: missingData.loadingPointId,
-      loadingPointName: missingData.loadingPointName,
+      centerId: missingData.loadingPointId,
+      centerName: missingData.centerName,
       vehicleTypeId: missingData.vehicleTypeId,
       vehicleTypeName: missingData.vehicleTypeName,
-      region: missingData.type === 'basic' ? missingData.region : '',
+      region: missingData.type === 'basic' ? (missingData.region || '') : '',
       fareType: missingData.type === 'basic' ? '기본운임' : '경유운임'
-      // 값들은 사용자가 직접 입력하도록 undefined로 둠
     }
-    
+
     onOpenCreate(prefilledData)
   }
 
-  // Get available options - use all loading points and vehicle types, but only registered regions
-  const getAvailableOptions = () => {
-    // 모든 상차지 옵션 표시
-    const loadingPointOptions = loadingPointsData?.data || []
-    
-    // 모든 차량톤수 옵션 표시
-    const vehicleTypeOptionsList = VEHICLE_TYPE_OPTIONS
-    
-    return { loadingPointOptions, vehicleTypeOptionsList }
-  }
-
-  const { loadingPointOptions, vehicleTypeOptionsList: availableVehicleTypes } = getAvailableOptions()
-
-  return (
+    return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] rounded-2xl shadow-lg">
         <DialogHeader className="text-left pb-4">
@@ -290,17 +313,17 @@ export function SimpleFareCalculatorDrawer({
                   name="loadingPointId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-sm font-semibold text-gray-700">상차지 *</FormLabel>
+                      <FormLabel className="text-sm font-semibold text-gray-700">센터 *</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="h-11 rounded-xl border-2 focus:border-blue-500">
-                            <SelectValue placeholder="상차지 선택" />
+                            <SelectValue placeholder="센터 선택" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {loadingPointOptions.map(loadingPoint => (
-                            <SelectItem key={loadingPoint.id} value={loadingPoint.id}>
-                              {loadingPoint.centerName} - {loadingPoint.loadingPointName}
+                          {loadingPointOptions.map(option => (
+                            <SelectItem key={option.id} value={option.id}>
+                              {option.centerName}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -362,7 +385,7 @@ export function SimpleFareCalculatorDrawer({
                   control={form.control}
                   name="stopCount"
                   render={({ field }) => {
-                    const regionCount = (watchedValues.regions || '')
+                    const regionCount = (regionsValue || '')
                       .split(',')
                       .map(region => region.trim())
                       .filter(region => region.length > 0).length
@@ -407,13 +430,14 @@ export function SimpleFareCalculatorDrawer({
                     <p className="font-medium text-orange-800">
                       {missingData.type === 'basic' 
                         ? `${missingData.region} 지역의 기본운임이 등록되지 않았습니다.`
-                        : `${missingData.loadingPointName} - ${missingData.vehicleTypeName}의 경유운임 요율이 등록되지 않았습니다.`
+                        : `${missingData.centerName} - ${missingData.vehicleTypeName}의 경유운임 요율이 등록되지 않았습니다.`
                       }
                     </p>
                     <div className="text-sm text-orange-700">
                       <p><strong>필요한 정보:</strong></p>
                       <ul className="list-disc list-inside mt-1 space-y-1">
-                        <li>상차지: {missingData.loadingPointName}</li>
+                        <li>센터: {missingData.centerName}</li>
+                        {missingData.loadingPointName && <li>상차지: {missingData.loadingPointName}</li>}
                         <li>차량톤수: {missingData.vehicleTypeName}</li>
                         {missingData.region && <li>지역: {missingData.region}</li>}
                         <li>요율종류: {missingData.type === 'basic' ? '기본운임' : '경유운임'}</li>

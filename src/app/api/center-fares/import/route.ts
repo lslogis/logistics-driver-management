@@ -3,6 +3,19 @@ import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
 import * as XLSX from 'xlsx'
+import { Prisma } from '@prisma/client'
+import { normalizeVehicleTypeName } from '@/lib/utils/vehicle-types'
+
+const parseAmount = (value: unknown): number | null => {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/[\s,]/g, '')
+    if (!cleaned) return null
+    const parsed = Number.parseInt(cleaned, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+  return null
+}
 
 export const runtime = 'nodejs'
 
@@ -47,7 +60,8 @@ export const POST = withAuth(
       for (const [index, row] of rows.entries()) {
         try {
           // 센터 조회
-          const loadingPointIdentifier = (row['상차지ID'] as string) || (row['센터ID'] as string)
+          const loadingPointIdentifierRaw = (row['상차지ID'] as string) || (row['센터ID'] as string)
+          const loadingPointIdentifier = typeof loadingPointIdentifierRaw === 'string' ? loadingPointIdentifierRaw.trim() : ''
           let loadingPoint = null
 
           if (loadingPointIdentifier) {
@@ -56,15 +70,23 @@ export const POST = withAuth(
             })
           }
 
-          if (!loadingPoint && row['센터명']) {
-            loadingPoint = await prisma.loadingPoint.findFirst({
-              where: {
-                OR: [
-                  { centerName: row['센터명'] as string },
-                  { name: row['센터명'] as string }
-                ]
-              }
-            })
+          const centerNameRaw = row['센터명'] as string | undefined
+          const centerName = typeof centerNameRaw === 'string' ? centerNameRaw.trim() : ''
+          const loadingPointNameRaw = row['상차지명'] as string | undefined
+          const loadingPointName = typeof loadingPointNameRaw === 'string' ? loadingPointNameRaw.trim() : ''
+
+          if (!loadingPoint) {
+            const orConditions: Prisma.LoadingPointWhereInput[] = []
+            if (centerName) orConditions.push({ centerName })
+            if (loadingPointName) orConditions.push({ loadingPointName })
+
+            if (orConditions.length > 0) {
+              loadingPoint = await prisma.loadingPoint.findFirst({
+                where: {
+                  OR: orConditions,
+                }
+              })
+            }
           }
 
           if (!loadingPoint) {
@@ -72,35 +94,54 @@ export const POST = withAuth(
             continue
           }
 
-          const fareTypeKorean = row['요율종류'] as string
+          const fareTypeRaw = row['요율종류'] as string | undefined
+          const fareTypeKorean = typeof fareTypeRaw === 'string' ? fareTypeRaw.trim() : ''
           const fareType = fareTypeKorean === '기본운임' ? 'BASIC' : 'STOP_FEE'
-          const region = (row['지역'] as string) || ''
+          const regionRaw = row['지역'] as string | undefined
+          const region = typeof regionRaw === 'string' ? regionRaw.trim() : ''
           
           // 요율 종류에 따른 검증
+          const baseFareAmount = parseAmount(row['기본운임'])
+          const extraStopFeeAmount = parseAmount(row['경유운임'])
+          const extraRegionFeeAmount = parseAmount(row['지역운임'])
+          const vehicleTypeRaw = row['차량톤수'] as string | undefined
+          const vehicleType = typeof vehicleTypeRaw === 'string' ? vehicleTypeRaw.trim() : ''
+
+          const normalizedVehicleType = normalizeVehicleTypeName(vehicleType)
+          if (!normalizedVehicleType) {
+            errors.push(`행 ${index + 2}: 지원하지 않는 차량톤수입니다 (입력값: ${vehicleType})`)
+            continue
+          }
+
           if (fareType === 'BASIC') {
             if (!region) {
               errors.push(`행 ${index + 2}: 기본운임에는 지역이 필수입니다`)
               continue
             }
-            if (!row['기본운임']) {
+            if (baseFareAmount === null) {
               errors.push(`행 ${index + 2}: 기본운임 금액이 필요합니다`)
               continue
             }
           } else {
-            if (!row['경유운임'] || !row['지역운임']) {
+            if (extraStopFeeAmount === null || extraRegionFeeAmount === null) {
               errors.push(`행 ${index + 2}: 경유운임에는 경유운임과 지역운임이 필수입니다`)
               continue
             }
           }
 
+          if (!vehicleType) {
+            errors.push(`행 ${index + 2}: 차량톤수가 필요합니다`)
+            continue
+          }
+
           const data = {
             loadingPointId: loadingPoint.id,
-            vehicleType: row['차량톤수'] as string,
+            vehicleType: normalizedVehicleType,
             region: fareType === 'STOP_FEE' ? null : region,
             fareType,
-            baseFare: fareType === 'BASIC' ? parseInt(row['기본운임'] as string) : null,
-            extraStopFee: fareType === 'STOP_FEE' ? parseInt(row['경유운임'] as string) : null,
-            extraRegionFee: fareType === 'STOP_FEE' ? parseInt(row['지역운임'] as string) : null,
+            baseFare: fareType === 'BASIC' ? baseFareAmount : null,
+            extraStopFee: fareType === 'STOP_FEE' ? extraStopFeeAmount : null,
+            extraRegionFee: fareType === 'STOP_FEE' ? extraRegionFeeAmount : null,
           }
 
           // Upsert (중복 시 업데이트)

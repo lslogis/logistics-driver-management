@@ -5,57 +5,57 @@ import { withAuth } from '@/lib/auth/rbac'
 import { isFeatureEnabled } from '@/lib/feature-flags'
 
 interface BusinessMetrics {
-  profitability: {
-    totalProfitThisMonth: number
-    totalProfitLastMonth: number
-    profitChangePercent: number
-    avgProfitPerTrip: number
-    topProfitableCenters: Array<{
-      centerName: string
-      tonnage: number
-      profit: number
-      tripCount: number
-    }>
-    leastProfitableCenters: Array<{
-      centerName: string
-      tonnage: number
-      profit: number
-      tripCount: number
+  systemStatus: {
+    activeDrivers: number
+    totalDrivers: number
+    activeLoadingPoints: number
+    totalLoadingPoints: number
+    centerFareRules: number
+    totalDispatches: number
+    lastUpdated: string
+  }
+  requestAnalysis: {
+    thisMonthRequests: number
+    lastMonthRequests: number
+    requestChangePercent: number
+    avgDispatchesPerRequest: number
+    dispatchRate: number
+    topRequestedRoutes: Array<{
+      centerCarNo: string
+      requestCount: number
+      dispatchCount: number
     }>
   }
-  automation: {
-    totalCalculations: number
-    autoCalculated: number
-    manualOverrides: number
-    automationRate: number
-    errorRate: number
-    avgResponseTime: number
+  dispatchAnalysis: {
+    thisMonthDispatches: number
+    lastMonthDispatches: number
+    dispatchChangePercent: number
+    avgDriverFee: number
+    topDrivers: Array<{
+      driverName: string
+      dispatchCount: number
+      totalFees: number
+    }>
   }
   fareAnalysis: {
-    thisMonthAvgFare: number
-    lastMonthAvgFare: number
-    fareChangePercent: number
-    fareDistribution: Array<{
-      range: string
-      count: number
-      percentage: number
-    }>
-    outlierTrips: Array<{
-      tripId: string
+    totalRules: number
+    basicRules: number
+    stopFeeRules: number
+    avgBaseFare: number
+    avgExtraFee: number
+    centerBreakdown: Array<{
       centerName: string
-      tonnage: number
-      billingFare: number
-      driverFare: number
-      deviation: number
+      ruleCount: number
+      avgFare: number
     }>
   }
   volume: {
-    thisMonthTrips: number
-    lastMonthTrips: number
+    thisMonthRequests: number
+    lastMonthRequests: number
     volumeChangePercent: number
     centerVolumeBreakdown: Array<{
       centerName: string
-      tripCount: number
+      requestCount: number
       sharePercent: number
     }>
   }
@@ -87,30 +87,8 @@ export const GET = withAuth(
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
 
-      // Base metrics (always available)
-      const baseMetrics = await calculateBaseMetrics(thisMonthStart, lastMonthStart, lastMonthEnd)
-      
-      // Rates-specific metrics (conditional)
-      let ratesMetrics = null
-      if (includeRates) {
-        ratesMetrics = await calculateRatesMetrics(thisMonthStart, lastMonthStart, lastMonthEnd)
-      }
-
-      const metrics: BusinessMetrics = {
-        ...baseMetrics,
-        automation: ratesMetrics?.automation || {
-          totalCalculations: 0,
-          autoCalculated: 0, 
-          manualOverrides: 0,
-          automationRate: 0,
-          errorRate: 0,
-          avgResponseTime: 0
-        },
-        fareAnalysis: {
-          ...baseMetrics.fareAnalysis,
-          ...(ratesMetrics?.fareAnalysis || {})
-        }
-      }
+      // Calculate metrics based on current system data
+      const metrics = await calculateCurrentMetrics(thisMonthStart, lastMonthStart, lastMonthEnd, includeRates)
 
       return NextResponse.json({
         ok: true,
@@ -131,261 +109,258 @@ export const GET = withAuth(
   { resource: 'admin', action: 'read' }
 )
 
-async function calculateBaseMetrics(thisMonthStart: Date, lastMonthStart: Date, lastMonthEnd: Date) {
-  // This month's completed trips
-  const thisMonthTrips = await prisma.trip.findMany({
+async function calculateCurrentMetrics(thisMonthStart: Date, lastMonthStart: Date, lastMonthEnd: Date, includeRates: boolean): Promise<BusinessMetrics> {
+  // System status metrics
+  const [totalDrivers, activeDrivers] = await Promise.all([
+    prisma.driver.count(),
+    prisma.driver.count({ where: { isActive: true } })
+  ])
+
+  const [totalLoadingPoints, activeLoadingPoints] = await Promise.all([
+    prisma.loadingPoint.count(),
+    prisma.loadingPoint.count({ where: { isActive: true } })
+  ])
+
+  const centerFareRules = await prisma.centerFare.count()
+  const totalDispatches = await prisma.dispatch.count()
+
+  // Request analysis
+  const thisMonthRequests = await prisma.request.findMany({
     where: {
-      date: { gte: thisMonthStart },
-      status: 'COMPLETED'
+      requestDate: { gte: thisMonthStart }
     },
     include: {
-      driver: true,
-      center: true,
-      settlementItems: {
-        include: {
-          settlement: true
-        }
+      _count: {
+        select: { dispatches: true }
       }
     }
   })
 
-  // Last month's completed trips
-  const lastMonthTrips = await prisma.trip.findMany({
+  const lastMonthRequests = await prisma.request.findMany({
     where: {
-      date: { 
+      requestDate: {
         gte: lastMonthStart,
-        lte: lastMonthEnd 
-      },
-      status: 'COMPLETED'
+        lte: lastMonthEnd
+      }
     },
     include: {
-      driver: true,
-      center: true,
-      settlementItems: {
-        include: {
-          settlement: true
-        }
+      _count: {
+        select: { dispatches: true }
       }
     }
   })
 
-  // Calculate profitability
-  const thisMonthProfit = thisMonthTrips.reduce((sum, trip) => {
-    const billing = Number(trip.billingFare) || 0
-    const driver = Number(trip.driverFare) || 0
-    return sum + (billing - driver)
-  }, 0)
+  const thisMonthRequestCount = thisMonthRequests.length
+  const lastMonthRequestCount = lastMonthRequests.length
+  
+  const requestChangePercent = lastMonthRequestCount > 0 ? 
+    ((thisMonthRequestCount - lastMonthRequestCount) / lastMonthRequestCount) * 100 : 0
 
-  const lastMonthProfit = lastMonthTrips.reduce((sum, trip) => {
-    const billing = Number(trip.billingFare) || 0
-    const driver = Number(trip.driverFare) || 0
-    return sum + (billing - driver)
-  }, 0)
+  // Calculate dispatch statistics
+  const thisMonthDispatchCount = thisMonthRequests.reduce((sum, req) => sum + req._count.dispatches, 0)
+  const avgDispatchesPerRequest = thisMonthRequestCount > 0 ? 
+    thisMonthDispatchCount / thisMonthRequestCount : 0
+  
+  const dispatchRate = thisMonthRequestCount > 0 ?
+    (thisMonthRequests.filter(r => r._count.dispatches > 0).length / thisMonthRequestCount) * 100 : 0
 
-  const profitChangePercent = lastMonthProfit > 0 ? 
-    ((thisMonthProfit - lastMonthProfit) / lastMonthProfit) * 100 : 0
-
-  const avgProfitPerTrip = thisMonthTrips.length > 0 ? 
-    thisMonthProfit / thisMonthTrips.length : 0
-
-  // Center profitability analysis
-  const centerProfitMap = new Map<string, {
-    profit: number
-    tripCount: number
-    tonnage: string
-  }>()
-
-  for (const trip of thisMonthTrips) {
-    const centerName = getCenterNameFromTrip(trip)
-    const tonnage = trip.tonnage || '0t'
-    const key = `${centerName}-${tonnage}`
-    
-    const profit = (Number(trip.billingFare) || 0) - (Number(trip.driverFare) || 0)
-    
-    if (!centerProfitMap.has(key)) {
-      centerProfitMap.set(key, { profit: 0, tripCount: 0, tonnage })
+  // Top requested routes
+  const routeMap = new Map<string, { requestCount: number, dispatchCount: number }>()
+  for (const request of thisMonthRequests) {
+    const key = request.centerCarNo
+    if (!routeMap.has(key)) {
+      routeMap.set(key, { requestCount: 0, dispatchCount: 0 })
     }
-    
-    const existing = centerProfitMap.get(key)!
-    existing.profit += profit
-    existing.tripCount += 1
+    const route = routeMap.get(key)!
+    route.requestCount += 1
+    route.dispatchCount += request._count.dispatches
   }
 
-  const centerProfits = Array.from(centerProfitMap.entries())
-    .map(([key, data]) => ({
-      centerName: key.split('-')[0],
-      tonnage: parseFloat(data.tonnage) || 0,
-      profit: data.profit,
-      tripCount: data.tripCount
+  const topRequestedRoutes = Array.from(routeMap.entries())
+    .map(([centerCarNo, data]) => ({
+      centerCarNo,
+      requestCount: data.requestCount,
+      dispatchCount: data.dispatchCount
     }))
-    .sort((a, b) => b.profit - a.profit)
+    .sort((a, b) => b.requestCount - a.requestCount)
+    .slice(0, 10)
 
-  // Fare analysis
-  const thisMonthFares = thisMonthTrips.map(t => Number(t.billingFare) || 0)
-  const lastMonthFares = lastMonthTrips.map(t => Number(t.billingFare) || 0)
-  
-  const thisMonthAvgFare = thisMonthFares.length > 0 ? 
-    thisMonthFares.reduce((sum, fare) => sum + fare, 0) / thisMonthFares.length : 0
-  const lastMonthAvgFare = lastMonthFares.length > 0 ? 
-    lastMonthFares.reduce((sum, fare) => sum + fare, 0) / lastMonthFares.length : 0
-  
-  const fareChangePercent = lastMonthAvgFare > 0 ? 
-    ((thisMonthAvgFare - lastMonthAvgFare) / lastMonthAvgFare) * 100 : 0
-
-  // Fare distribution
-  const fareRanges = [
-    { min: 0, max: 50000, label: '~5만원' },
-    { min: 50000, max: 100000, label: '5~10만원' },
-    { min: 100000, max: 200000, label: '10~20만원' },
-    { min: 200000, max: 500000, label: '20~50만원' },
-    { min: 500000, max: Infinity, label: '50만원+' }
-  ]
-
-  const fareDistribution = fareRanges.map(range => {
-    const count = thisMonthFares.filter(fare => 
-      fare >= range.min && fare < range.max
-    ).length
-    const percentage = thisMonthFares.length > 0 ? 
-      (count / thisMonthFares.length) * 100 : 0
-    
-    return {
-      range: range.label,
-      count,
-      percentage: Math.round(percentage * 100) / 100
+  // Dispatch analysis
+  const thisMonthDispatches = await prisma.dispatch.findMany({
+    where: {
+      request: {
+        requestDate: { gte: thisMonthStart }
+      }
     }
   })
 
-  // Volume analysis
-  const volumeChangePercent = lastMonthTrips.length > 0 ? 
-    ((thisMonthTrips.length - lastMonthTrips.length) / lastMonthTrips.length) * 100 : 0
+  const lastMonthDispatches = await prisma.dispatch.findMany({
+    where: {
+      request: {
+        requestDate: {
+          gte: lastMonthStart,
+          lte: lastMonthEnd
+        }
+      }
+    }
+  })
 
-  // Center volume breakdown
+  const thisMonthDispatchTotal = thisMonthDispatches.length
+  const lastMonthDispatchTotal = lastMonthDispatches.length
+  
+  const dispatchChangePercent = lastMonthDispatchTotal > 0 ?
+    ((thisMonthDispatchTotal - lastMonthDispatchTotal) / lastMonthDispatchTotal) * 100 : 0
+
+  const avgDriverFee = thisMonthDispatches.length > 0 ?
+    thisMonthDispatches.reduce((sum, d) => sum + (d.driverFee || 0), 0) / thisMonthDispatches.length : 0
+
+  // Top drivers by dispatch count
+  const driverMap = new Map<string, { dispatchCount: number, totalFees: number }>()
+  for (const dispatch of thisMonthDispatches) {
+    const key = dispatch.driverName
+    if (!driverMap.has(key)) {
+      driverMap.set(key, { dispatchCount: 0, totalFees: 0 })
+    }
+    const driver = driverMap.get(key)!
+    driver.dispatchCount += 1
+    driver.totalFees += dispatch.driverFee || 0
+  }
+
+  const topDrivers = Array.from(driverMap.entries())
+    .map(([driverName, data]) => ({
+      driverName,
+      dispatchCount: data.dispatchCount,
+      totalFees: data.totalFees
+    }))
+    .sort((a, b) => b.dispatchCount - a.dispatchCount)
+    .slice(0, 10)
+
+  // Center fare analysis
+  const centerFares = await prisma.centerFare.findMany({
+    include: {
+      loadingPoint: {
+        select: {
+          centerName: true
+        }
+      }
+    }
+  })
+
+  const fareAnalysis = calculateFareAnalysis(centerFares)
+
+  // Center volume breakdown using actual Request data
   const centerVolumeMap = new Map<string, number>()
-  for (const trip of thisMonthTrips) {
-    const centerName = getCenterNameFromTrip(trip)
+  
+  // Get requests with loading point data if available
+  const requestsWithCenter = await prisma.request.findMany({
+    where: {
+      requestDate: { gte: thisMonthStart }
+    },
+    include: {
+      loadingPoint: {
+        select: { centerName: true }
+      }
+    }
+  })
+
+  // Count requests per center
+  for (const request of requestsWithCenter) {
+    const centerName = request.loadingPoint?.centerName || '기타'
     centerVolumeMap.set(centerName, (centerVolumeMap.get(centerName) || 0) + 1)
   }
 
+  const totalRequests = requestsWithCenter.length
   const centerVolumeBreakdown = Array.from(centerVolumeMap.entries())
-    .map(([centerName, tripCount]) => ({
+    .map(([centerName, requestCount]) => ({
       centerName,
-      tripCount,
-      sharePercent: Math.round((tripCount / thisMonthTrips.length) * 10000) / 100
+      requestCount,
+      sharePercent: totalRequests > 0 ? Math.round((requestCount / totalRequests) * 10000) / 100 : 0
     }))
-    .sort((a, b) => b.tripCount - a.tripCount)
-    .slice(0, 10) // Top 10 centers
+    .sort((a, b) => b.requestCount - a.requestCount)
+    .slice(0, 10)
 
   return {
-    profitability: {
-      totalProfitThisMonth: Math.round(thisMonthProfit),
-      totalProfitLastMonth: Math.round(lastMonthProfit),
-      profitChangePercent: Math.round(profitChangePercent * 100) / 100,
-      avgProfitPerTrip: Math.round(avgProfitPerTrip),
-      topProfitableCenters: centerProfits.slice(0, 5),
-      leastProfitableCenters: centerProfits.slice(-5).reverse()
+    systemStatus: {
+      activeDrivers,
+      totalDrivers,
+      activeLoadingPoints,
+      totalLoadingPoints,
+      centerFareRules,
+      totalDispatches,
+      lastUpdated: new Date().toISOString()
     },
-    fareAnalysis: {
-      thisMonthAvgFare: Math.round(thisMonthAvgFare),
-      lastMonthAvgFare: Math.round(lastMonthAvgFare),
-      fareChangePercent: Math.round(fareChangePercent * 100) / 100,
-      fareDistribution,
-      outlierTrips: [] // Will be populated by rates metrics if enabled
+    requestAnalysis: {
+      thisMonthRequests: thisMonthRequestCount,
+      lastMonthRequests: lastMonthRequestCount,
+      requestChangePercent: Math.round(requestChangePercent * 100) / 100,
+      avgDispatchesPerRequest: Math.round(avgDispatchesPerRequest * 100) / 100,
+      dispatchRate: Math.round(dispatchRate * 100) / 100,
+      topRequestedRoutes
     },
+    dispatchAnalysis: {
+      thisMonthDispatches: thisMonthDispatchTotal,
+      lastMonthDispatches: lastMonthDispatchTotal,
+      dispatchChangePercent: Math.round(dispatchChangePercent * 100) / 100,
+      avgDriverFee: Math.round(avgDriverFee),
+      topDrivers
+    },
+    fareAnalysis,
     volume: {
-      thisMonthTrips: thisMonthTrips.length,
-      lastMonthTrips: lastMonthTrips.length,
-      volumeChangePercent: Math.round(volumeChangePercent * 100) / 100,
+      thisMonthRequests: thisMonthRequestCount,
+      lastMonthRequests: lastMonthRequestCount,
+      volumeChangePercent: Math.round(requestChangePercent * 100) / 100,
       centerVolumeBreakdown
     }
   }
 }
 
-async function calculateRatesMetrics(thisMonthStart: Date, lastMonthStart: Date, lastMonthEnd: Date) {
-  // Mock automation metrics (would be tracked in production)
-  const totalCalculations = Math.floor(Math.random() * 500) + 100 // 100-600
-  const autoCalculated = Math.floor(totalCalculations * (0.75 + Math.random() * 0.2)) // 75-95%
-  const manualOverrides = totalCalculations - autoCalculated
-  const automationRate = (autoCalculated / totalCalculations) * 100
-  const errorRate = Math.random() * 3 // 0-3%
-  const avgResponseTime = Math.floor(Math.random() * 100) + 50 // 50-150ms
-
-  // Enhanced fare analysis with rate calculations
-  const thisMonthTrips = await prisma.trip.findMany({
-    where: {
-      date: { gte: thisMonthStart },
-      status: 'COMPLETED'
-    },
-    include: {
-      driver: true,
-      center: true
-    },
-    take: 100 // Sample for outlier analysis
-  })
-
-  // Detect fare outliers using basic statistical analysis
-  const outlierTrips = []
-  const fares = thisMonthTrips.map(t => Number(t.billingFare) || 0).filter(f => f > 0)
+function calculateFareAnalysis(centerFares: any[]): BusinessMetrics['fareAnalysis'] {
+  const basicRules = centerFares.filter(f => f.fareType === 'BASIC').length
+  const stopFeeRules = centerFares.filter(f => f.fareType === 'STOP_FEE').length
   
-  if (fares.length > 0) {
-    const avgFare = fares.reduce((sum, fare) => sum + fare, 0) / fares.length
-    const stdDev = Math.sqrt(
-      fares.reduce((sum, fare) => sum + Math.pow(fare - avgFare, 2), 0) / fares.length
-    )
+  // Calculate average fares
+  const basicFares = centerFares.filter(f => f.fareType === 'BASIC' && f.baseFare).map(f => f.baseFare)
+  const avgBaseFare = basicFares.length > 0 ? 
+    Math.round(basicFares.reduce((sum, fare) => sum + fare, 0) / basicFares.length) : 0
+
+  const extraFees = centerFares.filter(f => f.fareType === 'STOP_FEE' && f.extraStopFee).map(f => f.extraStopFee)
+  const avgExtraFee = extraFees.length > 0 ?
+    Math.round(extraFees.reduce((sum, fee) => sum + fee, 0) / extraFees.length) : 0
+
+  // Center breakdown
+  const centerMap = new Map<string, { ruleCount: number, totalFare: number, fareCount: number }>()
+  
+  for (const fare of centerFares) {
+    const centerName = fare.loadingPoint?.centerName || '기타'
+    if (!centerMap.has(centerName)) {
+      centerMap.set(centerName, { ruleCount: 0, totalFare: 0, fareCount: 0 })
+    }
     
-    for (const trip of thisMonthTrips.slice(0, 20)) {
-      const actualFare = Number(trip.billingFare) || 0
-      const deviation = Math.abs((actualFare - avgFare) / stdDev)
-      
-      // Mark as outlier if deviation > 2 standard deviations
-      if (deviation > 2 && actualFare > 0) {
-        outlierTrips.push({
-          tripId: trip.id,
-          centerName: getCenterNameFromTrip(trip),
-          tonnage: parseFloat(trip.tonnage || '0') || 0,
-          billingFare: actualFare,
-          driverFare: Number(trip.driverFare) || 0,
-          deviation: Math.round(deviation * 100) / 100
-        })
-      }
+    const center = centerMap.get(centerName)!
+    center.ruleCount += 1
+    
+    const fareValue = fare.baseFare || fare.extraStopFee || 0
+    if (fareValue > 0) {
+      center.totalFare += fareValue
+      center.fareCount += 1
     }
   }
+
+  const centerBreakdown = Array.from(centerMap.entries())
+    .map(([centerName, data]) => ({
+      centerName,
+      ruleCount: data.ruleCount,
+      avgFare: data.fareCount > 0 ? Math.round(data.totalFare / data.fareCount) : 0
+    }))
+    .sort((a, b) => b.ruleCount - a.ruleCount)
+    .slice(0, 10)
 
   return {
-    automation: {
-      totalCalculations,
-      autoCalculated,
-      manualOverrides,
-      automationRate: Math.round(automationRate * 100) / 100,
-      errorRate: Math.round(errorRate * 100) / 100,
-      avgResponseTime
-    },
-    fareAnalysis: {
-      outlierTrips: outlierTrips.slice(0, 10) // Top 10 outliers
-    }
+    totalRules: centerFares.length,
+    basicRules,
+    stopFeeRules,
+    avgBaseFare,
+    avgExtraFee,
+    centerBreakdown
   }
-}
-
-function getCenterNameFromTrip(trip: any): string {
-  if (trip.routeTemplate?.loadingPointRef?.name) {
-    return trip.routeTemplate.loadingPointRef.name
-  }
-  
-  if (trip.routeTemplate?.loadingPoint) {
-    return trip.routeTemplate.loadingPoint
-  }
-  
-  if (trip.customRoute) {
-    try {
-      const customRouteData = typeof trip.customRoute === 'string' ? 
-        JSON.parse(trip.customRoute) : trip.customRoute
-      return customRouteData.centerName || 
-             customRouteData.name || 
-             customRouteData.loadingPoint || 
-             '기타'
-    } catch {
-      return '기타'
-    }
-  }
-  
-  return '기타'
 }

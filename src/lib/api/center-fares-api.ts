@@ -52,13 +52,16 @@ class CenterFareApiService {
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
-          params.append(key, String(value))
+          params.set(key, String(value))
         }
       })
     }
 
+    if (!params.has('page')) params.set('page', '1')
+    if (!params.has('limit')) params.set('limit', '500')
+
     const queryString = params.toString()
-    const res = await fetch(queryString ? '/api/center-fares?' + queryString : '/api/center-fares')
+    const res = await fetch('/api/center-fares?' + queryString)
     if (!res.ok) {
       throw new Error('Failed to fetch center fares')
     }
@@ -153,7 +156,7 @@ class CenterFareApiService {
   }
 
   async calculateFare(params: {
-    loadingPointId: string
+    centerName: string
     vehicleType: string
     regions: string[]
     stopCount: number

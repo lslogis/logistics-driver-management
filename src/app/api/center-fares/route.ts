@@ -9,7 +9,7 @@ const centerFareService = new CenterFareService(prisma)
 
 // 센터 요율 생성 스키마
 const CreateCenterFareSchema = z.object({
-  loadingPointId: z.string().min(1, '상차지는 필수입니다'),
+  centerName: z.string().min(1, '상차지는 필수입니다'),
   vehicleType: z.string().min(1, '차량 타입은 필수입니다'),
   region: z.string().optional().nullable(),
   fareType: z.enum(['BASIC', 'STOP_FEE']),
@@ -92,11 +92,32 @@ export const POST = withAuth(
       // 요청 데이터 검증
       const body = await req.json()
       const parsed = CreateCenterFareSchema.parse(body)
+      
+      // centerName으로 loadingPointId 찾기
+      const loadingPoint = await prisma.loadingPoint.findFirst({
+        where: { centerName: parsed.centerName }
+      })
+      
+      if (!loadingPoint) {
+        return NextResponse.json({
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: `센터명 '${parsed.centerName}'을 찾을 수 없습니다`
+          }
+        }, { status: 404 })
+      }
+      
       const data = {
-        ...parsed,
+        loadingPointId: loadingPoint.id,
+        vehicleType: parsed.vehicleType,
         region: parsed.fareType === 'BASIC'
           ? (parsed.region ? parsed.region.trim() : '')
           : null,
+        fareType: parsed.fareType,
+        baseFare: parsed.baseFare,
+        extraStopFee: parsed.extraStopFee,
+        extraRegionFee: parsed.extraRegionFee,
       }
 
       // 센터 요율 생성

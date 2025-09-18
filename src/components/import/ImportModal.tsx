@@ -346,9 +346,27 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
 
       const result = await response.json()
       setUploadProgress(100)
-      
-      toast.success(`가져오기 완료: ${result.data.created + result.data.updated}개 센터요율이 등록되었습니다`)
-      setStep('complete')
+
+      const { created = 0, updated = 0, errors = [] } = result.data ?? {}
+      const successCount = created + updated
+
+      if (errors.length > 0) {
+        const errorMessage = errors.join(' / ')
+        setError(errorMessage)
+
+        if (successCount > 0) {
+          toast.success(`센터요율 가져오기 완료: ${successCount}개가 등록되었습니다 (실패 ${errors.length}건)`)
+          toast.error('일부 행에서 오류가 발생했습니다. 세부 내용을 확인해주세요.')
+          setStep('complete')
+        } else {
+          toast.error('센터요율 가져오기 실패: 유효한 데이터가 등록되지 않았습니다.')
+          setStep('validate')
+          return
+        }
+      } else {
+        toast.success(`센터요율 가져오기 완료: ${successCount}개가 등록되었습니다`)
+        setStep('complete')
+      }
 
     } catch (error) {
       console.error('가져오기 중 오류:', error)

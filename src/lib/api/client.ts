@@ -110,6 +110,20 @@ export const api = {
   
   delete: (url: string, options?: FetchOptions) => 
     fetchAPI(url, { method: 'DELETE', ...options }),
+
+  getBlob: async (url: string, params?: Record<string, any>) => {
+    const response = await fetchAPI(url, { method: 'GET', params });
+
+    if (response instanceof Response) {
+      return response.blob();
+    }
+
+    if (response && typeof (response as Response).blob === 'function') {
+      return (response as Response).blob();
+    }
+
+    throw new APIError('Unexpected response type for blob request', 0);
+  },
 };
 
 // File upload helper

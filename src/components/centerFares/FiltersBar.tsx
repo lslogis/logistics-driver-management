@@ -22,7 +22,7 @@ import {
   ChevronUp
 } from 'lucide-react'
 import { CenterFareQuery } from '@/lib/api/center-fares'
-import { VEHICLE_TYPE_OPTIONS } from '@/lib/utils/center-fares'
+import { VEHICLE_TYPE_OPTIONS } from '@/lib/utils/vehicle-types'
 import { useDebounce } from '@/hooks/useDebounce'
 
 interface FiltersBarProps {

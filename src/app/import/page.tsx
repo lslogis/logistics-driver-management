@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { Upload, FileText, User, Truck, Route, Calendar, Download, ArrowRight, CheckCircle, MapPin } from 'lucide-react'

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser, createAuditLog } from '@/lib/auth/server'
+import { normalizeVehicleTypeName } from '@/lib/utils/vehicle-types'
 
 export const runtime = 'nodejs'
 
@@ -109,6 +110,8 @@ export async function POST(req: NextRequest) {
         try {
           // 개별 데이터 검증
           const validatedData = CenterFareBulkSchema.parse(fareData)
+          const canonicalVehicleType = normalizeVehicleTypeName(validatedData.vehicleType) ?? validatedData.vehicleType
+          validatedData.vehicleType = canonicalVehicleType
           
           // fareType 맵핑 (현재는 직접 매핑)
           const mappedFareType = mapFareType(validatedData.fareType)
@@ -120,24 +123,41 @@ export async function POST(req: NextRequest) {
             fareType: mappedFareType
           })
 
-          // 중복 체크 기준: (centerName, vehicleType, region, fareType)
+          const loadingPoint = await tx.loadingPoint.findFirst({
+            where: {
+              centerName: validatedData.centerName
+            },
+            select: { id: true, centerName: true, loadingPointName: true }
+          })
+
+          if (!loadingPoint) {
+            result.errors.push(`${rowNumber}행: 센터명을 찾을 수 없습니다 (${validatedData.centerName})`)
+            result.skipped++
+            continue
+          }
+
+          const normalizedRegion = mappedFareType === 'STOP_FEE'
+            ? null
+            : (validatedData.region ? validatedData.region.trim() : '')
+
+          // 중복 체크 기준: (loadingPointId, vehicleType, region, fareType)
           const existing = await tx.centerFare.findFirst({
             where: {
-              centerName: validatedData.centerName,
+              loadingPointId: loadingPoint.id,
               vehicleType: validatedData.vehicleType,
-              region: validatedData.region,
+              region: normalizedRegion,
               fareType: mappedFareType
             }
           })
 
           const fareDataToSave = {
-            centerName: validatedData.centerName,
+            loadingPointId: loadingPoint.id,
             vehicleType: validatedData.vehicleType,
-            region: validatedData.region,
+            region: normalizedRegion,
             fareType: mappedFareType,
-            baseFare: validatedData.baseFare || null,
-            extraStopFee: validatedData.extraStopFee || null,
-            extraRegionFee: validatedData.extraRegionFee || null
+            baseFare: validatedData.baseFare ?? null,
+            extraStopFee: validatedData.extraStopFee ?? null,
+            extraRegionFee: validatedData.extraRegionFee ?? null
           }
 
           let savedFare
@@ -163,7 +183,7 @@ export async function POST(req: NextRequest) {
               {
                 centerName: validatedData.centerName,
                 vehicleType: validatedData.vehicleType,
-                region: validatedData.region,
+                region: normalizedRegion,
                 fareType: mappedFareType,
                 changes: {
                   baseFare: validatedData.baseFare,
@@ -188,7 +208,7 @@ export async function POST(req: NextRequest) {
               {
                 centerName: validatedData.centerName,
                 vehicleType: validatedData.vehicleType,
-                region: validatedData.region,
+                region: normalizedRegion,
                 fareType: mappedFareType
               }
             )

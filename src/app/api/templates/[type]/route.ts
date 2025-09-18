@@ -3,6 +3,9 @@ import Papa from 'papaparse'
 import { withAuth } from '@/lib/auth/rbac'
 import { getCurrentUser } from '@/lib/auth/server'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // 지원하는 템플릿 타입
 const TEMPLATE_TYPES = ['drivers', 'vehicles', 'routes', 'trips', 'fixed-routes', 'fixed-contracts'] as const
 type TemplateType = typeof TEMPLATE_TYPES[number]

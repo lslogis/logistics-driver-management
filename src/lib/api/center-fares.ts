@@ -136,7 +136,7 @@ export interface FarePolicy {
 }
 
 export interface CalculateFareInput {
-  loadingPointId: string
+  centerName: string
   vehicleType: string
   regions: string[]
   stops: number
