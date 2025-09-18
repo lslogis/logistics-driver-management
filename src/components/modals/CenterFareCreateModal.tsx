@@ -35,8 +35,8 @@ export type CenterFareCreateModalProps = {
 
 // 차량 타입 옵션
 const VEHICLE_TYPES = [
-  '1.0톤', '1.4톤', '2.5톤', '3.5톤', '3.5광',
-  '5.0톤', '5축', '8.0톤', '11톤', '11.0톤', '14톤', '상온'
+  '1톤', '1.4톤', '2.5톤', '3.5톤', '3.5광',
+  '5톤', '5축', '8톤', '11톤', '14톤'
 ]
 
 export default function CenterFareCreateModal({

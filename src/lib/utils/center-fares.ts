@@ -19,20 +19,15 @@ export interface FareRow {
 // 차량 톤수 옵션 (크기순 정렬)
 export const VEHICLE_TYPE_OPTIONS = [
   { id: '1톤', name: '1톤' },
-  { id: '1.0톤', name: '1.0톤' },
   { id: '1.4톤', name: '1.4톤' },
   { id: '2.5톤', name: '2.5톤' },
   { id: '3.5톤', name: '3.5톤' },
   { id: '3.5광', name: '3.5광' },
-  { id: '3.5톤광폭', name: '3.5톤광폭' },
   { id: '5톤', name: '5톤' },
-  { id: '5.0톤', name: '5.0톤' },
   { id: '5축', name: '5축' },
-  { id: '8.0톤', name: '8.0톤' },
+  { id: '8톤', name: '8톤' },
   { id: '11톤', name: '11톤' },
-  { id: '11.0톤', name: '11.0톤' },
   { id: '14톤', name: '14톤' },
-  { id: '상온', name: '상온' },
 ]
 
 // 중복 체크 함수
@@ -198,15 +193,28 @@ export const parseExcelFile = (file: File): Promise<ParsedExcelResult> => {
             }
           }
 
-          // 차량 ID 매칭 - 더 유연한 매칭을 위해 정확한 매칭과 유사 매칭 모두 시도
+          // 차량 ID 매칭 - 다양한 형태의 입력을 표준형으로 변환
           console.log('Finding vehicle for:', vehicleTypeName, 'Available options:', VEHICLE_TYPE_OPTIONS.map(v => v.name))
+          
+          // 1단계: 정확한 매칭
           let vehicle = VEHICLE_TYPE_OPTIONS.find(v => v.name === vehicleTypeName)
           
-          // 정확한 매칭이 안 되면 유사 매칭 시도
+          // 2단계: 대소문자 무시 매칭
           if (!vehicle) {
             vehicle = VEHICLE_TYPE_OPTIONS.find(v => 
-              v.name.toLowerCase().trim() === vehicleTypeName.toLowerCase().trim() ||
-              v.id.toLowerCase().trim() === vehicleTypeName.toLowerCase().trim()
+              v.name.toLowerCase().trim() === vehicleTypeName.toLowerCase().trim()
+            )
+          }
+          
+          // 3단계: 소수점 형태를 정수형으로 변환 (1.0톤 → 1톤, 5.0톤 → 5톤 등)
+          if (!vehicle) {
+            const normalizedName = vehicleTypeName
+              .replace(/(\d+)\.0톤/g, '$1톤')  // 1.0톤 → 1톤, 5.0톤 → 5톤 등
+              .replace(/(\d+)\.0\s*톤/g, '$1톤')  // 공백 포함 케이스
+            
+            vehicle = VEHICLE_TYPE_OPTIONS.find(v => 
+              v.name === normalizedName || 
+              v.name.toLowerCase() === normalizedName.toLowerCase()
             )
           }
           
