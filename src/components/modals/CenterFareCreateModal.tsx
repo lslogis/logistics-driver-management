@@ -14,8 +14,11 @@ import { loadingPointsAPI } from '@/lib/api/loading-points'
 export type CenterFareData = {
   loadingPointId: string
   vehicleType: string
-  region: string
-  fare: number
+  region: string | null
+  fareType: 'BASIC' | 'STOP_FEE'
+  baseFare?: number
+  extraStopFee?: number
+  extraRegionFee?: number
 }
 
 export type CenterFareCreateModalProps = {
@@ -25,6 +28,7 @@ export type CenterFareCreateModalProps = {
   prefillData?: {
     loadingPointId?: string
     vehicleType?: string
+    fareType?: 'BASIC' | 'STOP_FEE'
     regions?: string[]
   }
 }
@@ -62,8 +66,11 @@ export default function CenterFareCreateModal({
       const initialData: Partial<CenterFareData> = {
         loadingPointId: prefillData?.loadingPointId || '',
         vehicleType: prefillData?.vehicleType || '',
+        fareType: prefillData?.fareType || 'BASIC',
         region: '', // 개별 입력
-        fare: 0
+        baseFare: 0,
+        extraStopFee: 0,
+        extraRegionFee: 0
       }
       
       setFormData(initialData)
@@ -172,14 +179,24 @@ export default function CenterFareCreateModal({
     
     if (!formData.loadingPointId) newErrors.loadingPointId = '상차지는 필수입니다'
     if (!formData.vehicleType) newErrors.vehicleType = '차량타입은 필수입니다'
-    if (!formData.fare || formData.fare < 0) newErrors.fare = '요율은 0 이상이어야 합니다'
+    if (!formData.fareType) newErrors.fareType = '요율 종류는 필수입니다'
     
-    // 지역 검증 (개별 입력 또는 다중 입력)
-    const hasIndividualRegion = formData.region?.trim()
-    const hasMultipleRegions = regions.length > 0
+    // fareType에 따른 요율 검증
+    if (formData.fareType === 'BASIC') {
+      if (!formData.baseFare || formData.baseFare < 0) newErrors.baseFare = '기본 요율은 0 이상이어야 합니다'
+    } else if (formData.fareType === 'STOP_FEE') {
+      if (!formData.extraStopFee || formData.extraStopFee < 0) newErrors.extraStopFee = '경유 요율은 0 이상이어야 합니다'
+      if (!formData.extraRegionFee || formData.extraRegionFee < 0) newErrors.extraRegionFee = '지역 요율은 0 이상이어야 합니다'
+    }
     
-    if (!hasIndividualRegion && !hasMultipleRegions) {
-      newErrors.region = '지역은 필수입니다'
+    // BASIC 타입일 때만 지역 검증
+    if (formData.fareType === 'BASIC') {
+      const hasIndividualRegion = formData.region?.trim()
+      const hasMultipleRegions = regions.length > 0
+      
+      if (!hasIndividualRegion && !hasMultipleRegions) {
+        newErrors.region = '기본운임에는 지역이 필수입니다'
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -194,26 +211,31 @@ export default function CenterFareCreateModal({
       const results: CenterFareData[] = []
       
       // 개별 지역이 있는 경우
-      if (hasIndividualRegion) {
+      const hasIndividualRegion = formData.region?.trim()
+      const hasMultipleRegions = regions.length > 0
+      
+      if (formData.fareType === 'BASIC' && hasIndividualRegion) {
         const fareData: CenterFareData = {
           loadingPointId: formData.loadingPointId!,
           vehicleType: formData.vehicleType!,
           region: formData.region!.trim(),
-          fare: formData.fare!
+          fareType: formData.fareType!,
+          baseFare: formData.baseFare!
         }
         
         await createCenterFare(fareData)
         results.push(fareData)
       }
       
-      // 다중 지역이 있는 경우
-      if (hasMultipleRegions) {
+      // 다중 지역이 있는 경우 (BASIC 타입만)
+      if (formData.fareType === 'BASIC' && hasMultipleRegions) {
         for (const region of regions) {
           const fareData: CenterFareData = {
             loadingPointId: formData.loadingPointId!,
             vehicleType: formData.vehicleType!,
             region: region,
-            fare: formData.fare!
+            fareType: formData.fareType!,
+            baseFare: formData.baseFare!
           }
           
           try {
@@ -224,6 +246,21 @@ export default function CenterFareCreateModal({
             toast.error(`${region} 요율 등록 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
           }
         }
+      }
+      
+      // STOP_FEE 타입의 경우
+      if (formData.fareType === 'STOP_FEE') {
+        const fareData: CenterFareData = {
+          loadingPointId: formData.loadingPointId!,
+          vehicleType: formData.vehicleType!,
+          region: null, // STOP_FEE는 region 없음
+          fareType: formData.fareType!,
+          extraStopFee: formData.extraStopFee!,
+          extraRegionFee: formData.extraRegionFee!
+        }
+        
+        await createCenterFare(fareData)
+        results.push(fareData)
       }
       
       setCreatedRates(results)
@@ -271,7 +308,7 @@ export default function CenterFareCreateModal({
             <div className="space-y-1">
               {createdRates.map((rate, index) => (
                 <div key={index} className="text-xs text-muted-foreground">
-                  {rate.region}: {rate.fare.toLocaleString()}원
+                  {rate.region}: {(rate.baseFare || rate.extraStopFee || 0).toLocaleString()}원
                 </div>
               ))}
             </div>
@@ -323,9 +360,29 @@ export default function CenterFareCreateModal({
             {errors.vehicleType && <p className="text-sm text-destructive mt-1">{errors.vehicleType}</p>}
           </div>
 
-          {/* 지역 입력 */}
+          {/* 요율 종류 선택 */}
           <div>
-            <Label htmlFor="region">지역 *</Label>
+            <Label htmlFor="fareType">요율 종류 *</Label>
+            <Select
+              value={formData.fareType || ''}
+              onValueChange={(value) => handleFieldChange('fareType', value)}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger className={errors.fareType ? 'border-destructive' : ''}>
+                <SelectValue placeholder="요율 종류 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="BASIC">기본운임</SelectItem>
+                <SelectItem value="STOP_FEE">경유운임</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.fareType && <p className="text-sm text-destructive mt-1">{errors.fareType}</p>}
+          </div>
+
+          {/* 지역 입력 (기본운임일 때만) */}
+          {formData.fareType === 'BASIC' && (
+            <div>
+              <Label htmlFor="region">지역 *</Label>
             
             {/* 개별 지역 입력 */}
             <div className="space-y-2">
@@ -385,37 +442,91 @@ export default function CenterFareCreateModal({
             </div>
             {errors.region && <p className="text-sm text-destructive mt-1">{errors.region}</p>}
           </div>
+          )}
 
           {/* 요율 입력 */}
-          <div>
-            <Label htmlFor="fare">요율 (원) *</Label>
-            <Input
-              id="fare"
-              type="number"
-              value={formData.fare || ''}
-              onChange={(e) => handleFieldChange('fare', parseInt(e.target.value) || 0)}
-              placeholder="요율 입력"
-              className={errors.fare ? 'border-destructive' : ''}
-              min="0"
-              disabled={isSubmitting}
-            />
-            {errors.fare && <p className="text-sm text-fare mt-1">{errors.fare}</p>}
-          </div>
+          {formData.fareType === 'BASIC' && (
+            <div>
+              <Label htmlFor="baseFare">기본운임 (원) *</Label>
+              <Input
+                id="baseFare"
+                type="number"
+                value={formData.baseFare || ''}
+                onChange={(e) => handleFieldChange('baseFare', parseInt(e.target.value) || 0)}
+                placeholder="기본운임 입력"
+                className={errors.baseFare ? 'border-destructive' : ''}
+                min="0"
+                disabled={isSubmitting}
+              />
+              {errors.baseFare && <p className="text-sm text-destructive mt-1">{errors.baseFare}</p>}
+            </div>
+          )}
+
+          {formData.fareType === 'STOP_FEE' && (
+            <>
+              <div>
+                <Label htmlFor="extraStopFee">경유운임 (원) *</Label>
+                <Input
+                  id="extraStopFee"
+                  type="number"
+                  value={formData.extraStopFee || ''}
+                  onChange={(e) => handleFieldChange('extraStopFee', parseInt(e.target.value) || 0)}
+                  placeholder="경유운임 입력"
+                  className={errors.extraStopFee ? 'border-destructive' : ''}
+                  min="0"
+                  disabled={isSubmitting}
+                />
+                {errors.extraStopFee && <p className="text-sm text-destructive mt-1">{errors.extraStopFee}</p>}
+              </div>
+
+              <div>
+                <Label htmlFor="extraRegionFee">지역운임 (원) *</Label>
+                <Input
+                  id="extraRegionFee"
+                  type="number"
+                  value={formData.extraRegionFee || ''}
+                  onChange={(e) => handleFieldChange('extraRegionFee', parseInt(e.target.value) || 0)}
+                  placeholder="지역운임 입력"
+                  className={errors.extraRegionFee ? 'border-destructive' : ''}
+                  min="0"
+                  disabled={isSubmitting}
+                />
+                {errors.extraRegionFee && <p className="text-sm text-destructive mt-1">{errors.extraRegionFee}</p>}
+              </div>
+            </>
+          )}
 
           {/* 미리보기 */}
-          {(formData.centerId && formData.vehicleType && formData.fare) && (
+          {formData.loadingPointId && formData.vehicleType && formData.fareType && (
             <div className="p-3 bg-muted/50 rounded-md">
               <div className="text-sm text-muted-foreground mb-1">등록될 요율</div>
               <div className="space-y-1 text-sm">
-                <div><span className="font-medium">센터:</span> {selectedCenter?.centerName}</div>
+                <div><span className="font-medium">센터:</span> {selectedLoadingPoint?.centerName} - {selectedLoadingPoint?.loadingPointName}</div>
                 <div><span className="font-medium">차량:</span> {formData.vehicleType}</div>
-                {formData.region && (
-                  <div><span className="font-medium">지역:</span> {formData.region}</div>
+                <div><span className="font-medium">요율종류:</span> {formData.fareType === 'BASIC' ? '기본운임' : '경유운임'}</div>
+                {formData.fareType === 'BASIC' && (
+                  <>
+                    {formData.region && (
+                      <div><span className="font-medium">지역:</span> {formData.region}</div>
+                    )}
+                    {regions.length > 0 && (
+                      <div><span className="font-medium">지역:</span> {regions.join(', ')}</div>
+                    )}
+                    {formData.baseFare && (
+                      <div><span className="font-medium">기본운임:</span> {formData.baseFare.toLocaleString()}원</div>
+                    )}
+                  </>
                 )}
-                {regions.length > 0 && (
-                  <div><span className="font-medium">지역:</span> {regions.join(', ')}</div>
+                {formData.fareType === 'STOP_FEE' && (
+                  <>
+                    {formData.extraStopFee && (
+                      <div><span className="font-medium">경유운임:</span> {formData.extraStopFee.toLocaleString()}원</div>
+                    )}
+                    {formData.extraRegionFee && (
+                      <div><span className="font-medium">지역운임:</span> {formData.extraRegionFee.toLocaleString()}원</div>
+                    )}
+                  </>
                 )}
-                <div><span className="font-medium">요율:</span> {formData.fare.toLocaleString()}원</div>
               </div>
             </div>
           )}
