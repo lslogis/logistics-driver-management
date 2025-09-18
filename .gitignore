@@ -142,6 +142,7 @@ certificates/
 # Temporary documentation files
 *.md
 !README.md
+!AGENTS.md
 !CHANGELOG.md
 !LICENSE.md
 !CONTRIBUTING.md
