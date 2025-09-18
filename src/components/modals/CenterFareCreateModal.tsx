@@ -177,8 +177,8 @@ export default function CenterFareCreateModal({
     // 기본 검증
     const newErrors: Record<string, string> = {}
     
-    if (!formData.loadingPointId) newErrors.loadingPointId = '상차지는 필수입니다'
-    if (!formData.vehicleType) newErrors.vehicleType = '차량타입은 필수입니다'
+    if (!formData.loadingPointId || formData.loadingPointId.trim() === '') newErrors.loadingPointId = '상차지는 필수입니다'
+    if (!formData.vehicleType || formData.vehicleType.trim() === '') newErrors.vehicleType = '차량타입은 필수입니다'
     if (!formData.fareType) newErrors.fareType = '요율 종류는 필수입니다'
     
     // fareType에 따른 요율 검증
@@ -208,6 +208,17 @@ export default function CenterFareCreateModal({
     setIsSubmitting(true)
 
     try {
+      // 최종 검증 (API 호출 전)
+      if (!formData.loadingPointId || formData.loadingPointId.trim() === '') {
+        throw new Error('상차지를 선택해주세요')
+      }
+      if (!formData.vehicleType || formData.vehicleType.trim() === '') {
+        throw new Error('차량타입을 선택해주세요')
+      }
+      if (!formData.fareType) {
+        throw new Error('요율 종류를 선택해주세요')
+      }
+
       const results: CenterFareData[] = []
       
       // 개별 지역이 있는 경우
