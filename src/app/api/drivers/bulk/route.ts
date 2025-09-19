@@ -90,40 +90,7 @@ export async function POST(request: NextRequest) {
 
           const activeIds = activeDrivers.map(d => d.id)
 
-          // 관련 데이터 확인
-          const driversWithRelations = await prisma.driver.findMany({
-            where: { 
-              id: { in: activeIds }
-            },
-            include: {
-              trips: {
-                where: {
-                  status: { in: ['SCHEDULED', 'COMPLETED'] }
-                }
-              },
-              fixedContracts: {
-                where: { isActive: true }
-              }
-            }
-          })
-
-          const blockedDrivers = driversWithRelations.filter(d => 
-            d.trips.length > 0 || d.fixedContracts.length > 0
-          )
-
-          if (blockedDrivers.length > 0) {
-            const blockedNames = blockedDrivers.map(d => d.name).join(', ')
-            return NextResponse.json(
-              { 
-                ok: false, 
-                error: { 
-                  code: 'CONFLICT', 
-                  message: `다음 기사들은 차량 배정 또는 운행 기록이 있어 비활성화할 수 없습니다: ${blockedNames}` 
-                } 
-              },
-              { status: 409 }
-            )
-          }
+          // 체크 로직 제거 - 나중에 필요시 추가
 
           result = await prisma.driver.updateMany({
             where: { id: { in: activeIds } },
