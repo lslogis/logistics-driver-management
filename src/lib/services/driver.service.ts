@@ -90,9 +90,7 @@ export class DriverService {
       include: {
         _count: {
           select: {
-            charterRequests: true,
-            settlements: true,
-            fixedContracts: true
+            settlements: true
           }
         }
       }
@@ -131,18 +129,7 @@ export class DriverService {
       }
     }
 
-    const driver = await this.prisma.driver.create({
-      data,
-      include: {
-        _count: {
-          select: {
-            charterRequests: true,
-            settlements: true,
-            fixedContracts: true
-          }
-        }
-      }
-    })
+    const driver = await this.prisma.driver.create({ data })
 
     return this.formatDriverResponse(driver)
   }
@@ -187,16 +174,7 @@ export class DriverService {
 
     const driver = await this.prisma.driver.update({
       where: { id },
-      data,
-      include: {
-        _count: {
-          select: {
-            charterRequests: true,
-            settlements: true,
-            fixedContracts: true
-          }
-        }
-      }
+      data
     })
 
     return this.formatDriverResponse(driver)
@@ -267,29 +245,12 @@ export class DriverService {
     }
 
     if (driver.isActive) {
-      // 이미 활성화된 경우 현재 상태 그대로 반환
-      return this.formatDriverResponse({
-        ...driver,
-        _count: {
-          charterRequests: 0,
-          settlements: 0,
-          fixedContracts: 0
-        }
-      })
+      return this.formatDriverResponse(driver)
     }
 
     const updatedDriver = await this.prisma.driver.update({
       where: { id },
-      data: { isActive: true },
-      include: {
-        _count: {
-          select: {
-            charterRequests: true,
-            settlements: true,
-            fixedContracts: true
-          }
-        }
-      }
+      data: { isActive: true }
     })
 
     return this.formatDriverResponse(updatedDriver)
@@ -309,16 +270,7 @@ export class DriverService {
 
     const updatedDriver = await this.prisma.driver.update({
       where: { id },
-      data: { isActive: !driver.isActive },
-      include: {
-        _count: {
-          select: {
-            charterRequests: true,
-            settlements: true,
-            fixedContracts: true
-          }
-        }
-      }
+      data: { isActive: !driver.isActive }
     })
 
     return this.formatDriverResponse(updatedDriver)
@@ -366,7 +318,7 @@ export class DriverService {
       isActive: driver.isActive,
       createdAt: driver.createdAt.toISOString(),
       updatedAt: driver.updatedAt.toISOString(),
-      _count: driver._count
+      _count: driver._count ?? undefined
     }
   }
 }

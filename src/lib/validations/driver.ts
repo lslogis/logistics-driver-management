@@ -166,9 +166,8 @@ export interface DriverResponse {
   createdAt: string
   updatedAt: string
   _count?: {
-    charterRequests: number
-    settlements: number
-    fixedContracts: number
+    settlements?: number
+    dispatches?: number
   }
 }
 

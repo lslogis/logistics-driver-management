@@ -22,7 +22,8 @@ export interface CenterFareDto {
 }
 
 export interface CreateCenterFareDto {
-  loadingPointId: string
+  loadingPointId?: string
+  centerName?: string
   vehicleType: string
   region: string | null
   fareType: 'BASIC' | 'STOP_FEE'

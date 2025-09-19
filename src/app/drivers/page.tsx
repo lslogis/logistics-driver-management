@@ -65,12 +65,12 @@ export default function DriversPage() {
     fetchNextPage, 
     hasNextPage, 
     isFetchingNextPage 
-  } = useDrivers(searchTerm, normalizedStatusFilter)
+  } = useDrivers(searchTerm, normalizedStatusFilter, 'name', 'asc')
   
   const driversData = useMemo(() => {
     const drivers = data?.pages?.flatMap((page: any) => page.drivers) || []
-    // 성함 순으로 정렬 (한글 이름 정렬)
-    return drivers.sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
+    // 서버에서 이미 정렬되어 오므로 추가 정렬 불필요
+    return drivers
   }, [data])
 
   const driverStats = useMemo(() => {

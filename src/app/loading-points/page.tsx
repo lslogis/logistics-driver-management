@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import React, { useState, useMemo, useEffect } from 'react'
-import { Plus, MapPin, Upload, Download, CheckCircle, XCircle, TrendingUp, Phone, Navigation, Building2, QrCode, Map as MapIcon } from 'lucide-react'
+import { Plus, MapPin, Upload, Download, CheckCircle, XCircle, Phone, Navigation, Building2, QrCode, Map as MapIcon, Eye, Edit, Copy, Share2, MessageSquare } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useAuth } from '@/hooks/useAuth'
@@ -84,26 +84,6 @@ export default function LoadingPointsPage() {
   const bulkDeleteMutation = useBulkDeleteLoadingPoints()
   const exportMutation = useExportLoadingPoints()
 
-  // Statistics calculation
-  const stats = useMemo(() => {
-    const totalPoints = loadingPointsData.length
-    const activePoints = loadingPointsData.filter(p => p.isActive).length
-    const inactivePoints = totalPoints - activePoints
-    
-    // 이번 달 신규 상차지 (createdAt 기준)
-    const thisMonth = new Date()
-    const monthStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1)
-    const newThisMonth = loadingPointsData.filter(p => 
-      new Date(p.createdAt) >= monthStart
-    ).length
-
-    return {
-      total: totalCount,
-      active: activePoints,
-      inactive: inactivePoints,
-      newThisMonth
-    }
-  }, [loadingPointsData, totalCount])
 
   // Filter data based on search and filters
   const filteredData = useMemo(() => {
@@ -195,7 +175,7 @@ export default function LoadingPointsPage() {
     const loadingPointInfo = formatLoadingPointInfo(point)
     const success = await copyToClipboard(loadingPointInfo)
     if (success) {
-      toast.success('상차지 정보가 클립보드에 복사되었습니다')
+      toast.success('센터 정보가 클립보드에 복사되었습니다')
     } else {
       toast.error('클립보드 복사에 실패했습니다')
     }
@@ -204,7 +184,7 @@ export default function LoadingPointsPage() {
   const handleShareToKakao = async (point: LoadingPointResponse) => {
     try {
       const loadingPointInfo = formatLoadingPointInfo(point)
-      await shareToKakao(`상차지 정보 - ${point.centerName} ${point.loadingPointName}`, loadingPointInfo)
+      await shareToKakao(`센터 정보 - ${point.centerName} ${point.loadingPointName}`, loadingPointInfo)
       toast.success('카카오톡으로 공유되었습니다')
     } catch (error) {
       console.error('카카오톡 공유 실패:', error)
@@ -216,7 +196,7 @@ export default function LoadingPointsPage() {
     try {
       const phone = point.phone1 || point.phone2
       if (!phone) {
-        toast.error('연락처가 없는 상차지입니다')
+        toast.error('연락처가 없는 센터입니다')
         return
       }
       const loadingPointInfo = formatLoadingPointInfo(point)
@@ -278,7 +258,7 @@ export default function LoadingPointsPage() {
                 <MapPin className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">상차지 관리</h1>
+                <h1 className="text-3xl font-bold text-gray-900">센터 관리</h1>
                 <p className="text-lg text-gray-600 mt-1">물류센터 상차지를 효율적으로 관리하세요</p>
               </div>
             </div>
@@ -321,7 +301,7 @@ export default function LoadingPointsPage() {
                   className="bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                 >
                   <Plus className="h-5 w-5 mr-2" />
-                  상차지 등록
+                  센터 등록
                 </Button>
               </PermissionGate>
             </div>
@@ -331,76 +311,6 @@ export default function LoadingPointsPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* KPI Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white border-orange-100 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-orange-600">전체 상차지</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats.total.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">개소</p>
-                </div>
-                <div className="p-3 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl">
-                  <MapPin className="h-8 w-8 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-green-100 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-600">활성 상차지</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats.active.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">개소 운영중</p>
-                </div>
-                <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl">
-                  <CheckCircle className="h-8 w-8 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-red-100 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-red-600">비활성 상차지</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats.inactive.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">개소 중단</p>
-                </div>
-                <div className="p-3 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl">
-                  <XCircle className="h-8 w-8 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-yellow-100 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-yellow-600">이번 달 신규</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats.newThisMonth.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">개소 추가</p>
-                </div>
-                <div className="p-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl">
-                  <TrendingUp className="h-8 w-8 text-white" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Filters and Actions */}
         <Card className="bg-white shadow-lg border-orange-100 mb-6">
@@ -410,7 +320,7 @@ export default function LoadingPointsPage() {
                 {/* Search Input */}
                 <div className="flex-1 max-w-md">
                   <Input
-                    placeholder="센터명, 상차지명, 주소로 검색..."
+                    placeholder="센터명, 주소로 검색..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="h-11 border-2 border-orange-200 focus:border-orange-400 focus:ring-orange-400/20 bg-white"
@@ -524,7 +434,7 @@ export default function LoadingPointsPage() {
             <CardContent className="p-8">
               <div className="flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mr-3"></div>
-                <span className="text-gray-600">상차지 목록을 불러오는 중...</span>
+                <span className="text-gray-600">센터 목록을 불러오는 중...</span>
               </div>
             </CardContent>
           </Card>
@@ -539,12 +449,12 @@ export default function LoadingPointsPage() {
                   <MapIcon className="h-16 w-16 text-orange-300 mx-auto" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  지도에 표시할 상차지가 없습니다
+                  지도에 표시할 센터가 없습니다
                 </h3>
                 <p className="text-gray-600 mb-6">
                   {hasActiveFilters
-                    ? '검색 조건을 변경하거나 새로운 상차지를 등록해보세요.' 
-                    : '새로운 상차지를 등록하여 지도에서 확인해보세요.'
+                    ? '검색 조건을 변경하거나 새로운 센터를 등록해보세요.' 
+                    : '새로운 센터를 등록하여 지도에서 확인해보세요.'
                   }
                 </p>
                 <div className="flex justify-center space-x-4">
@@ -561,7 +471,7 @@ export default function LoadingPointsPage() {
                       className="bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                     >
                       <Plus className="h-5 w-5 mr-2" />
-                      상차지 등록
+                      센터 등록
                     </Button>
                   </PermissionGate>
                 </div>
@@ -579,12 +489,12 @@ export default function LoadingPointsPage() {
                   <MapPin className="h-16 w-16 text-orange-300 mx-auto" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {hasActiveFilters ? '검색 결과가 없습니다' : '등록된 상차지가 없습니다'}
+                  {hasActiveFilters ? '검색 결과가 없습니다' : '등록된 센터가 없습니다'}
                 </h3>
                 <p className="text-gray-600 mb-6">
                   {hasActiveFilters
-                    ? '검색 조건을 변경하거나 새로운 상차지를 등록해보세요.' 
-                    : '새로운 상차지를 등록하여 시작해보세요.'
+                    ? '검색 조건을 변경하거나 새로운 센터를 등록해보세요.' 
+                    : '새로운 센터를 등록하여 시작해보세요.'
                   }
                 </p>
                 <PermissionGate resource="loading-points" action="create">
@@ -593,7 +503,7 @@ export default function LoadingPointsPage() {
                     className="bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                   >
                     <Plus className="h-5 w-5 mr-2" />
-                    상차지 등록
+                    센터 등록
                   </Button>
                 </PermissionGate>
               </div>
@@ -606,7 +516,7 @@ export default function LoadingPointsPage() {
           <LoadingPointMapView
             loadingPoints={filteredData}
             onPointSelect={(point) => {
-              // 지도에서 선택된 상차지 처리
+              // 지도에서 선택된 센터 처리
               console.log('Selected point:', point)
             }}
             onPointDetail={handleViewDetail}
@@ -651,24 +561,24 @@ export default function LoadingPointsPage() {
                       {
                         id: 'view',
                         label: '상세 보기',
-                        icon: <MapPin className="h-4 w-4" />,
+                        icon: <Eye className="h-4 w-4" />,
                         onClick: () => handleViewDetail(point)
                       },
                       {
                         id: 'edit',
                         label: '수정',
-                        icon: <Building2 className="h-4 w-4" />,
+                        icon: <Edit className="h-4 w-4" />,
                         onClick: () => handleEditLoadingPoint(point)                      },
                       {
                         id: 'copy',
                         label: '정보 복사',
-                        icon: <Phone className="h-4 w-4" />,
+                        icon: <Copy className="h-4 w-4" />,
                         onClick: () => handleCopyLoadingPoint(point)
                       },
                       {
                         id: 'kakao',
                         label: '카카오톡 공유',
-                        icon: <Navigation className="h-4 w-4" />,
+                        icon: <Share2 className="h-4 w-4" />,
                         onClick: () => handleShareToKakao(point)
                       },
                       ...(point.phone1 || point.phone2 ? [
@@ -687,7 +597,7 @@ export default function LoadingPointsPage() {
                         {
                           id: 'sms',
                           label: 'SMS 전송',
-                          icon: <QrCode className="h-4 w-4" />,
+                          icon: <MessageSquare className="h-4 w-4" />,
                           onClick: () => handleSendSMS(point)
                         }
                       ] : []),
@@ -807,7 +717,7 @@ export default function LoadingPointsPage() {
                                   }}
                                   className="border-orange-200 text-orange-600 hover:bg-orange-50"
                                 >
-                                  <MapPin className="h-4 w-4" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                               </PermissionGate>
                               <PermissionGate resource="loading-points" action="update">
@@ -820,7 +730,7 @@ export default function LoadingPointsPage() {
                                   }}
                                   className="border-orange-200 text-orange-600 hover:bg-orange-50"
                                 >
-                                  <Building2 className="h-4 w-4" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
                               </PermissionGate>
                               {(point.phone1 || point.phone2) && (
@@ -875,7 +785,7 @@ export default function LoadingPointsPage() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-gray-900">
-              상차지 등록
+              센터 등록
             </DialogTitle>
           </DialogHeader>
           <LoadingPointForm
@@ -890,7 +800,7 @@ export default function LoadingPointsPage() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-gray-900">
-              상차지 수정
+              센터 수정
             </DialogTitle>
           </DialogHeader>
           <LoadingPointForm

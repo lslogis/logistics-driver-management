@@ -9,8 +9,9 @@ const centerFareService = new CenterFareService(prisma)
 
 // 센터 요율 생성 스키마
 const CreateCenterFareSchema = z.object({
-  centerName: z.string().min(1, '상차지는 필수입니다'),
-  vehicleType: z.string().min(1, '차량 타입은 필수입니다'),
+  loadingPointId: z.string().trim().min(1, '센터 ID는 필수입니다').optional(),
+  centerName: z.string().trim().min(1, '센터명은 필수입니다').optional(),
+  vehicleType: z.string().min(1, '차량 톤수는 필수입니다'),
   region: z.string().optional().nullable(),
   fareType: z.enum(['BASIC', 'STOP_FEE']),
   baseFare: z.number().int().positive().optional(),
@@ -21,12 +22,15 @@ const CreateCenterFareSchema = z.object({
     return data.baseFare !== undefined && typeof data.region === 'string' && data.region.trim().length > 0
   }
   if (data.fareType === 'STOP_FEE') {
-    return data.extraStopFee !== undefined && 
-           data.extraRegionFee !== undefined
+    return data.extraStopFee !== undefined &&
+      data.extraRegionFee !== undefined
   }
   return false
 }, {
-  message: '요율 종류에 맞는 필수 필드를 입력하세요'
+  message: '요율 종류에 맞는 필수 항목을 입력해주세요',
+}).refine(data => !!(data.loadingPointId || data.centerName), {
+  message: '센터를 선택해주세요',
+  path: ['loadingPointId'],
 })
 
 export const runtime = 'nodejs'
@@ -92,24 +96,41 @@ export const POST = withAuth(
       // 요청 데이터 검증
       const body = await req.json()
       const parsed = CreateCenterFareSchema.parse(body)
-      
-      // centerName으로 loadingPointId 찾기
-      const loadingPoint = await prisma.loadingPoint.findFirst({
-        where: { centerName: parsed.centerName }
+
+    let loadingPointRecord: { id: string; centerName: string } | null = null
+
+    if (parsed.loadingPointId) {
+      const lp = await prisma.loadingPoint.findUnique({
+        where: { id: parsed.loadingPointId },
+        select: { id: true, centerName: true },
       })
-      
-      if (!loadingPoint) {
-        return NextResponse.json({
-          ok: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: `센터명 '${parsed.centerName}'을 찾을 수 없습니다`
-          }
-        }, { status: 404 })
+      if (lp) {
+        loadingPointRecord = lp
       }
-      
-      const data = {
-        loadingPointId: loadingPoint.id,
+    }
+
+    if (!loadingPointRecord && parsed.centerName) {
+      const lp = await prisma.loadingPoint.findFirst({
+        where: { centerName: parsed.centerName },
+        select: { id: true, centerName: true },
+      })
+      if (lp) {
+        loadingPointRecord = lp
+      }
+    }
+
+    if (!loadingPointRecord) {
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: '센터를 찾을 수 없습니다',
+        },
+      }, { status: 404 })
+    }
+
+    const data = {
+        loadingPointId: loadingPointRecord.id,
         vehicleType: parsed.vehicleType,
         region: parsed.fareType === 'BASIC'
           ? (parsed.region ? parsed.region.trim() : '')
@@ -194,3 +215,4 @@ export const POST = withAuth(
   },
   { resource: 'charters', action: 'create' }
 )
+

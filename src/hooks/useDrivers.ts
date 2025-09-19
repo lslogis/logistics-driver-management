@@ -4,15 +4,17 @@ import { toast } from 'react-hot-toast'
 import { DriverResponse, CreateDriverData, UpdateDriverData } from '@/lib/validations/driver'
 
 // 기사 목록 조회 - 무한 스크롤
-export function useDrivers(search?: string, status?: string) {
+export function useDrivers(search?: string, status?: string, sortBy: string = 'name', sortOrder: 'asc' | 'desc' = 'asc') {
   return useInfiniteQuery({
-    queryKey: ['drivers', search, status],
+    queryKey: ['drivers', search, status, sortBy, sortOrder],
     initialPageParam: 1,
     // 항상 활성화 - 검색어가 없으면 전체 목록 조회
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const params = new URLSearchParams({
         page: pageParam.toString(),
         limit: '50',
+        sortBy,
+        sortOrder,
         ...(search && search.trim() && { search: search.trim() }),
         ...(status && { status })
       })

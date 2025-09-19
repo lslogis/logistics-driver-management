@@ -27,18 +27,22 @@ export async function POST(
     const updatedDriver = await driverService.activateDriver(id)
 
     // 감사 로그 기록 (임시로 시스템 사용자로)
-    await prisma.auditLog.create({
-      data: {
-        action: 'UPDATE',
-        entityType: 'Driver',
-        entityId: id,
-        userId: 'system', // 임시
-        userName: 'System User',
-        changes: {
-          isActive: { from: false, to: true }
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'Driver',
+          entityId: id,
+          userId: null,
+          userName: 'System',
+          changes: {
+            isActive: { from: false, to: true }
+          }
         }
-      }
-    })
+      })
+    } catch (error) {
+      console.warn('audit log write skipped:', error)
+    }
 
     return NextResponse.json({
       ok: true,

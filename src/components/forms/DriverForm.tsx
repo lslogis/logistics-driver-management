@@ -42,27 +42,9 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 p-8">
-      {/* Form Header */}
-      <div className="text-center mb-6">
-        <div className="p-3 bg-purple-100 rounded-xl inline-flex mb-3">
-          <User className="h-6 w-6 text-purple-600" />
-        </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-          {driver ? '기사 정보 수정' : '새 기사 등록'}
-        </h3>
-        <p className="text-sm text-gray-600">
-          {driver ? '기사 정보를 수정하세요' : '새로운 기사의 정보를 입력하세요'}
-        </p>
-      </div>
       
       {/* Basic Information */}
       <div className="space-y-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <User className="h-5 w-5 text-purple-600" />
-          </div>
-          <h4 className="text-lg font-semibold text-gray-900">기본 정보</h4>
-        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -92,7 +74,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
               required
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="010-1234-5678"
+              placeholder="연락처를 입력하세요"
               className="h-12 rounded-xl border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
             />
           </div>
@@ -109,7 +91,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
               value={formData.vehicleNumber}
               onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
               placeholder="예: 12가3456"
-              className="h-12 rounded-xl border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200 font-mono"
+              className="h-12 rounded-xl border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
             />
           </div>
         </div>
@@ -117,12 +99,6 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
       
       {/* Business Information */}
       <div className="space-y-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Building2 className="h-5 w-5 text-blue-600" />
-          </div>
-          <h4 className="text-lg font-semibold text-gray-900">사업자 정보</h4>
-        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -166,8 +142,8 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
               id="businessNumber"
               value={formData.businessNumber}
               onChange={(e) => setFormData({ ...formData, businessNumber: e.target.value })}
-              placeholder="000-00-00000"
-              className="h-12 rounded-xl border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 font-mono"
+              placeholder="사업자등록번호를 입력하세요"
+              className="h-12 rounded-xl border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
             />
           </div>
         </div>
@@ -175,12 +151,6 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
       
       {/* Account Information */}
       <div className="space-y-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <CreditCard className="h-5 w-5 text-green-600" />
-          </div>
-          <h4 className="text-lg font-semibold text-gray-900">계좌 정보</h4>
-        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -195,7 +165,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
               value={formData.bankName}
               onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
               className="h-12 rounded-xl border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-              placeholder="예: 국민은행, 신한은행"
+              placeholder="예: 국민,카카오,토스뱅크"
             />
           </div>
 
@@ -209,8 +179,8 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
               id="accountNumber"
               value={formData.accountNumber}
               onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-              placeholder="계좌번호를 입력하세요 (숫자만)"
-              className="h-12 rounded-xl border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200 font-mono"
+              placeholder="계좌번호 : 숫자만"
+              className="h-12 rounded-xl border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
             />
           </div>
         </div>
@@ -218,12 +188,6 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
 
       {/* Additional Information */}
       <div className="space-y-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-orange-100 rounded-lg">
-            <AlertCircle className="h-5 w-5 text-orange-600" />
-          </div>
-          <h4 className="text-lg font-semibold text-gray-900">추가 정보</h4>
-        </div>
         
         <div>
           <Label htmlFor="remarks" className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
@@ -236,7 +200,7 @@ export default function DriverForm({ driver, onSubmit, isLoading, onCancel }: Dr
             value={formData.remarks}
             onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
             className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all duration-200 resize-none"
-            placeholder="기사님의 특이사항이나 추가 정보를 입력하세요&#10;예: 특정 지역 담당, 차량 특성, 연락 가능 시간 등"
+            placeholder="특이사항이나 추가 정보를 입력하세요"
           />
         </div>
       </div>
