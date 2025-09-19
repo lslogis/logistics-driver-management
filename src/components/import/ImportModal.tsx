@@ -707,8 +707,149 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
     }
   }, [])
 
-  // 센터요율, 상차지, 기사가 아닌 경우 일반 import 로직 사용
-  if (type !== 'center-fares' && type !== 'loading-points' && type !== 'drivers') {
+  // fixed-contracts import 로직
+  const handleFixedContractsImport = useCallback(async () => {
+    if (!file || type !== 'fixed-contracts') return
+
+    setIsLoading(true)
+    setError(null)
+    setUploadProgress(0)
+
+    try {
+      // FormData 생성
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('mode', 'commit')
+
+      // 프로그레스 시뮬레이션
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90))
+      }, 300)
+
+      // API 호출
+      const response = await fetch('/api/import/fixed-contracts', {
+        method: 'POST',
+        body: formData
+      })
+
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || '가져오기 실패')
+      }
+
+      const result = await response.json()
+      setUploadProgress(100)
+      
+      toast.success(`고정계약 가져오기 완료: ${result.data.results.imported}개가 등록되었습니다`)
+      setStep('complete')
+
+    } catch (error) {
+      console.error('고정계약 가져오기 중 오류:', error)
+      setError(error instanceof Error ? error.message : '가져오기 중 오류가 발생했습니다')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [file, type])
+
+  // 고정계약 검증 로직
+  const validateFixedContractsFile = useCallback(async () => {
+    if (!file || type !== 'fixed-contracts') return
+
+    setIsLoading(true)
+    setError(null)
+    setUploadProgress(0)
+
+    try {
+      // FormData 생성 (simulate 모드)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('mode', 'simulate')
+
+      // 프로그레스 시뮬레이션
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90))
+      }, 300)
+
+      // API 호출
+      const response = await fetch('/api/import/fixed-contracts', {
+        method: 'POST',
+        body: formData
+      })
+
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || '검증 실패')
+      }
+
+      const result = await response.json()
+      setUploadProgress(100)
+      
+      // 결과를 previewRows 형태로 변환
+      const previewData = result.data.results.preview.map((row: any, index: number) => ({
+        id: `row-${index}`,
+        centerName: row.centerName,
+        loadingPointName: row.routeName,
+        lotAddress: row.driverName || '-',
+        roadAddress: row.centerContractType || '-',
+        manager1: row.centerAmount ? `${row.centerAmount.toLocaleString()}원` : '-',
+        phone1: row.operatingDays?.join(', ') || '-',
+        status: 'valid' as const
+      }))
+
+      // 오류 항목들 추가
+      result.data.results.errors.forEach((error: any) => {
+        previewData.push({
+          id: `error-${error.row}`,
+          centerName: error.data?.centerName || '',
+          loadingPointName: error.data?.routeName || '',
+          lotAddress: error.data?.driverName || '',
+          roadAddress: error.data?.centerContractType || '',
+          manager1: error.data?.centerAmount || '',
+          phone1: '',
+          status: 'error' as const,
+          errorMessage: error.error
+        })
+      })
+
+      setPreviewRows(previewData)
+      setStep('validate')
+
+    } catch (error) {
+      console.error('고정계약 검증 중 오류:', error)
+      setError(error instanceof Error ? error.message : '검증 중 오류가 발생했습니다')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [file, type])
+
+  // 템플릿 다운로드 (fixed-contracts)
+  const downloadFixedContractsTemplate = useCallback(async () => {
+    try {
+      const response = await fetch('/api/import/fixed-contracts')
+      if (!response.ok) throw new Error('템플릿 다운로드 실패')
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'fixed_contracts_template.csv'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast.success('템플릿 다운로드 완료')
+    } catch (error) {
+      toast.error('템플릿 다운로드 실패')
+    }
+  }, [])
+
+  // 센터요율, 상차지, 기사, 고정계약이 아닌 경우 일반 import 로직 사용
+  if (type !== 'center-fares' && type !== 'loading-points' && type !== 'drivers' && type !== 'fixed-contracts') {
     return <div className="p-4 text-center">현재 지원하지 않는 import 타입입니다.</div>
   }
 
@@ -724,6 +865,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                     <Navigation className="h-5 w-5 text-blue-600" />
                   ) : type === 'drivers' ? (
                     <Users className="h-5 w-5 text-blue-600" />
+                  ) : type === 'fixed-contracts' ? (
+                    <Route className="h-5 w-5 text-blue-600" />
                   ) : (
                     <MapPin className="h-5 w-5 text-blue-600" />
                   )}
@@ -769,7 +912,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                 onClick={
                   type === 'center-fares' ? downloadTemplate : 
                   type === 'loading-points' ? downloadLoadingPointsTemplate :
-                  type === 'drivers' ? downloadDriversTemplate : 
+                  type === 'drivers' ? downloadDriversTemplate :
+                  type === 'fixed-contracts' ? downloadFixedContractsTemplate : 
                   downloadTemplate
                 }
                 className="text-blue-600 border-blue-300 hover:bg-blue-50"
@@ -792,6 +936,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                     <Navigation className="h-6 w-6 text-teal-600" />
                   ) : type === 'drivers' ? (
                     <Users className="h-6 w-6 text-teal-600" />
+                  ) : type === 'fixed-contracts' ? (
+                    <Route className="h-6 w-6 text-teal-600" />
                   ) : (
                     <MapPin className="h-6 w-6 text-teal-600" />
                   )}
@@ -854,6 +1000,15 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">대표자</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">은행명</th>
                           </>
+                        ) : type === 'fixed-contracts' ? (
+                          <>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">센터명</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">노선명</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">기사명</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">계약형태</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">센터금액</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">운행요일</th>
+                          </>
                         ) : (
                           <>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">센터명</th>
@@ -897,6 +1052,15 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                               <td className="px-3 py-2 text-sm font-mono">{row.lotAddress || '-'}</td>
                               <td className="px-3 py-2 text-sm">{row.roadAddress || '-'}</td>
                               <td className="px-3 py-2 text-sm">{row.manager1 || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.phone1 || '-'}</td>
+                            </>
+                          ) : type === 'fixed-contracts' ? (
+                            <>
+                              <td className="px-3 py-2 text-sm">{row.centerName}</td>
+                              <td className="px-3 py-2 text-sm">{row.loadingPointName || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.lotAddress || '-'}</td>
+                              <td className="px-3 py-2 text-sm">{row.roadAddress || '-'}</td>
+                              <td className="px-3 py-2 text-sm text-right">{row.manager1 || '-'}</td>
                               <td className="px-3 py-2 text-sm">{row.phone1 || '-'}</td>
                             </>
                           ) : (
@@ -972,6 +1136,7 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                       {stats.valid}개의 {
                         type === 'center-fares' ? '센터요율' : 
                         type === 'drivers' ? '기사' : 
+                        type === 'fixed-contracts' ? '고정계약' :
                         '상차지'
                       }이 성공적으로 등록되었습니다.
                       <button
@@ -1010,7 +1175,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
               onClick={
                 type === 'center-fares' ? validateFile : 
                 type === 'loading-points' ? validateLoadingPointsFile :
-                type === 'drivers' ? validateDriversFile : 
+                type === 'drivers' ? validateDriversFile :
+                type === 'fixed-contracts' ? validateFixedContractsFile : 
                 validateFile
               }
               disabled={!file || isLoading}
@@ -1058,7 +1224,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                 onClick={
                   type === 'center-fares' ? importFile : 
                   type === 'loading-points' ? handleLoadingPointsImport :
-                  type === 'drivers' ? handleDriversImport : 
+                  type === 'drivers' ? handleDriversImport :
+                  type === 'fixed-contracts' ? handleFixedContractsImport : 
                   importFile
                 }
                 disabled={stats.valid === 0 || isLoading}
@@ -1125,6 +1292,8 @@ export function ImportModal({ isOpen, onClose, type, onSuccess }: ImportModalPro
                   <Navigation className="h-5 w-5" />
                 ) : type === 'drivers' ? (
                   <Users className="h-5 w-5" />
+                ) : type === 'fixed-contracts' ? (
+                  <Route className="h-5 w-5" />
                 ) : (
                   <MapPin className="h-5 w-5" />
                 )}

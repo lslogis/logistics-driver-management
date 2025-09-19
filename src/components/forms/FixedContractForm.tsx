@@ -23,7 +23,8 @@ const WEEKDAYS = [
 const CONTRACT_TYPES = [
   { value: 'FIXED_DAILY', label: '고정(일대)' },
   { value: 'FIXED_MONTHLY', label: '고정(월대)' },
-  { value: 'CONSIGNED_MONTHLY', label: '고정지입' }
+  { value: 'CONSIGNED_MONTHLY', label: '고정지입' },
+  { value: 'CHARTER_PER_RIDE', label: '용차운임' }
 ]
 
 export interface FixedContractFormProps {
@@ -38,12 +39,13 @@ export default function FixedContractForm({ fixedContract, onSubmit, isLoading, 
     driverId: fixedContract?.driverId || '',
     loadingPointId: fixedContract?.loadingPointId || '',
     routeName: fixedContract?.routeName || '',
-    contractType: fixedContract?.contractType || 'FIXED_DAILY',
+    centerContractType: fixedContract?.centerContractType || 'FIXED_DAILY',
+    driverContractType: fixedContract?.driverContractType || '',
+    centerAmount: fixedContract?.centerAmount || '',
+    driverAmount: fixedContract?.driverAmount || '',
     operatingDays: fixedContract?.operatingDays || [],
-    monthlyRevenue: fixedContract?.monthlyRevenue || 0,
-    dailyRevenue: fixedContract?.dailyRevenue || 0,
-    monthlyOperatingCost: fixedContract?.monthlyOperatingCost || 0,
-    dailyOperatingCost: fixedContract?.dailyOperatingCost || 0,
+    startDate: fixedContract?.startDate ? new Date(fixedContract.startDate).toISOString().split('T')[0] : '',
+    endDate: fixedContract?.endDate ? new Date(fixedContract.endDate).toISOString().split('T')[0] : '',
     specialConditions: fixedContract?.specialConditions || '',
     remarks: fixedContract?.remarks || '',
     // 기사 정보 (자동완성용)
@@ -61,12 +63,13 @@ export default function FixedContractForm({ fixedContract, onSubmit, isLoading, 
         driverId: fixedContract.driverId || '',
         loadingPointId: fixedContract.loadingPointId || '',
         routeName: fixedContract.routeName || '',
-        contractType: fixedContract.contractType || 'FIXED_DAILY',
+        centerContractType: fixedContract.centerContractType || 'FIXED_DAILY',
+        driverContractType: fixedContract.driverContractType || '',
+        centerAmount: fixedContract.centerAmount || '',
+        driverAmount: fixedContract.driverAmount || '',
         operatingDays: fixedContract.operatingDays || [],
-        monthlyRevenue: fixedContract.monthlyRevenue || 0,
-        dailyRevenue: fixedContract.dailyRevenue || 0,
-        monthlyOperatingCost: fixedContract.monthlyOperatingCost || 0,
-        dailyOperatingCost: fixedContract.dailyOperatingCost || 0,
+        startDate: fixedContract.startDate ? new Date(fixedContract.startDate).toISOString().split('T')[0] : '',
+        endDate: fixedContract.endDate ? new Date(fixedContract.endDate).toISOString().split('T')[0] : '',
         specialConditions: fixedContract.specialConditions || '',
         remarks: fixedContract.remarks || '',
         driverSearchQuery: fixedContract.driver?.name || '',
@@ -93,13 +96,13 @@ export default function FixedContractForm({ fixedContract, onSubmit, isLoading, 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.driverId) {
-      alert('기사를 선택해주세요.')
+    if (!formData.loadingPointId) {
+      alert('상차지를 선택해주세요.')
       return
     }
     
-    if (!formData.loadingPointId) {
-      alert('상차지를 선택해주세요.')
+    if (!formData.routeName) {
+      alert('노선명을 입력해주세요.')
       return
     }
     
@@ -108,16 +111,22 @@ export default function FixedContractForm({ fixedContract, onSubmit, isLoading, 
       return
     }
     
+    if (!formData.centerAmount || Number(formData.centerAmount) <= 0) {
+      alert('센터 금액을 입력해주세요.')
+      return
+    }
+    
     const submitData = {
-      driverId: formData.driverId,
+      driverId: formData.driverId || undefined,
       loadingPointId: formData.loadingPointId,
       routeName: formData.routeName,
-      contractType: formData.contractType,
+      centerContractType: formData.centerContractType,
+      driverContractType: formData.driverContractType || undefined,
+      centerAmount: Number(formData.centerAmount) || 0,
+      driverAmount: formData.driverAmount ? Number(formData.driverAmount) : undefined,
       operatingDays: formData.operatingDays,
-      monthlyRevenue: formData.monthlyRevenue || undefined,
-      dailyRevenue: formData.dailyRevenue || undefined,
-      monthlyOperatingCost: formData.monthlyOperatingCost || undefined,
-      dailyOperatingCost: formData.dailyOperatingCost || undefined,
+      startDate: formData.startDate || undefined,
+      endDate: formData.endDate || undefined,
       specialConditions: formData.specialConditions || undefined,
       remarks: formData.remarks || undefined
     }
@@ -152,235 +161,265 @@ export default function FixedContractForm({ fixedContract, onSubmit, isLoading, 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* 기사 선택 */}
-        <div className="relative">
-          <Label htmlFor="driverSearch">
-            기사명 <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            type="text"
-            id="driverSearch"
-            placeholder="기사명을 입력하여 검색하세요"
-            value={formData.driverSearchQuery}
-            onChange={(e) => handleDriverSearch(e.target.value)}
-            onFocus={() => {
-              if (formData.driverSearchQuery.trim().length > 0) {
-                setShowDriverDropdown(true)
-              }
-            }}
-            onBlur={() => setTimeout(() => setShowDriverDropdown(false), 200)}
-            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+    <form onSubmit={handleSubmit} className="space-y-8 p-6">
+      {/* 센터 ⬅️➡️ 운수사 간 계약 */}
+      <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+        <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+          <div className="w-3 h-3 bg-blue-600 rounded-full mr-2"></div>
+          센터 ⬅️➡️ 운수사 간 계약
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 상차지 선택 */}
+          <div>
+            <Label htmlFor="loadingPointId">
+              상차지 <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={formData.loadingPointId}
+              onValueChange={(value) => setFormData({ ...formData, loadingPointId: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="상차지 선택" />
+              </SelectTrigger>
+              <SelectContent className="z-50">
+                {loadingPoints.map((point: any) => (
+                  <SelectItem key={point.id} value={point.id}>
+                    {point.centerName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 노선명 */}
+          <div>
+            <Label htmlFor="routeName">
+              노선명 <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              type="text"
+              id="routeName"
+              required
+              value={formData.routeName}
+              onChange={(e) => setFormData({ ...formData, routeName: e.target.value })}
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+              placeholder="노선명을 입력하세요"
+            />
+          </div>
+
+          {/* 센터 계약형태 */}
+          <div>
+            <Label htmlFor="centerContractType">센터 계약형태 <span className="text-red-500">*</span></Label>
+            <Select
+              value={formData.centerContractType}
+              onValueChange={(value) => setFormData({ ...formData, centerContractType: value as any })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTRACT_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 센터 금액 */}
+          <div>
+            <Label htmlFor="centerAmount">센터 금액 <span className="text-red-500">*</span></Label>
+            <Input
+              type="number"
+              id="centerAmount"
+              value={formData.centerAmount}
+              onChange={(e) => setFormData({ ...formData, centerAmount: Number(e.target.value) })}
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+              placeholder="0"
+            />
+          </div>
+        </div>
+
+        {/* 특이사항 */}
+        <div className="mt-4">
+          <Label htmlFor="specialConditions">특이사항</Label>
+          <textarea
+            id="specialConditions"
+            value={formData.specialConditions}
+            onChange={(e) => setFormData({ ...formData, specialConditions: e.target.value })}
+            placeholder="특이사항을 입력하세요"
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 resize-none"
+            rows={3}
+            maxLength={500}
           />
-          {showDriverDropdown && formData.driverSearchQuery.trim().length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-white border-2 border-blue-500 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-              {drivers.length > 0 ? (
-                drivers.map((driver: any) => (
-                  <div
-                    key={driver.id}
-                    className="px-4 py-3 hover:bg-blue-600 hover:text-white cursor-pointer text-sm border-b border-gray-200 last:border-b-0 transition-all duration-200"
-                    onMouseDown={() => selectDriver(driver)}
-                  >
-                    <div className="font-bold">{driver.name}</div>
-                    <div className="text-xs opacity-90 mt-1">{driver.phone}</div>
+        </div>
+      </div>
+
+      {/* 운수사 ⬅️➡️ 기사 간 계약 */}
+      <div className="bg-green-50 p-6 rounded-lg border-2 border-green-200">
+        <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
+          <div className="w-3 h-3 bg-green-600 rounded-full mr-2"></div>
+          운수사 ⬅️➡️ 기사 간 계약
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 기사 선택 */}
+          <div className="relative md:col-span-2">
+            <Label htmlFor="driverSearch">
+              기사명 <span className="text-gray-500">(선택사항)</span>
+            </Label>
+            <Input
+              type="text"
+              id="driverSearch"
+              placeholder="기사명을 입력하여 검색하세요 (연락처/차량번호 자동표시)"
+              value={formData.driverSearchQuery}
+              onChange={(e) => handleDriverSearch(e.target.value)}
+              onFocus={() => {
+                if (formData.driverSearchQuery.trim().length > 0) {
+                  setShowDriverDropdown(true)
+                }
+              }}
+              onBlur={() => setTimeout(() => setShowDriverDropdown(false), 200)}
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+            />
+            {/* 기사 정보 표시 */}
+            {formData.driverId && (formData.driverPhone || formData.vehicleNumber) && (
+              <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border">
+                선택된 기사: <span className="font-medium text-gray-900">{formData.driverSearchQuery}</span>
+                {(formData.vehicleNumber || formData.driverPhone) && (
+                  <span className="ml-2">
+                    ({[formData.vehicleNumber, formData.driverPhone].filter(Boolean).join(' / ')})
+                  </span>
+                )}
+              </div>
+            )}
+            {showDriverDropdown && formData.driverSearchQuery.trim().length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border-2 border-blue-500 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                {drivers.length > 0 ? (
+                  drivers.map((driver: any) => (
+                    <div
+                      key={driver.id}
+                      className="px-4 py-3 hover:bg-blue-600 hover:text-white cursor-pointer text-sm border-b border-gray-200 last:border-b-0 transition-all duration-200"
+                      onMouseDown={() => selectDriver(driver)}
+                    >
+                      <div className="font-bold">{driver.name}</div>
+                      <div className="text-xs opacity-90 mt-1">
+                        {[driver.vehicleNumber, formatPhoneNumber(driver.phone || '')].filter(Boolean).join(' / ')}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                    검색 결과가 없습니다
                   </div>
-                ))
-              ) : (
-                <div className="px-4 py-3 text-sm text-gray-500 text-center">
-                  검색 결과가 없습니다
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 기사 계약형태 */}
+          <div>
+            <Label htmlFor="driverContractType">기사 계약형태 <span className="text-gray-500">(선택사항)</span></Label>
+            <Select
+              value={formData.driverContractType || "NONE"}
+              onValueChange={(value) => setFormData({ ...formData, driverContractType: value === "NONE" ? "" : value as any })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="계약형태 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NONE">선택안함</SelectItem>
+                {CONTRACT_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 기사 금액 */}
+          <div>
+            <Label htmlFor="driverAmount">기사 금액 <span className="text-gray-500">(선택사항)</span></Label>
+            <Input
+              type="number"
+              id="driverAmount"
+              value={formData.driverAmount}
+              onChange={(e) => setFormData({ ...formData, driverAmount: Number(e.target.value) })}
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+              placeholder="0"
+            />
+          </div>
         </div>
 
-        {/* 상차지 선택 */}
-        <div>
-          <Label htmlFor="loadingPointId">
-            상차지 <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={formData.loadingPointId}
-            onValueChange={(value) => setFormData({ ...formData, loadingPointId: value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="상차지 선택" />
-            </SelectTrigger>
-            <SelectContent className="z-50">
-              {loadingPoints.map((point: any) => (
-                <SelectItem key={point.id} value={point.id}>
-                  {point.centerName} - {point.loadingPointName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* 운행요일 */}
+        <div className="mt-4">
+          <Label>운행요일 <span className="text-red-500">*</span></Label>
+          <div className="grid grid-cols-4 gap-3 mt-2">
+            {WEEKDAYS.map((day) => (
+              <div key={day.value} className="flex items-center space-x-3">
+                <Checkbox
+                  id={`weekday-${day.value}`}
+                  checked={formData.operatingDays.includes(day.value)}
+                  onCheckedChange={(checked) => handleWeekdayChange(day.value, !!checked)}
+                />
+                <Label htmlFor={`weekday-${day.value}`} className="text-sm font-medium cursor-pointer">
+                  {day.label}
+                </Label>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* 기사 정보 (자동채움) */}
-        <div>
-          <Label htmlFor="driverPhone">기사 연락처 <span className="text-gray-500 text-xs">(자동)</span></Label>
-          <Input
-            type="tel"
-            id="driverPhone"
-            value={formData.driverPhone}
-            disabled
-            className="h-11 border-2 border-gray-300 bg-gray-50 text-gray-600 font-medium"
-            placeholder="기사 선택 시 자동 입력"
+        {/* 비고 */}
+        <div className="mt-4">
+          <Label htmlFor="remarks">비고</Label>
+          <textarea
+            id="remarks"
+            value={formData.remarks}
+            onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+            placeholder="추가 정보나 비고를 입력하세요"
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 resize-none"
+            rows={3}
+            maxLength={500}
           />
-        </div>
-
-        <div>
-          <Label htmlFor="vehicleNumber">차량번호 <span className="text-gray-500 text-xs">(자동)</span></Label>
-          <Input
-            type="text"
-            id="vehicleNumber"
-            value={formData.vehicleNumber}
-            disabled
-            className="h-11 border-2 border-gray-300 bg-gray-50 text-gray-600 font-medium"
-            placeholder="기사 선택 시 자동 입력"
-          />
-        </div>
-
-        {/* 노선명 */}
-        <div>
-          <Label htmlFor="routeName">
-            노선명 <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            type="text"
-            id="routeName"
-            required
-            value={formData.routeName}
-            onChange={(e) => setFormData({ ...formData, routeName: e.target.value })}
-            className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-            placeholder="노선명을 입력하세요"
-          />
-        </div>
-
-        {/* 계약형태 */}
-        <div>
-          <Label htmlFor="contractType">계약형태 <span className="text-red-500">*</span></Label>
-          <Select
-            value={formData.contractType}
-            onValueChange={(value) => setFormData({ ...formData, contractType: value as any })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CONTRACT_TYPES.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* 계약 형태별 금액 입력 필드 */}
-        {formData.contractType === 'FIXED_DAILY' && (
-          <>
-            <div>
-              <Label htmlFor="dailyRevenue">일매출 (원)</Label>
-              <Input
-                type="number"
-                id="dailyRevenue"
-                value={formData.dailyRevenue}
-                onChange={(e) => setFormData({ ...formData, dailyRevenue: Number(e.target.value) })}
-                className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-                placeholder="0"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="dailyOperatingCost">일운영비 (원)</Label>
-              <Input
-                type="number"
-                id="dailyOperatingCost"
-                value={formData.dailyOperatingCost}
-                onChange={(e) => setFormData({ ...formData, dailyOperatingCost: Number(e.target.value) })}
-                className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-                placeholder="0"
-              />
-            </div>
-          </>
-        )}
-
-        {(formData.contractType === 'FIXED_MONTHLY' || formData.contractType === 'CONSIGNED_MONTHLY') && (
-          <>
-            <div>
-              <Label htmlFor="monthlyRevenue">월매출 (원)</Label>
-              <Input
-                type="number"
-                id="monthlyRevenue"
-                value={formData.monthlyRevenue}
-                onChange={(e) => setFormData({ ...formData, monthlyRevenue: Number(e.target.value) })}
-                className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-                placeholder="0"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="monthlyOperatingCost">월운영비 (원)</Label>
-              <Input
-                type="number"
-                id="monthlyOperatingCost"
-                value={formData.monthlyOperatingCost}
-                onChange={(e) => setFormData({ ...formData, monthlyOperatingCost: Number(e.target.value) })}
-                className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-                placeholder="0"
-              />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* 운행요일 */}
-      <div>
-        <Label>운행요일 <span className="text-red-500">*</span></Label>
-        <div className="grid grid-cols-4 gap-3 mt-2">
-          {WEEKDAYS.map((day) => (
-            <div key={day.value} className="flex items-center space-x-3">
-              <Checkbox
-                id={`weekday-${day.value}`}
-                checked={formData.operatingDays.includes(day.value)}
-                onCheckedChange={(checked) => handleWeekdayChange(day.value, !!checked)}
-              />
-              <Label htmlFor={`weekday-${day.value}`} className="text-sm font-medium cursor-pointer">
-                {day.label}
-              </Label>
-            </div>
-          ))}
         </div>
       </div>
 
-      {/* 특이사항 */}
-      <div>
-        <Label htmlFor="specialConditions">특이사항</Label>
-        <textarea
-          id="specialConditions"
-          value={formData.specialConditions}
-          onChange={(e) => setFormData({ ...formData, specialConditions: e.target.value })}
-          placeholder="특이사항을 입력하세요"
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 resize-none"
-          rows={3}
-          maxLength={500}
-        />
-      </div>
+      {/* 계약 기간 */}
+      <div className="bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          <div className="w-3 h-3 bg-gray-600 rounded-full mr-2"></div>
+          계약 기간
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 시작일 */}
+          <div>
+            <Label htmlFor="startDate">시작일 <span className="text-gray-500">(선택사항)</span></Label>
+            <Input
+              type="date"
+              id="startDate"
+              value={formData.startDate}
+              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+            />
+          </div>
 
-      {/* 비고 */}
-      <div>
-        <Label htmlFor="remarks">비고</Label>
-        <textarea
-          id="remarks"
-          value={formData.remarks}
-          onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-          placeholder="추가 정보나 비고를 입력하세요"
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 resize-none"
-          rows={3}
-          maxLength={500}
-        />
+          {/* 종료일 */}
+          <div>
+            <Label htmlFor="endDate">종료일 <span className="text-gray-500">(선택사항)</span></Label>
+            <Input
+              type="date"
+              id="endDate"
+              value={formData.endDate}
+              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+              className="h-11 border-2 border-gray-300 bg-white text-gray-900 font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end space-x-2 pt-4">

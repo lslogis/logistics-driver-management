@@ -56,9 +56,10 @@ const CONTRACT_TYPE_MAP: Record<string, string> = {
   "고정(월대)": "FIXED_MONTHLY",
   고정월대: "FIXED_MONTHLY",
   월고정: "FIXED_MONTHLY",
-  "고정(지입)": "CONSIGNED_MONTHLY",
   고정지입: "CONSIGNED_MONTHLY",
+  "고정(지입)": "CONSIGNED_MONTHLY",
   월위탁: "CONSIGNED_MONTHLY",
+  용차운임: "CHARTER_PER_RIDE",
   건별용차: "CHARTER_PER_RIDE",
 };
 
@@ -236,7 +237,7 @@ export const GET = withAuth(
             차량번호: "12가3456",
             연락처: "010-1234-5678",
             운행요일: "월,수,금",
-            센터계약: "고정일대",
+            센터계약: "고정(일대)",
             센터금액: "450000",
             기사계약: "고정지입",
             기사금액: "350000",
@@ -246,7 +247,7 @@ export const GET = withAuth(
           },
         ]);
 
-      const filename = `고정계약등록템플릿_${new Date().toISOString().slice(0, 10)}.csv`;
+      const filename = `${new Date().toISOString().slice(0, 10)}_고정계약등록템플릿.csv`;
 
       return new NextResponse(csvContent, {
         status: 200,
@@ -608,6 +609,7 @@ export const POST = withAuth(
                 centerAmount: contractData.centerAmount || 0,
                 driverAmount: contractData.driverAmount,
                 startDate: contractData.startDate,
+                endDate: contractData.endDate,
                 remarks: contractData.remarks,
                 createdBy: user.id,
               },

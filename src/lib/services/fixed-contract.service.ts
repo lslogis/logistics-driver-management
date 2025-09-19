@@ -175,6 +175,7 @@ export class FixedContractService {
     data: CreateFixedContractRequest, 
     createdBy: string
   ): Promise<FixedContractResponse> {
+    console.log('Creating fixed contract with createdBy:', createdBy)
     // Validate driver exists and is active
     if (data.driverId) {
       const driver = await this.prisma.driver.findFirst({ where: { id: data.driverId } })
@@ -237,9 +238,7 @@ export class FixedContractService {
       loadingPoint: {
         connect: { id: data.loadingPointId }
       },
-      creator: {
-        connect: { id: createdBy }
-      }
+      ...(createdBy ? { creator: { connect: { id: createdBy } } } : {})
     }
 
     const contract = await this.prisma.fixedContract.create({

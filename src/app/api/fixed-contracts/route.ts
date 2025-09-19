@@ -81,6 +81,8 @@ export const POST = withAuth(
           }
         }, { status: 401 })
       }
+      
+      console.log('Current user:', user)
 
       // 요청 데이터 검증
       const body = await req.json()

@@ -40,10 +40,10 @@ const CreateFixedContractBase = z.object({
     .max(7, '운행 요일은 최대 7개까지 선택 가능합니다'),
   // 금액 (필수)
   centerAmount: z.number({ required_error: '센터금액을 입력해주세요' })
-    .positive('센터금액은 0보다 큰 값이어야 합니다')
+    .nonnegative('센터금액은 0 이상이어야 합니다')
     .max(999999999, '센터금액은 10억 미만으로 입력해주세요'),
   driverAmount: z.number()
-    .positive('기사금액은 0보다 큰 값이어야 합니다')
+    .nonnegative('기사금액은 0 이상이어야 합니다')
     .max(999999999, '기사금액은 10억 미만으로 입력해주세요')
     .optional(),
   

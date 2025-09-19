@@ -22,6 +22,7 @@ model User {
   sessions             Session[]
   confirmedSettlements Settlement[] @relation("SettlementConfirmer")
   settlements          Settlement[] @relation("SettlementCreator")
+  createdFixedContracts FixedContract[]
 
   @@map("users")
 }
@@ -80,6 +81,7 @@ model Driver {
   representative String?
   settlements    Settlement[]    @relation("DriverSettlements")
   dispatches     Dispatch[]
+  fixedContracts FixedContract[]
 
   @@index([name])
   @@index([phone])
@@ -104,6 +106,7 @@ model LoadingPoint {
   remarks          String?
   centerFares      CenterFare[]    @relation("LoadingPointCenterFares")
   requests         Request[]
+  fixedContracts   FixedContract[]
 
   @@unique([centerName])
   @@index([centerName])
@@ -207,6 +210,9 @@ model FixedContract {
   updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
   createdBy          String?
   endDate            DateTime?     @db.Date
+  driver             Driver?       @relation(fields: [driverId], references: [id])
+  loadingPoint       LoadingPoint  @relation(fields: [loadingPointId], references: [id])
+  creator            User?         @relation(fields: [createdBy], references: [id])
 
   @@unique([loadingPointId, routeName], name: "unique_center_route")
   @@index([driverId, isActive])

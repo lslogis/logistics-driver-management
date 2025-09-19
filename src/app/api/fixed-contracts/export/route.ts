@@ -53,21 +53,21 @@ export async function GET(request: NextRequest) {
 
     // 요일 라벨 정의
     const WEEKDAY_LABELS: { [key: number]: string } = {
-      0: '일요일',
-      1: '월요일',
-      2: '화요일',
-      3: '수요일',
-      4: '목요일',
-      5: '금요일',
-      6: '토요일'
+      0: '일',
+      1: '월',
+      2: '화',
+      3: '수',
+      4: '목',
+      5: '금',
+      6: '토'
     }
 
     // 계약 타입 라벨 정의
     const CONTRACT_TYPE_LABELS: { [key: string]: string } = {
-      'FIXED_DAILY': '고정일대',
-      'FIXED_MONTHLY': '고정월대',
+      'FIXED_DAILY': '고정(일대)',
+      'FIXED_MONTHLY': '고정(월대)',
       'CONSIGNED_MONTHLY': '고정지입',
-      'CHARTER_PER_RIDE': '건별용차'
+      'CHARTER_PER_RIDE': '용차운임'
     }
 
     // 운행요일 포맷팅 함수
@@ -106,7 +106,8 @@ export async function GET(request: NextRequest) {
         return date.toLocaleDateString('ko-KR', {
           year: 'numeric',
           month: '2-digit',
-          day: '2-digit'
+          day: '2-digit',
+          timeZone: 'Asia/Seoul'
         }).replace(/\./g, '/').replace(/\s/g, '').replace(/\/$/, '')
       } catch {
         return '-'
@@ -234,7 +235,7 @@ export async function GET(request: NextRequest) {
         // Excel 파일 버퍼 생성
         const buffer = await workbook.xlsx.writeBuffer()
         
-        const filename = `고정계약목록_${new Date().toISOString().split('T')[0]}.xlsx`
+        const filename = `${new Date().toISOString().split('T')[0]}_고정계약목록.xlsx`
         
         return new NextResponse(buffer, {
           status: 200,
@@ -276,7 +277,7 @@ export async function GET(request: NextRequest) {
       .map(row => row.map(cell => `"${cell}"`).join(','))
       .join('\n')
     
-    const filename = `고정계약목록_${new Date().toISOString().split('T')[0]}.csv`
+    const filename = `${new Date().toISOString().split('T')[0]}_고정계약목록.csv`
     
     return new NextResponse(csvContent, {
       status: 200,

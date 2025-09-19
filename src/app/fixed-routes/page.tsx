@@ -3,183 +3,198 @@
 export const dynamic = 'force-dynamic'
 
 import React, { useState, useMemo } from 'react'
-import { Route, Eye, Edit, Copy, Share2, CheckCircle, XCircle, MapPin, Clock, Truck, Calendar } from 'lucide-react'
+import { Route, Eye, Edit, Copy, Share2, CheckCircle, XCircle, MapPin, Clock, Truck, Calendar, Plus, Upload, Download, Building2, UserCheck } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ContextMenuItem } from '@/components/ui/ContextMenu'
-import { ThemedManagementPage } from '@/components/shared/ThemedManagementPage'
-import { ColorTheme } from '@/components/shared/ColorThemeProvider'
-import { FixedRoute, CreateFixedRouteData, UpdateFixedRouteData, VEHICLE_TYPE_LABELS, FREQUENCY_LABELS } from '@/types/management'
-import { dummyFixedRoutes } from '@/data/dummyData'
+import { ContextMenuItem, ContextMenu } from '@/components/ui/ContextMenu'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ImportModal } from '@/components/import'
+import { useFixedContracts, useCreateFixedContract, useUpdateFixedContract, useDeleteFixedContract, useToggleFixedContractStatus } from '@/hooks/useFixedContracts'
+import { useLoadingPoints } from '@/hooks/useLoadingPoints'
 import { cn } from '@/lib/utils'
+import { formatPhoneNumber } from '@/lib/utils/format'
+import { ContractType } from '@prisma/client'
+import { FixedContractResponse } from '@/lib/validations/fixedContract'
+import FixedContractForm from '@/components/forms/FixedContractForm'
+import FixedContractDetailDrawer from '@/components/fixedRoutes/FixedContractDetailDrawer'
 
-// Mock hooks for demonstration
-const useFixedRoutes = (search: string, statusFilter: string) => {
-  const filteredData = useMemo(() => {
-    return dummyFixedRoutes.filter(route => {
-      const matchesSearch = !search || 
-        route.routeName.toLowerCase().includes(search.toLowerCase()) ||
-        route.routeCode.toLowerCase().includes(search.toLowerCase()) ||
-        route.origin.toLowerCase().includes(search.toLowerCase()) ||
-        route.destination.toLowerCase().includes(search.toLowerCase())
-
-      const matchesStatus = statusFilter === 'all' || 
-        (statusFilter === 'active' && route.isActive) ||
-        (statusFilter === 'inactive' && !route.isActive)
-
-      return matchesSearch && matchesStatus
-    })
-  }, [search, statusFilter])
-
-  return {
-    data: { pages: [{ items: filteredData }] },
-    isLoading: false,
-    error: null,
-    fetchNextPage: () => {},
-    hasNextPage: false,
-    isFetchingNextPage: false
-  }
+// Contract type labels
+const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
+  FIXED_DAILY: '고정(일대)',
+  FIXED_MONTHLY: '고정(월대)',
+  CONSIGNED_MONTHLY: '고정지입',
+  CHARTER_PER_RIDE: '용차운임'
 }
 
-const useMockMutations = () => ({
-  create: { mutate: (data: any) => toast.success('고정노선이 등록되었습니다'), isPending: false },
-  update: { mutate: (data: any) => toast.success('고정노선이 수정되었습니다'), isPending: false },
-  activate: { mutate: (id: string) => toast.success('고정노선이 활성화되었습니다') },
-  deactivate: { mutate: (id: string) => toast.success('고정노선이 비활성화되었습니다') },
-  bulkActivate: { mutate: (ids: string[]) => toast.success(`${ids.length}개 노선이 활성화되었습니다`) },
-  bulkDeactivate: { mutate: (ids: string[]) => toast.success(`${ids.length}개 노선이 비활성화되었습니다`) },
-  bulkDelete: { mutate: (ids: string[]) => toast.success(`${ids.length}개 노선이 삭제되었습니다`) },
-  export: { mutate: () => toast.success('엑셀 파일이 다운로드되었습니다'), isPending: false }
-})
+// Operating days labels
+const OPERATING_DAYS_LABELS: Record<number, string> = {
+  0: '일',
+  1: '월',
+  2: '화',
+  3: '수',
+  4: '목',
+  5: '금',
+  6: '토'
+}
 
-// Form components (placeholder)
-const FixedRouteForm: React.FC<{
-  route?: FixedRoute
-  onSubmit: (data: CreateFixedRouteData | UpdateFixedRouteData) => void
-  isLoading: boolean
-  onCancel: () => void
-}> = ({ route, onSubmit, isLoading, onCancel }) => (
-  <div className="p-6">
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">노선명</label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            defaultValue={route?.routeName}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">노선코드</label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            defaultValue={route?.routeCode}
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">출발지</label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            defaultValue={route?.origin}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">도착지</label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            defaultValue={route?.destination}
-          />
-        </div>
-      </div>
-      <div className="flex justify-end space-x-3 pt-4">
-        <Button variant="outline" onClick={onCancel}>취소</Button>
-        <Button 
-          onClick={() => onSubmit({})} 
-          disabled={isLoading}
-          className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600"
-        >
-          {isLoading ? '저장 중...' : (route ? '수정' : '등록')}
-        </Button>
-      </div>
-    </div>
-  </div>
-)
+// Format operating days for display
+const formatOperatingDays = (days: number[]) => {
+  if (!days || days.length === 0) return '-'
+  return days.sort((a, b) => a - b).map(d => OPERATING_DAYS_LABELS[d] || d).join(', ')
+}
+
+// Format currency
+const formatCurrency = (amount: number | null | undefined) => {
+  if (amount == null) return '-'
+  return `${amount.toLocaleString()}원`
+}
+
+// Format date
+const formatDate = (date: string | null | undefined) => {
+  if (!date) return '-'
+  return new Date(date).toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'Asia/Seoul'
+  })
+}
 
 export default function FixedRoutesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [vehicleTypeFilter, setVehicleTypeFilter] = useState('all')
+  const [contractTypeFilter, setContractTypeFilter] = useState<ContractType | undefined>(undefined)
+  const [centerFilter, setCenterFilter] = useState('all')
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
-  const [editingRoute, setEditingRoute] = useState<FixedRoute | null>(null)
+  const [editingContract, setEditingContract] = useState<FixedContractResponse | null>(null)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
+  const [detailContract, setDetailContract] = useState<FixedContractResponse | null>(null)
 
   // Data fetching
   const { 
     data, 
     isLoading, 
     error, 
-    fetchNextPage, 
-    hasNextPage, 
-    isFetchingNextPage 
-  } = useFixedRoutes(searchTerm, statusFilter)
-  
-  const routesData = useMemo(() => {
-    return data?.pages?.flatMap((page: any) => (page.items || page.data || [])) || []
-  }, [data])
+    refetch 
+  } = useFixedContracts({
+    search: searchTerm || undefined,
+    isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
+    contractType: contractTypeFilter,
+    page: 1,
+    limit: 100
+  })
 
-  const totalCount = routesData.length
+  // Loading points for center filter
+  const { data: loadingPointsData } = useLoadingPoints('', 'active')
+  
+  const contractsData = useMemo(() => {
+    let contracts = data?.contracts || []
+    
+    // Apply center filter
+    if (centerFilter !== 'all') {
+      contracts = contracts.filter(contract => 
+        contract.loadingPoint?.centerName === centerFilter
+      )
+    }
+    
+    return contracts
+  }, [data, centerFilter])
+
+  // Get loading points for center filter dropdown
+  const loadingPoints = loadingPointsData?.pages?.flatMap((page: any) => (page.items || page.data || [])) || []
+  const centerOptions = useMemo(() => {
+    const centers = loadingPoints.map((point: any) => point.centerName).filter(Boolean)
+    return [...new Set(centers)].sort()
+  }, [loadingPoints])
+
+  const totalCount = data?.pagination?.totalCount || 0
 
   // Mutations
-  const mutations = useMockMutations()
-
-  // Filter data
-  const filteredData = useMemo(() => {
-    return routesData.filter(route => {
-      const matchesVehicleType = vehicleTypeFilter === 'all' || route.vehicleType === vehicleTypeFilter
-      return matchesVehicleType
-    })
-  }, [routesData, vehicleTypeFilter])
+  const createMutation = useCreateFixedContract()
+  const updateMutation = useUpdateFixedContract()
+  const deleteMutation = useDeleteFixedContract()
+  const toggleMutation = useToggleFixedContractStatus()
 
   // CRUD handlers
-  const handleCreate = (data: CreateFixedRouteData) => {
-    mutations.create.mutate(data)
-    setCreateModalOpen(false)
+  const handleCreate = (data: any) => {
+    createMutation.mutate(data, {
+      onSuccess: () => {
+        setCreateModalOpen(false)
+        refetch()
+      }
+    })
   }
 
-  const handleUpdate = (data: UpdateFixedRouteData) => {
-    if (!editingRoute) return
-    mutations.update.mutate({ id: editingRoute.id, data })
-    setEditModalOpen(false)
-    setEditingRoute(null)
+  const handleUpdate = (data: any) => {
+    if (!editingContract) return
+    updateMutation.mutate({ id: editingContract.id, data }, {
+      onSuccess: () => {
+        setEditModalOpen(false)
+        setEditingContract(null)
+        refetch()
+      }
+    })
   }
 
-  const handleActivate = (id: string) => mutations.activate.mutate(id)
-  const handleDeactivate = (id: string) => mutations.deactivate.mutate(id)
+  const handleToggleStatus = (id: string) => {
+    toggleMutation.mutate(id, {
+      onSuccess: () => refetch()
+    })
+  }
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('정말 이 고정계약을 삭제하시겠습니까?')) {
+      deleteMutation.mutate(id, {
+        onSuccess: () => refetch()
+      })
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      const response = await fetch('/api/fixed-contracts/export')
+      if (!response.ok) throw new Error('Export failed')
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `고정계약_${new Date().toISOString().slice(0, 10)}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast.success('엑셀 파일이 다운로드되었습니다')
+    } catch (error) {
+      toast.error('다운로드에 실패했습니다')
+    }
+  }
 
   // Context menu items
-  const getContextMenuItems = (route: FixedRoute): ContextMenuItem[] => [
+  const getContextMenuItems = (contract: FixedContractResponse): ContextMenuItem[] => [
     {
       id: 'view',
       label: '상세 보기',
       icon: <Eye className="h-4 w-4" />,
-      onClick: () => toast.info(`${route.routeName} 상세 정보`)
+      onClick: () => {
+        setDetailContract(contract)
+        setDetailDrawerOpen(true)
+      }
     },
     {
       id: 'edit',
       label: '수정',
       icon: <Edit className="h-4 w-4" />,
       onClick: () => {
-        setEditingRoute(route)
+        setEditingContract(contract)
         setEditModalOpen(true)
       }
     },
@@ -187,215 +202,448 @@ export default function FixedRoutesPage() {
       id: 'copy',
       label: '정보 복사',
       icon: <Copy className="h-4 w-4" />,
-      onClick: () => toast.success('노선 정보가 복사되었습니다')
-    },
-    {
-      id: 'share',
-      label: '공유',
-      icon: <Share2 className="h-4 w-4" />,
-      onClick: () => toast.success('노선 정보가 공유되었습니다')
+      onClick: () => {
+        const info = `${contract.loadingPoint?.centerName || '-'} - ${contract.routeName}\n` +
+          `기사: ${contract.driver?.name || '미지정'}\n` +
+          `운행요일: ${formatOperatingDays(contract.operatingDays)}\n` +
+          `센터계약: ${CONTRACT_TYPE_LABELS[contract.centerContractType]} ${formatCurrency(contract.centerAmount)}`
+        navigator.clipboard.writeText(info)
+        toast.success('계약 정보가 복사되었습니다')
+      }
     },
     {
       id: 'toggle',
-      label: route.isActive ? '비활성화' : '활성화',
-      icon: route.isActive ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />,
-      onClick: () => route.isActive ? handleDeactivate(route.id) : handleActivate(route.id)
+      label: contract.isActive ? '비활성화' : '활성화',
+      icon: contract.isActive ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />,
+      onClick: () => handleToggleStatus(contract.id)
     }
   ]
 
-  // Render item function
-  const renderItem = (route: FixedRoute, theme: ColorTheme) => (
-    <div className="flex items-start justify-between">
-      <div className="flex-1 min-w-0 mr-4">
-        {/* Route Name and Code */}
-        <div className="flex items-center space-x-3 mb-2">
-          <h3 className="text-lg font-bold text-gray-900 truncate">
-            {route.routeName}
-          </h3>
-          <Badge
-            variant={route.isActive ? "default" : "secondary"}
-            className={cn(
-              "text-xs font-semibold",
-              route.isActive 
-                ? "bg-green-100 text-green-800 border-green-200" 
-                : "bg-red-100 text-red-800 border-red-200"
-            )}
-          >
-            {route.isActive ? '활성' : '비활성'}
-          </Badge>
-        </div>
-
-        <div className={cn("text-base font-medium mb-2", theme.primaryText)}>
-          {route.routeCode}
-        </div>
-
-        {/* Route Details */}
-        <div className="space-y-2 mb-3">
-          <div className="flex items-center text-sm text-gray-700">
-            <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-            <span className="font-medium">출발:</span>
-            <span className="ml-1">{route.origin}</span>
-          </div>
-          <div className="flex items-center text-sm text-gray-700">
-            <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-            <span className="font-medium">도착:</span>
-            <span className="ml-1">{route.destination}</span>
-          </div>
-        </div>
-
-        {/* Route Info */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-          <div className="flex items-center space-x-1">
-            <Route className="h-4 w-4" />
-            <span>{route.distance}km</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Clock className="h-4 w-4" />
-            <span>{Math.floor(route.estimatedTime / 60)}시간 {route.estimatedTime % 60}분</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Truck className="h-4 w-4" />
-            <span>{VEHICLE_TYPE_LABELS[route.vehicleType]}</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Calendar className="h-4 w-4" />
-            <span>{FREQUENCY_LABELS[route.frequency]}</span>
-          </div>
-        </div>
-
-        {/* Driver and Price Info */}
-        <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
-          {route.driverName && (
-            <div className="text-gray-700">
-              <span className="font-medium">담당기사:</span>
-              <span className="ml-1">{route.driverName}</span>
-            </div>
-          )}
-          <div className="text-gray-700">
-            <span className="font-medium">기본요금:</span>
-            <span className="ml-1 font-semibold">{route.basePrice.toLocaleString()}원</span>
-          </div>
-        </div>
-
-        {/* Notes */}
-        {route.notes && (
-          <div className="mt-2 text-sm text-gray-500">
-            <span className="font-medium">비고:</span>
-            <span className="ml-1">{route.notes}</span>
-          </div>
-        )}
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-red-600">데이터를 불러오는 중 오류가 발생했습니다</div>
       </div>
-
-      {/* Action Buttons */}
-      <div className="flex-shrink-0 flex items-center space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation()
-            toast.info(`${route.routeName} 상세 정보`)
-          }}
-          className={cn("border-indigo-200 text-indigo-600 hover:bg-indigo-50")}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation()
-            setEditingRoute(route)
-            setEditModalOpen(true)
-          }}
-          className={cn("border-indigo-200 text-indigo-600 hover:bg-indigo-50")}
-        >
-          <Edit className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  )
+    )
+  }
 
   return (
-    <>
-      <ThemedManagementPage
-        theme="fixed-routes"
-        title="고정관리"
-        subtitle="정기 운송 노선을 효율적으로 관리하세요"
-        icon={<Route />}
-        data={filteredData}
-        totalCount={totalCount}
-        isLoading={isLoading}
-        error={error}
-        fetchNextPage={fetchNextPage}
-        hasNextPage={hasNextPage}
-        isFetchingNextPage={isFetchingNextPage}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        additionalFilters={[
-          {
-            label: '차량유형',
-            value: vehicleTypeFilter,
-            onChange: setVehicleTypeFilter,
-            options: [
-              { value: 'all', label: '전체 유형' },
-              { value: 'small', label: '소형' },
-              { value: 'medium', label: '중형' },
-              { value: 'large', label: '대형' },
-              { value: 'extra_large', label: '특대형' }
-            ]
-          }
-        ]}
-        onCreateClick={() => setCreateModalOpen(true)}
-        onImportClick={() => setImportModalOpen(true)}
-        onExportClick={() => mutations.export.mutate()}
-        renderItem={renderItem}
-        getContextMenuItems={getContextMenuItems}
-        selectedIds={selectedIds}
-        setSelectedIds={setSelectedIds}
-        onBulkActivate={(ids) => mutations.bulkActivate.mutate(ids)}
-        onBulkDeactivate={(ids) => mutations.bulkDeactivate.mutate(ids)}
-        onBulkDelete={(ids) => mutations.bulkDelete.mutate(ids)}
-        emptyStateMessage="등록된 고정노선이 없습니다"
-        emptyStateAction="새로운 고정노선을 등록하여 시작해보세요"
-      />
+    <div className="min-h-screen bg-gradient-to-br from-violet-100 to-indigo-100">
+      {/* Header Section */}
+      <div className="bg-white shadow-sm border-b border-violet-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl shadow-lg">
+                <Route className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">고정 관리</h1>
+                <p className="text-lg text-gray-600 mt-1">고정계약 노선을 관리하세요</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <Button 
+                onClick={() => setCreateModalOpen(true)}
+                className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                계약 등록
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {/* Create Modal */}
-      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900">
-              고정노선 등록
-            </DialogTitle>
-          </DialogHeader>
-          <FixedRouteForm
-            onSubmit={handleCreate}
-            isLoading={mutations.create.isPending}
-            onCancel={() => setCreateModalOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white shadow-lg border-violet-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600">전체 계약</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{totalCount}</div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white shadow-lg border-violet-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600">활성 계약</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {contractsData.filter(c => c.isActive).length}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white shadow-lg border-violet-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600">비활성 계약</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-500">
+                {contractsData.filter(c => !c.isActive).length}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white shadow-lg border-violet-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600">기사 미지정</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">
+                {contractsData.filter(c => !c.driverId).length}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Edit Modal */}
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900">
-              고정노선 수정
-            </DialogTitle>
-          </DialogHeader>
-          <FixedRouteForm
-            route={editingRoute || undefined}
-            onSubmit={handleUpdate}
-            isLoading={mutations.update.isPending}
-            onCancel={() => {
-              setEditModalOpen(false)
-              setEditingRoute(null)
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-    </>
+        {/* Filters and Actions */}
+        <Card className="bg-white shadow-lg border-violet-200 mb-6">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 flex-1">
+                {/* Search Input */}
+                <div className="max-w-xs">
+                  <Input
+                    placeholder="노선명, 센터명, 기사명 검색"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-11 border-2 border-violet-300 focus:border-violet-500 focus:ring-violet-500/20 bg-white rounded-md"
+                  />
+                </div>
+                
+                {/* Center Filter */}
+                <Select value={centerFilter} onValueChange={setCenterFilter}>
+                  <SelectTrigger className="w-40 h-11 border-2 border-violet-300 focus:border-violet-500 bg-white">
+                    <SelectValue placeholder="센터명" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    {centerOptions.map((centerName) => (
+                      <SelectItem key={centerName} value={centerName}>{centerName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Status Filter */}
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40 h-11 border-2 border-violet-300 focus:border-violet-500 bg-white">
+                    <SelectValue placeholder="상태" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="active">활성</SelectItem>
+                    <SelectItem value="inactive">비활성</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Contract Type Filter */}
+                <Select 
+                  value={contractTypeFilter || 'all'} 
+                  onValueChange={(value) => setContractTypeFilter(value === 'all' ? undefined : value as ContractType)}
+                >
+                  <SelectTrigger className="w-40 h-11 border-2 border-violet-300 focus:border-violet-500 bg-white">
+                    <SelectValue placeholder="계약유형" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    {Object.entries(CONTRACT_TYPE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                {/* Action Buttons */}
+                <Button
+                  variant="outline"
+                  onClick={() => setImportModalOpen(true)}
+                  className="border-violet-300 text-violet-700 hover:bg-violet-100"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  가져오기
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={handleExport}
+                  className="border-violet-300 text-violet-700 hover:bg-violet-100"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  내보내기
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Loading State */}
+        {isLoading && (
+          <Card className="bg-white shadow-lg border-violet-200">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600 mr-3"></div>
+                <span className="text-gray-600">고정계약을 불러오는 중...</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && contractsData.length === 0 && (
+          <Card className="bg-white shadow-lg border-violet-200">
+            <CardContent className="p-12">
+              <div className="text-center">
+                <div className="mb-4">
+                  <Route className="h-16 w-16 text-violet-400 mx-auto" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  등록된 고정계약이 없습니다
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  새로운 고정계약을 등록하여 시작해보세요.
+                </p>
+                <Button 
+                  onClick={() => setCreateModalOpen(true)}
+                  className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  계약 등록
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Contracts List */}
+        {!isLoading && contractsData.length > 0 && (
+          <Card className="bg-white shadow-lg border-violet-200">
+            <CardContent className="p-0">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-violet-50 to-indigo-50 px-6 py-4 border-b border-violet-100">
+                <div className="text-sm text-gray-600">
+                  총 {totalCount.toLocaleString()}개
+                </div>
+              </div>
+
+              {/* Contract List */}
+              <div className="divide-y divide-violet-100">
+                {contractsData.map((contract: FixedContractResponse) => (
+                  <ContextMenu
+                    key={contract.id}
+                    items={getContextMenuItems(contract)}
+                    asChild
+                  >
+                    <div className={cn(
+                      "p-6 hover:bg-violet-50/50 transition-colors cursor-pointer",
+                      !contract.isActive && "bg-gray-50"
+                    )}>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-3 flex-1">
+                          {/* First Line: Route Name and Center */}
+                          <div className="flex items-center space-x-3">
+                            <span className="text-lg font-semibold text-gray-900">
+                              {contract.routeName}
+                            </span>
+                            <Badge variant="outline" className="border-violet-200 text-violet-700">
+                              {contract.loadingPoint?.centerName || '센터 미지정'}
+                            </Badge>
+                            {!contract.isActive && (
+                              <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200">
+                                비활성
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Second Line: Center Contract */}
+                          <div className="flex items-center space-x-4 text-sm">
+                            <div className="flex items-center">
+                              <Building2 className="h-4 w-4 text-gray-400 mr-2" />
+                              <span className="text-gray-600">센터계약:</span>
+                              <span className="text-violet-600 font-medium ml-1">
+                                {CONTRACT_TYPE_LABELS[contract.centerContractType]}
+                              </span>
+                            </div>
+                            <div className="flex items-center">
+                              <span className="text-gray-600">센터금액:</span>
+                              <span className="text-gray-900 font-semibold ml-1">
+                                {formatCurrency(contract.centerAmount)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Third Line: Driver Info */}
+                          <div className="flex items-center space-x-4 text-sm">
+                            <div className="flex items-center">
+                              <Truck className="h-4 w-4 text-gray-400 mr-2" />
+                              <span className="text-gray-600">기사:</span>
+                              <span className="text-gray-900 font-medium ml-1">
+                                {contract.driver?.name || '미지정'}
+                              </span>
+                              {(contract.driver?.vehicleNumber || contract.driver?.phone) && (
+                                <span className="text-gray-600 ml-2">
+                                  ({[
+                                    contract.driver?.vehicleNumber,
+                                    contract.driver?.phone ? formatPhoneNumber(contract.driver.phone) : null
+                                  ].filter(Boolean).join(' / ')})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Fourth Line: Driver Contract */}
+                          {(contract.driverContractType || contract.driverAmount) && (
+                            <div className="flex items-center space-x-4 text-sm">
+                              {contract.driverContractType && (
+                                <div className="flex items-center">
+                                  <UserCheck className="h-4 w-4 text-gray-400 mr-2" />
+                                  <span className="text-gray-600">기사계약:</span>
+                                  <span className="text-indigo-600 font-medium ml-1">
+                                    {CONTRACT_TYPE_LABELS[contract.driverContractType]}
+                                  </span>
+                                </div>
+                              )}
+                              {contract.driverAmount != null && (
+                                <div className="flex items-center">
+                                  <span className="text-gray-600">기사금액:</span>
+                                  <span className="text-gray-900 font-semibold ml-1">
+                                    {formatCurrency(contract.driverAmount)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Fifth Line: Operating Days */}
+                          <div className="flex items-center space-x-4 text-sm">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                              <span className="text-gray-600">운행:</span>
+                              <span className="text-gray-900 font-medium ml-1">
+                                {formatOperatingDays(contract.operatingDays)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Sixth Line: Date Range */}
+                          {(contract.startDate || contract.endDate) && (
+                            <div className="flex items-center text-sm text-gray-600">
+                              <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                              <span>
+                                {contract.startDate ? formatDate(contract.startDate) : '시작일 미정'}
+                                {contract.endDate && ` ~ ${formatDate(contract.endDate)}`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDetailContract(contract)
+                              setDetailDrawerOpen(true)
+                            }}
+                            className="border-violet-200 text-violet-600 hover:bg-violet-50"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingContract(contract)
+                              setEditModalOpen(true)
+                            }}
+                            className="border-violet-200 text-violet-600 hover:bg-violet-50"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </ContextMenu>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Import Modal */}
+        <ImportModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          type="fixed-contracts"
+          onSuccess={() => {
+            refetch()
+          }}
+        />
+
+        {/* Create Modal */}
+        <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>고정계약 등록</DialogTitle>
+            </DialogHeader>
+            <FixedContractForm
+              onSubmit={handleCreate}
+              isLoading={createMutation.isPending}
+              onCancel={() => setCreateModalOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Modal */}
+        <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>고정계약 수정</DialogTitle>
+            </DialogHeader>
+            <FixedContractForm
+              fixedContract={editingContract}
+              onSubmit={handleUpdate}
+              isLoading={updateMutation.isPending}
+              onCancel={() => {
+                setEditModalOpen(false)
+                setEditingContract(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Detail Drawer */}
+        <FixedContractDetailDrawer
+          contract={detailContract}
+          isOpen={detailDrawerOpen}
+          onClose={() => {
+            setDetailDrawerOpen(false)
+            setDetailContract(null)
+          }}
+          onEdit={() => {
+            if (detailContract) {
+              setEditingContract(detailContract)
+              setEditModalOpen(true)
+              setDetailDrawerOpen(false)
+              setDetailContract(null)
+            }
+          }}
+          onCall={(phone: string) => {
+            window.open(`tel:${phone}`, '_self')
+          }}
+        />
+      </div>
+    </div>
   )
 }

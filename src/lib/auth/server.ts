@@ -23,6 +23,34 @@ export async function getCurrentUser(req: NextRequest): Promise<AuthUser | null>
     })
 
     if (!token) {
+      console.log('No token found')
+      return null
+    }
+
+    console.log('Token data:', {
+      id: token.id,
+      email: token.email,
+      name: token.name,
+      role: token.role,
+      isActive: token.isActive
+    })
+
+    // 데이터베이스에서 사용자 확인
+    const dbUser = await prisma.user.findUnique({
+      where: { id: token.id as string },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true
+      }
+    })
+
+    console.log('DB user found:', dbUser)
+
+    if (!dbUser) {
+      console.error('User not found in database:', token.id)
       return null
     }
 

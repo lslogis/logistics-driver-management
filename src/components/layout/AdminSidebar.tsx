@@ -48,21 +48,21 @@ const navigation = [
     action: 'read'
   },
   { 
-    name: '고정 관리', 
-    href: '/fixed-routes', 
-    icon: Route,
-    badge: null,
-    description: '고정노선 관리',
-    resource: 'fixed_routes',
-    action: 'read'
-  },
-  { 
     name: '기사 관리', 
     href: '/drivers', 
     icon: Users,
     badge: 'HOT',
     description: '운송기사 등록 및 관리',
     resource: 'drivers',
+    action: 'read'
+  },
+  { 
+    name: '고정 관리', 
+    href: '/fixed-routes', 
+    icon: Route,
+    badge: null,
+    description: '고정노선 관리',
+    resource: 'fixed_routes',
     action: 'read'
   },
   { 
