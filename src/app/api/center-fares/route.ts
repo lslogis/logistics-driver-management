@@ -14,9 +14,9 @@ const CreateCenterFareSchema = z.object({
   vehicleType: z.string().min(1, '차량 톤수는 필수입니다'),
   region: z.string().optional().nullable(),
   fareType: z.enum(['BASIC', 'STOP_FEE']),
-  baseFare: z.number().int().positive().optional(),
-  extraStopFee: z.number().int().positive().optional(),
-  extraRegionFee: z.number().int().positive().optional(),
+  baseFare: z.number().int().positive().optional().nullable(),
+  extraStopFee: z.number().int().positive().optional().nullable(),
+  extraRegionFee: z.number().int().positive().optional().nullable(),
 }).refine(data => {
   if (data.fareType === 'BASIC') {
     return data.baseFare !== undefined && typeof data.region === 'string' && data.region.trim().length > 0

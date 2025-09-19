@@ -4,11 +4,11 @@ export const dynamic = 'force-dynamic'
 
 import React, { useState } from 'react'
 import { RequestList } from '@/components/requests/RequestList'
-import { RequestForm } from '@/components/requests/RequestForm'
+import NewRequestForm from '@/components/requests/NewRequestForm'
 import { RequestDetail } from '@/components/requests/RequestDetail'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { TruckIcon } from 'lucide-react'
+import { TruckIcon, PlusIcon } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { Request } from '@/types'
 import { requestsAPI } from '@/lib/api/requests'
@@ -19,6 +19,7 @@ function RequestsPageContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
 
   const handleCreateNew = () => {
     setShowCreateDialog(true)
@@ -31,7 +32,7 @@ function RequestsPageContent() {
 
   const handleEditRequest = (request: Request) => {
     setSelectedRequest(request)
-    setViewMode('edit')
+    setShowEditDialog(true)
   }
 
   const refreshRequest = async (requestId: string) => {
@@ -53,6 +54,21 @@ function RequestsPageContent() {
     } catch (error: any) {
       console.error('Create request failed:', error)
       toast.error(error?.message || '생성 중 오류가 발생했습니다')
+    }
+  }
+
+  const handleEditSubmit = async (data: any) => {
+    if (!selectedRequest) return
+
+    try {
+      await requestsAPI.update(selectedRequest.id, data)
+      toast.success('용차 요청이 수정되었습니다')
+      setShowEditDialog(false)
+      setSelectedRequest(null)
+      window.location.reload()
+    } catch (error: any) {
+      console.error('Update request failed:', error)
+      toast.error(error?.message || '수정 중 오류가 발생했습니다')
     }
   }
 
@@ -157,7 +173,7 @@ function RequestsPageContent() {
   }
 
   const handleEdit = () => {
-    setViewMode('edit')
+    setShowEditDialog(true)
   }
 
   const handleCopy = () => {
@@ -185,57 +201,119 @@ function RequestsPageContent() {
 
   if (viewMode === 'detail' && selectedRequest) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="mb-6">
-          <Button variant="outline" onClick={handleBack} className="mb-4">
-            ← 목록으로 돌아가기
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100">
+        {/* Header Section */}
+        <div className="bg-white shadow-sm border-b border-emerald-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button 
+                  variant="outline" 
+                  onClick={handleBack} 
+                  className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                >
+                  ← 목록으로 돌아가기
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-        <RequestDetail
-          request={selectedRequest}
-          onEdit={handleEdit}
-          onCopy={handleCopy}
-          onDelete={handleDelete}
-          onAddDispatch={handleAddDispatch}
-          onEditDispatch={handleEditDispatch}
-          onDeleteDispatch={handleDeleteDispatch}
-        />
+        
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <RequestDetail
+            request={selectedRequest}
+            onEdit={handleEdit}
+            onCopy={handleCopy}
+            onDelete={handleDelete}
+            onAddDispatch={handleAddDispatch}
+            onEditDispatch={handleEditDispatch}
+            onDeleteDispatch={handleDeleteDispatch}
+          />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <TruckIcon className="h-8 w-8 text-blue-600" />
-              용차 관리
-            </h1>
-            <p className="text-gray-600 mt-2">
-              요청/배차 기반의 새로운 용차 관리 시스템
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100">
+      {/* Header Section */}
+      <div className="bg-white shadow-sm border-b border-emerald-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg">
+                <TruckIcon className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">용차 관리</h1>
+                <p className="text-lg text-gray-600 mt-1">요청/배차 기반의 새로운 용차 관리 시스템</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <Button 
+                onClick={handleCreateNew}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                새 요청 생성
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      <RequestList
-        onCreateNew={handleCreateNew}
-        onViewRequest={handleViewRequest}
-        onEditRequest={handleEditRequest}
-        onExportSelected={handleExportSelected}
-      />
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <RequestList
+          onCreateNew={handleCreateNew}
+          onViewRequest={handleViewRequest}
+          onEditRequest={handleEditRequest}
+          onExportSelected={handleExportSelected}
+        />
+      </div>
 
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>새 용차 요청 생성</DialogTitle>
           </DialogHeader>
-          <RequestForm
+          <NewRequestForm
             onSubmit={handleCreateSubmit}
             onCancel={() => setShowCreateDialog(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>용차 요청 수정</DialogTitle>
+          </DialogHeader>
+          {selectedRequest && (
+            <NewRequestForm
+              onSubmit={handleEditSubmit}
+              onCancel={() => {
+                setShowEditDialog(false)
+                setSelectedRequest(null)
+              }}
+              initialData={{
+                loadingPointId: selectedRequest.loadingPointId,
+                requestDate: selectedRequest.requestDate,
+                centerCarNo: selectedRequest.centerCarNo,
+                vehicleTon: selectedRequest.vehicleTon,
+                regions: selectedRequest.regions.join(', '),
+                stops: selectedRequest.stops,
+                notes: selectedRequest.notes || '',
+                baseFare: selectedRequest.baseFare || 0,
+                extraStopFee: selectedRequest.extraStopFee || 0,
+                extraRegionFee: selectedRequest.extraRegionFee || 0,
+                extraAdjustment: selectedRequest.extraAdjustment || 0,
+                adjustmentReason: selectedRequest.adjustmentReason || ''
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

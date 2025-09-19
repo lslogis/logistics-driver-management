@@ -14,6 +14,9 @@ const CreateRequestSchema = z.object({
   regions: z.array(z.string()).min(1).max(10),
   stops: z.number().int().min(1).max(50),
   notes: z.string().optional(),
+  baseFare: z.number().int().nullable().optional(),
+  extraStopFee: z.number().int().nullable().optional(),
+  extraRegionFee: z.number().int().nullable().optional(),
   extraAdjustment: z.number().int().default(0),
   adjustmentReason: z.string().max(200).optional(),
 })

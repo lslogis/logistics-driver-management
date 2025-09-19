@@ -56,6 +56,9 @@ export interface Request {
   regions: string[];
   stops: number;
   notes?: string;
+  baseFare?: number | null;
+  extraStopFee?: number | null;
+  extraRegionFee?: number | null;
   extraAdjustment: number;
   adjustmentReason?: string;
   createdAt: string;

@@ -185,52 +185,105 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">용차 요청 목록</h1>
-          <p className="text-gray-600 mt-1">총 {pagination.total}건의 요청</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}>
-            {viewMode === 'grid' ? '테이블' : '카드'} 보기
-          </Button>
-          <Button onClick={onCreateNew}>
-            <PlusIcon className="h-4 w-4 mr-1" />
-            새 요청
-          </Button>
-        </div>
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="bg-white shadow-lg border-emerald-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">전체 요청</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">{pagination.total || 0}</div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-white shadow-lg border-emerald-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">배차 완료</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {filteredRequests.filter(r => (r.dispatches?.length || 0) > 0).length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-white shadow-lg border-emerald-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">배차 대기</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {filteredRequests.filter(r => (r.dispatches?.length || 0) === 0).length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-white shadow-lg border-emerald-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">오늘 요청</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {filteredRequests.filter(r => {
+                const today = new Date().toISOString().split('T')[0]
+                return r.requestDate === today
+              }).length}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-4 items-center">
-            <div className="flex-1 relative">
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="상차지명, 상차지호차, 배송지역, 기사명으로 검색..."
-                value={filters.query}
-                onChange={(e) => handleFilterChange('query', e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <FilterIcon className="h-4 w-4 mr-1" />
-              필터
-            </Button>
-            {selectedRequests.length > 0 && (
+      <Card className="bg-white shadow-lg border-emerald-200">
+        <CardContent className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 flex-1">
+              <div className="max-w-md relative">
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="상차지명, 상차지호차, 배송지역, 기사명 검색"
+                  value={filters.query}
+                  onChange={(e) => handleFilterChange('query', e.target.value)}
+                  className="pl-10 h-11 border-2 border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500/20 bg-white rounded-md"
+                />
+              </div>
+              
               <Button
                 variant="outline"
-                onClick={() => onExportSelected(selectedRequests)}
+                onClick={() => setShowFilters(!showFilters)}
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
               >
-                <DownloadIcon className="h-4 w-4 mr-1" />
-                선택항목 내보내기 ({selectedRequests.length})
+                <FilterIcon className="h-4 w-4 mr-2" />
+                필터
               </Button>
-            )}
+            </div>
+
+            <div className="flex items-center space-x-3">
+              {selectedRequests.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => onExportSelected(selectedRequests)}
+                  className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <DownloadIcon className="h-4 w-4 mr-2" />
+                  내보내기 ({selectedRequests.length})
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={loadRequests}
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              >
+                새로고침
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              >
+                {viewMode === 'grid' ? '테이블' : '카드'} 보기
+              </Button>
+            </div>
           </div>
 
           {showFilters && (
@@ -300,34 +353,57 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
 
       {/* Request List */}
       {isLoading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">요청 목록을 불러오는 중...</p>
-        </div>
+        <Card className="bg-white shadow-lg border-emerald-200">
+          <CardContent className="p-8">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mr-3"></div>
+              <span className="text-gray-600">용차 요청을 불러오는 중...</span>
+            </div>
+          </CardContent>
+        </Card>
       ) : filteredRequests.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <TruckIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-600 mb-2">요청이 없습니다</p>
-            <p className="text-sm text-gray-500">새 요청을 생성하거나 필터를 조정해보세요</p>
+        <Card className="bg-white shadow-lg border-emerald-200">
+          <CardContent className="p-12">
+            <div className="text-center">
+              <div className="mb-4">
+                <TruckIcon className="h-16 w-16 text-emerald-400 mx-auto" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                요청이 없습니다
+              </h3>
+              <p className="text-gray-600 mb-6">
+                새 요청을 생성하거나 필터를 조정해보세요
+              </p>
+              <Button 
+                onClick={onCreateNew}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                첫 요청 생성하기
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
         <>
           {/* Bulk Actions */}
           {filteredRequests.length > 0 && (
-            <div className="flex items-center gap-4 px-4 py-2 bg-gray-50 rounded">
-              <Checkbox
-                checked={selectedRequests.length === filteredRequests.length}
-                onCheckedChange={toggleSelectAll}
-              />
-              <span className="text-sm text-gray-600">
-                {selectedRequests.length > 0 
-                  ? `${selectedRequests.length}개 선택됨` 
-                  : '전체 선택'
-                }
-              </span>
-            </div>
+            <Card className="bg-white shadow-lg border-emerald-200">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <Checkbox
+                    checked={selectedRequests.length === filteredRequests.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                  <span className="text-sm text-gray-600">
+                    {selectedRequests.length > 0 
+                      ? `${selectedRequests.length}개 선택됨` 
+                      : '전체 선택'
+                    }
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Grid View */}
@@ -347,21 +423,21 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                 const dispatchStatus = getDispatchStatus(financialSummary.dispatchCount)
 
                 return (
-                  <Card key={request.id} className="hover:shadow-md transition-shadow">
+                  <Card key={request.id} className="bg-white shadow-lg border-emerald-200 hover:shadow-xl transition-all duration-200 hover:scale-[1.02]">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <Checkbox
                           checked={selectedRequests.includes(request.id)}
                           onCheckedChange={() => toggleSelectRequest(request.id)}
                         />
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs border-emerald-200 text-emerald-700">
                           #{request.id.slice(-6)}
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">📋 요청 #{request.id.slice(-8)}</CardTitle>
+                        <CardTitle className="text-lg text-gray-900">📋 요청 #{request.id.slice(-8)}</CardTitle>
                         {request.loadingPoint && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800 border-emerald-200">
                             🏢 {request.loadingPoint.loadingPointName || request.loadingPoint.name || request.loadingPoint.centerName}
                           </Badge>
                         )}
@@ -414,7 +490,7 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-1"
+                          className="flex-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
                           onClick={() => onViewRequest(request)}
                         >
                           <EyeIcon className="h-3 w-3 mr-1" />
@@ -423,7 +499,7 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-1"
+                          className="flex-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
                           onClick={() => onEditRequest(request)}
                         >
                           <EditIcon className="h-3 w-3 mr-1" />
@@ -439,11 +515,11 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
 
           {/* Table View */}
           {viewMode === 'table' && (
-            <Card>
+            <Card className="bg-white shadow-lg border-emerald-200">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="border-b bg-gray-50">
+                    <thead className="border-b bg-gradient-to-r from-emerald-50 to-teal-50">
                       <tr className="text-left">
                         <th className="p-3">
                           <Checkbox
@@ -563,44 +639,54 @@ export function RequestList({ onCreateNew, onViewRequest, onEditRequest, onExpor
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                {((pagination.page - 1) * pagination.limit) + 1}-{Math.min(pagination.page * pagination.limit, pagination.total)} / {pagination.total}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={pagination.page === 1}
-                >
-                  <ChevronLeftIcon className="h-4 w-4" />
-                  이전
-                </Button>
-                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                  const page = i + 1
-                  return (
+            <Card className="bg-white shadow-lg border-emerald-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    총 {pagination.total.toLocaleString()}개
+                  </div>
+                  <div className="flex gap-2">
                     <Button
-                      key={page}
-                      variant={pagination.page === page ? "default" : "outline"}
+                      variant="outline"
                       size="sm"
-                      onClick={() => setPagination(prev => ({ ...prev, page }))}
+                      onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                      disabled={pagination.page === 1}
+                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                     >
-                      {page}
+                      <ChevronLeftIcon className="h-4 w-4" />
+                      이전
                     </Button>
-                  )
-                })}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page === pagination.totalPages}
-                >
-                  다음
-                  <ChevronRightIcon className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                      const page = i + 1
+                      return (
+                        <Button
+                          key={page}
+                          variant={pagination.page === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setPagination(prev => ({ ...prev, page }))}
+                          className={pagination.page === page 
+                            ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white" 
+                            : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                          }
+                        >
+                          {page}
+                        </Button>
+                      )
+                    })}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                      disabled={pagination.page === pagination.totalPages}
+                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      다음
+                      <ChevronRightIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </>
       )}

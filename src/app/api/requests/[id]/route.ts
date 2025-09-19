@@ -9,6 +9,9 @@ const UpdateRequestSchema = z.object({
   regions: z.array(z.string()).min(1).max(10).optional(),
   stops: z.number().int().min(1).max(50).optional(),
   notes: z.string().optional(),
+  baseFare: z.number().int().nullable().optional(),
+  extraStopFee: z.number().int().nullable().optional(),
+  extraRegionFee: z.number().int().nullable().optional(),
   extraAdjustment: z.number().int().optional(),
   adjustmentReason: z.string().max(200).optional(),
 })
@@ -48,7 +51,12 @@ export async function GET(
       0
     )
     
-    const centerBilling = 0 // Will be calculated by fare calculation service
+    // Calculate center billing from stored fare calculation or default to 0
+    const centerBilling = (requestData.baseFare || 0) + 
+                         (requestData.extraStopFee || 0) + 
+                         (requestData.extraRegionFee || 0) + 
+                         (requestData.extraAdjustment || 0)
+    
     const totalMargin = centerBilling - totalDriverFees
     const marginPercentage = centerBilling > 0 ? (totalMargin / centerBilling) * 100 : 0
 

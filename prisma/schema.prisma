@@ -250,6 +250,9 @@ model Request {
   regions          Json
   stops            Int
   notes            String?
+  baseFare         Int?
+  extraStopFee     Int?
+  extraRegionFee   Int?
   extraAdjustment  Int          @default(0)
   adjustmentReason String?
   createdAt        DateTime     @default(now()) @db.Timestamptz(6)
