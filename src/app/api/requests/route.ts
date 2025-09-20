@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,7 @@ const CreateRequestSchema = z.object({
   extraRegionFee: z.number().int().nullable().optional(),
   extraAdjustment: z.number().int().default(0),
   adjustmentReason: z.string().max(200).optional(),
+  centerBillingTotal: z.number().int().default(0),
 })
 
 const UpdateRequestSchema = CreateRequestSchema.partial()
@@ -76,7 +78,6 @@ export async function GET(request: NextRequest) {
     const loadingPointIds = Array.from(new Set(requestRows.map(request => request.loadingPointId)))
     const loadingPointMap = new Map<string, {
       id: string
-      name: string | null
       centerName: string
       loadingPointName: string
       lotAddress: string | null
@@ -88,7 +89,6 @@ export async function GET(request: NextRequest) {
         where: { id: { in: loadingPointIds } },
         select: {
           id: true,
-          name: true,
           centerName: true,
           loadingPointName: true,
           lotAddress: true,
@@ -132,6 +132,14 @@ export async function GET(request: NextRequest) {
 // POST /api/requests - Create new request
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request)
+    if (!user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const validatedData = CreateRequestSchema.parse(body)
 
@@ -163,10 +171,13 @@ export async function POST(request: NextRequest) {
     }
 
     const newRequest = await prisma.request.create({
-      data: validatedData,
+      data: {
+        ...validatedData,
+        createdBy: user.id
+      },
       include: {
         loadingPoint: {
-          select: { id: true, name: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
+          select: { id: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         },
         dispatches: {
           include: {
