@@ -196,7 +196,7 @@ export default function CenterFaresPage() {
   // 로딩 상태 표시
   if (isLoading) {
     return (
-      <div className="flex-1 space-y-8 p-8 bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen">
+      <div className="flex-1 space-y-4 p-4 bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen">
         <div className="flex items-center justify-center py-12">
           <div className="flex items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -210,7 +210,7 @@ export default function CenterFaresPage() {
   // 에러 상태 표시
   if (error) {
     return (
-      <div className="flex-1 space-y-8 p-8 bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen">
+      <div className="flex-1 space-y-4 p-4 bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen">
         <div className="flex items-center justify-center py-12">
           <div className="text-center space-y-4">
             <div className="text-red-600 text-lg font-medium">
@@ -230,7 +230,7 @@ export default function CenterFaresPage() {
   }
 
   return (
-    <div className="flex-1 space-y-8 p-8 bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen">
+    <div className="flex-1 space-y-4 p-4 bg-gradient-to-br from-slate-50 to-gray-100 min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">

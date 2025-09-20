@@ -708,7 +708,7 @@ export default function DriversPage() {
 
         {/* Detail Drawer */}
         <div 
-          className={`fixed inset-0 z-50 transition-all duration-300 ease-in-out ${
+          className={`fixed inset-0 z-[500] transition-all duration-300 ease-in-out ${
             viewModalOpen ? "visible" : "invisible"
           }`}
         >

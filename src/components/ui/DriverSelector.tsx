@@ -18,6 +18,7 @@ interface DriverSelectorProps {
 }
 
 import { useDrivers, useDriver } from '@/hooks/useDrivers'
+import { useDriverSelection } from '@/hooks/useDriverAssignment'
 
 function DriverSelector({
   value,

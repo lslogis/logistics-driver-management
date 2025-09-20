@@ -44,7 +44,7 @@ export const permissions = {
     delete: [UserRole.ADMIN]
   },
 
-  // 상차지 관리
+  // 센터 관리
   'loading-points': {
     create: [UserRole.ADMIN, UserRole.DISPATCHER],
     read: [UserRole.ADMIN, UserRole.DISPATCHER, UserRole.ACCOUNTANT],

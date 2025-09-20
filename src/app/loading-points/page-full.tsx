@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import AddressSearchInput, { SelectedAddress } from '@/components/ui/AddressSearchInput'
 
-// 상차지 폼 컴포넌트
+// 센터 폼 컴포넌트
 interface LoadingPointFormProps {
   loadingPoint?: LoadingPointResponse
   onSubmit: (data: any) => void
@@ -235,13 +235,13 @@ export default function LoadingPointsPage() {
   }
 
   const handleDeactivate = (id: string) => {
-    if (window.confirm('정말로 이 상차지를 비활성화하시겠습니까?')) {
+    if (window.confirm('정말로 이 센터를 비활성화하시겠습니까?')) {
       deactivateMutation.mutate(id)
     }
   }
 
   const handleHardDelete = (id: string) => {
-    if (window.confirm('정말로 이 상차지를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+    if (window.confirm('정말로 이 센터를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
       hardDeleteMutation.mutate(id)
     }
   }
@@ -256,7 +256,7 @@ export default function LoadingPointsPage() {
   }
 
   const handleBulkDeactivate = (ids: string[]) => {
-    if (window.confirm(`선택된 ${ids.length}개 상차지를 비활성화하시겠습니까?`)) {
+    if (window.confirm(`선택된 ${ids.length}개 센터를 비활성화하시겠습니까?`)) {
       bulkDeactivateMutation.mutate(ids, {
         onSuccess: () => {
           setSelectedIds([])
@@ -266,7 +266,7 @@ export default function LoadingPointsPage() {
   }
 
   const handleBulkHardDelete = (ids: string[]) => {
-    if (window.confirm(`선택된 ${ids.length}개 상차지를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+    if (window.confirm(`선택된 ${ids.length}개 센터를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
       bulkDeleteMutation.mutate(ids, {
         onSuccess: () => {
           setSelectedIds([])
@@ -413,12 +413,12 @@ export default function LoadingPointsPage() {
 
   return (
     <ManagementPageLayout
-      title="상차지 관리"
+      title="센터 관리"
       icon={<MapPin />}
       totalCount={totalCount}
       countLabel="곳"
       primaryAction={{
-        label: '상차지 등록',
+        label: '센터 등록',
         onClick: () => setIsCreateModalOpen(true),
         icon: <Plus className="h-4 w-4" />,
       }}
@@ -433,7 +433,7 @@ export default function LoadingPointsPage() {
           type: 'text',
           value: searchTerm,
           onChange: setSearchTerm,
-          placeholder: '센터명, 상차지명, 주소로 검색...',
+          placeholder: '센터명, 주소로 검색...',
         },
       ]}
       isLoading={isLoading}
@@ -469,10 +469,10 @@ export default function LoadingPointsPage() {
         ]}
         emptyState={{
           icon: <MapPin />,
-          title: '등록된 상차지가 없습니다',
-          description: '새로운 상차지를 등록해보세요.',
+          title: '등록된 센터가 없습니다',
+          description: '새로운 센터를 등록해보세요.',
           action: {
-            label: '상차지 등록',
+            label: '센터 등록',
             onClick: () => setIsCreateModalOpen(true),
           },
         }}
@@ -506,7 +506,7 @@ export default function LoadingPointsPage() {
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>상차지 등록</DialogTitle>
+            <DialogTitle>센터 등록</DialogTitle>
             <DialogClose onClick={() => setIsCreateModalOpen(false)} />
           </DialogHeader>
           <LoadingPointForm
@@ -521,7 +521,7 @@ export default function LoadingPointsPage() {
       <Dialog open={!!editingLoadingPoint} onOpenChange={(open) => !open && setEditingLoadingPoint(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>상차지 정보 수정</DialogTitle>
+            <DialogTitle>센터 정보 수정</DialogTitle>
             <DialogClose onClick={() => setEditingLoadingPoint(null)} />
           </DialogHeader>
           {editingLoadingPoint && (

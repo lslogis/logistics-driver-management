@@ -82,7 +82,7 @@ export default function FixedContractDetailDrawer({
   return (
     <div 
       className={cn(
-        "fixed inset-0 z-50 transition-all duration-300 ease-in-out",
+        "fixed inset-0 z-[500] transition-all duration-300 ease-in-out",
         isOpen ? "visible" : "invisible"
       )}
     >

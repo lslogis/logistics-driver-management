@@ -14,14 +14,14 @@ export default function VehiclesPage() {
           차량 관리 기능이 비활성화되었습니다
         </h1>
         <p className="text-gray-600 mb-6">
-          차량 모델이 제거되고 상차지 관리 시스템으로 변경되었습니다. 
-          상차지 관리 페이지를 이용해주세요.
+          차량 모델이 제거되고 센터 관리 시스템으로 변경되었습니다. 
+          센터 관리 페이지를 이용해주세요.
         </p>
         <a
           href="/loading-points"
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          상차지 관리로 이동
+          센터 관리로 이동
         </a>
       </div>
     </div>

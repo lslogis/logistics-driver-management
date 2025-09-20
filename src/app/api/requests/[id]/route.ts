@@ -15,6 +15,15 @@ const UpdateRequestSchema = z.object({
   extraAdjustment: z.number().int().optional(),
   adjustmentReason: z.string().max(200).optional(),
   centerBillingTotal: z.number().int().optional(),
+  
+  // 기사 정보 (선택적)
+  driverId: z.string().optional(),
+  driverName: z.string().max(100).optional(),
+  driverPhone: z.string().regex(/^010-\d{4}-\d{4}$/, 'Invalid phone format').optional(),
+  driverVehicle: z.string().max(50).optional(),
+  deliveryTime: z.string().max(50).optional(),
+  driverFee: z.number().int().min(0).optional(),
+  driverNotes: z.string().optional(),
 })
 
 // GET /api/requests/[id] - Get request by ID with full details
@@ -28,13 +37,11 @@ export async function GET(
     const requestData = await prisma.request.findUnique({
       where: { id },
       include: {
-        dispatches: {
-          include: {
-            driver: {
-              select: { id: true, name: true, phone: true, vehicleNumber: true }
-            }
-          },
-          orderBy: { createdAt: 'asc' }
+        driver: {
+          select: { id: true, name: true, phone: true, vehicleNumber: true }
+        },
+        loadingPoint: {
+          select: { id: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         }
       },
     })
@@ -47,10 +54,7 @@ export async function GET(
     }
 
     // Calculate financial summary
-    const totalDriverFees = requestData.dispatches.reduce(
-      (sum, dispatch) => sum + dispatch.driverFee,
-      0
-    )
+    const driverFee = requestData.driverFee || 0
     
     // Use stored centerBillingTotal or fallback to calculated value
     const centerBilling = requestData.centerBillingTotal || 
@@ -59,17 +63,16 @@ export async function GET(
                           (requestData.extraRegionFee || 0) + 
                           (requestData.extraAdjustment || 0))
     
-    const totalMargin = centerBilling - totalDriverFees
+    const totalMargin = centerBilling - driverFee
     const marginPercentage = centerBilling > 0 ? (totalMargin / centerBilling) * 100 : 0
 
     const response = {
       ...requestData,
       financialSummary: {
         centerBilling,
-        totalDriverFees,
+        totalDriverFees: driverFee,
         totalMargin,
-        marginPercentage,
-        dispatchCount: requestData.dispatches.length
+        marginPercentage
       }
     }
 
@@ -105,16 +108,47 @@ export async function PUT(
       )
     }
 
+    // Driver validation - if driver fields are provided, ensure consistency
+    if (validatedData.driverId) {
+      const driver = await prisma.driver.findUnique({
+        where: { id: validatedData.driverId }
+      })
+
+      if (!driver) {
+        return NextResponse.json(
+          { error: 'Driver not found' },
+          { status: 400 }
+        )
+      }
+
+      if (!driver.isActive) {
+        return NextResponse.json(
+          { error: 'Driver is not active' },
+          { status: 400 }
+        )
+      }
+
+      // Auto-fill driver information if not provided
+      if (!validatedData.driverName) validatedData.driverName = driver.name
+      if (!validatedData.driverPhone) validatedData.driverPhone = driver.phone
+      if (!validatedData.driverVehicle) validatedData.driverVehicle = driver.vehicleNumber
+    }
+
+    // Set dispatchedAt if driver is being assigned for the first time
+    const updateData = { 
+      ...validatedData,
+      dispatchedAt: validatedData.driverId ? new Date() : validatedData.dispatchedAt
+    }
+
     const updatedRequest = await prisma.request.update({
       where: { id },
-      data: validatedData,
+      data: updateData,
       include: {
-        dispatches: {
-          include: {
-            driver: {
-              select: { id: true, name: true, phone: true, vehicleNumber: true }
-            }
-          }
+        driver: {
+          select: { id: true, name: true, phone: true, vehicleNumber: true }
+        },
+        loadingPoint: {
+          select: { id: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         }
       },
     })
@@ -136,7 +170,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/requests/[id] - Delete request with cascade
+// DELETE /api/requests/[id] - Delete request
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -146,8 +180,7 @@ export async function DELETE(
 
     // Check if request exists
     const existingRequest = await prisma.request.findUnique({
-      where: { id },
-      include: { dispatches: true }
+      where: { id }
     })
 
     if (!existingRequest) {
@@ -157,14 +190,13 @@ export async function DELETE(
       )
     }
 
-    // Delete request (dispatches will be cascade deleted)
+    // Delete request
     await prisma.request.delete({
       where: { id }
     })
 
     return NextResponse.json({
-      message: 'Request deleted successfully',
-      deletedDispatches: existingRequest.dispatches.length
+      message: 'Request deleted successfully'
     })
   } catch (error) {
     console.error('Error deleting request:', error)

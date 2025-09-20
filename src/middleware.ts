@@ -98,7 +98,7 @@ const roleBasedPaths = {
     '/vehicles',        // 차량 관리 (읽기 제한)
     '/routes',          // 노선 템플릿
     '/fixed-routes',    // 고정노선
-    '/loading-points',  // 상차지 관리
+    '/loading-points',  // 센터 관리
     '/charters',        // 용차 관리
     '/api/drivers',     // 기사 API
     '/api/routes',      // 노선 API

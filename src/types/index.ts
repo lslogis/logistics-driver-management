@@ -4,14 +4,14 @@ export interface Driver {
   id: string;
   name: string;
   phone: string;
-  email?: string;
   businessNumber?: string;
-  companyName?: string;
-  representativeName?: string;
   bankName?: string;
   accountNumber?: string;
   remarks?: string;
   isActive: boolean;
+  vehicleNumber: string;
+  businessName?: string;
+  representative?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,37 +61,32 @@ export interface Request {
   extraRegionFee?: number | null;
   extraAdjustment: number;
   adjustmentReason?: string;
+  centerBillingTotal: number;
+  
+  // 기사 정보 (기존 Dispatch에서 이동)
+  driverId?: string;
+  driver?: Driver;
+  driverName?: string;
+  driverPhone?: string;
+  driverVehicle?: string;
+  deliveryTime?: string;
+  driverFee?: number;
+  driverNotes?: string;
+  dispatchedAt?: string;
+  
   createdAt: string;
   updatedAt: string;
-  dispatches: Dispatch[];
+  createdBy?: string;
+  
+  // 계산된 필드
   financialSummary?: {
     centerBilling: number;
     totalDriverFees: number;
     totalMargin: number;
     marginPercentage: number;
-    dispatchCount: number;
   };
 }
 
-export interface Dispatch {
-  id: string;
-  requestId: string;
-  driverId?: string;
-  driverName: string;
-  driverPhone: string;
-  driverVehicle: string;
-  deliveryTime?: string;
-  driverFee: number;
-  driverNotes?: string;
-  createdAt: string;
-  updatedAt: string;
-  driver?: {
-    id: string;
-    name: string;
-    phone: string;
-    vehicleNumber: string;
-  };
-}
 
 
 export interface Settlement {

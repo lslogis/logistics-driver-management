@@ -80,7 +80,7 @@ model Driver {
   businessName   String?
   representative String?
   settlements    Settlement[]    @relation("DriverSettlements")
-  dispatches     Dispatch[]
+  requests       Request[]
   fixedContracts FixedContract[]
 
   @@index([name])
@@ -245,7 +245,7 @@ model CenterFare {
 model Request {
   id                 String       @id @default(cuid())
   requestDate        DateTime     @db.Date
-  centerCarNo        String       @db.VarChar(50)
+  centerCarNo        String?      @db.VarChar(50)
   vehicleTon         Decimal      @db.Decimal(3, 1)
   regions            Json
   stops              Int
@@ -256,42 +256,33 @@ model Request {
   extraAdjustment    Int          @default(0)
   adjustmentReason   String?
   centerBillingTotal Int          @default(0)
+  
+  // 기사 정보 (기존 Dispatch 모델에서 이동)
+  driverId           String?
+  driver             Driver?      @relation(fields: [driverId], references: [id])
+  driverName         String?
+  driverPhone        String?
+  driverVehicle      String?
+  deliveryTime       String?
+  driverFee          Int?
+  driverNotes        String?
+  dispatchedAt       DateTime?    @db.Timestamptz(6)
+  
   createdAt          DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime     @updatedAt @db.Timestamptz(6)
   createdBy          String?
   loadingPointId     String?
   loadingPoint       LoadingPoint? @relation(fields: [loadingPointId], references: [id])
-  dispatches         Dispatch[]
 
   @@index([loadingPointId])
   @@index([requestDate, centerCarNo])
   @@index([requestDate])
   @@index([centerCarNo])
+  @@index([driverId])
   @@index([createdAt])
   @@map("requests")
 }
 
-model Dispatch {
-  id            String   @id @default(cuid())
-  requestId     String
-  request       Request  @relation(fields: [requestId], references: [id])
-  driverId      String?
-  driver        Driver?  @relation(fields: [driverId], references: [id])
-  driverName    String
-  driverPhone   String
-  driverVehicle String
-  deliveryTime  String?
-  driverFee     Int
-  driverNotes   String?
-  createdAt     DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
-
-  @@index([requestId])
-  @@index([driverId])
-  @@index([requestId, driverId])
-  @@index([createdAt])
-  @@map("dispatches")
-}
 
 model CharterRequest {
   id             String   @id @default(cuid())

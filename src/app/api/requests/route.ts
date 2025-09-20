@@ -21,6 +21,15 @@ const CreateRequestSchema = z.object({
   extraAdjustment: z.number().int().default(0),
   adjustmentReason: z.string().max(200).optional(),
   centerBillingTotal: z.number().int().default(0),
+  
+  // 기사 정보 (선택적)
+  driverId: z.string().optional(),
+  driverName: z.string().max(100).optional(),
+  driverPhone: z.string().regex(/^010-\d{4}-\d{4}$/, 'Invalid phone format').optional(),
+  driverVehicle: z.string().max(50).optional(),
+  deliveryTime: z.string().max(50).optional(),
+  driverFee: z.number().int().min(0).optional(),
+  driverNotes: z.string().optional(),
 })
 
 const UpdateRequestSchema = CreateRequestSchema.partial()
@@ -60,12 +69,8 @@ export async function GET(request: NextRequest) {
       prisma.request.findMany({
         where,
         include: {
-          dispatches: {
-            include: {
-              driver: {
-                select: { id: true, name: true, phone: true, vehicleNumber: true }
-              }
-            }
+          driver: {
+            select: { id: true, name: true, phone: true, vehicleNumber: true }
           }
         },
         orderBy: { requestDate: 'desc' },
@@ -151,6 +156,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Driver validation - if driver fields are provided, ensure consistency
+    if (validatedData.driverId) {
+      const driver = await prisma.driver.findUnique({
+        where: { id: validatedData.driverId }
+      })
+
+      if (!driver) {
+        return NextResponse.json(
+          { error: 'Driver not found' },
+          { status: 400 }
+        )
+      }
+
+      if (!driver.isActive) {
+        return NextResponse.json(
+          { error: 'Driver is not active' },
+          { status: 400 }
+        )
+      }
+
+      // Auto-fill driver information if not provided
+      if (!validatedData.driverName) validatedData.driverName = driver.name
+      if (!validatedData.driverPhone) validatedData.driverPhone = driver.phone
+      if (!validatedData.driverVehicle) validatedData.driverVehicle = driver.vehicleNumber
+    }
+
     // Validate loadingPoint exists
     const loadingPoint = await prisma.loadingPoint.findUnique({
       where: { id: validatedData.loadingPointId }
@@ -173,18 +204,15 @@ export async function POST(request: NextRequest) {
     const newRequest = await prisma.request.create({
       data: {
         ...validatedData,
-        createdBy: user.id
+        createdBy: user.id,
+        dispatchedAt: validatedData.driverId ? new Date() : undefined
       },
       include: {
         loadingPoint: {
           select: { id: true, centerName: true, loadingPointName: true, lotAddress: true, roadAddress: true }
         },
-        dispatches: {
-          include: {
-            driver: {
-              select: { id: true, name: true, phone: true, vehicleNumber: true }
-            }
-          }
+        driver: {
+          select: { id: true, name: true, phone: true, vehicleNumber: true }
         }
       },
     })

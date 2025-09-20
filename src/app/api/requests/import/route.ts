@@ -11,13 +11,16 @@ interface ExcelRow {
   regions: string
   stops: number
   notes?: string
-  extraAdjustment: number
+  baseFare?: number
+  extraStopFee?: number
+  extraRegionFee?: number
+  extraAdjustment?: number
   adjustmentReason?: string
-  driverName: string
-  driverPhone: string
-  driverVehicle: string
+  driverName?: string
+  driverPhone?: string
+  driverVehicle?: string
   deliveryTime?: string
-  driverFee: number
+  driverFee?: number
   driverNotes?: string
 }
 
@@ -34,7 +37,6 @@ interface ImportResult {
   success: boolean
   progress: ImportProgress
   requests: any[]
-  dispatches: any[]
   errors: Array<{
     row: number
     column?: string
@@ -97,7 +99,6 @@ async function importExcelFile(file: File): Promise<ImportResult> {
   const errors: ImportResult['errors'] = []
   const warnings: ImportResult['warnings'] = []
   const requests: any[] = []
-  const dispatches: any[] = []
 
   try {
     // Step 1: Parse Excel file
@@ -142,19 +143,23 @@ async function importExcelFile(file: File): Promise<ImportResult> {
           progress.warningCount++
         }
 
-        // Step 3: Resolve driver
+        // Step 3: Resolve driver (only if driver information is provided)
         progress.step = 'resolving'
-        const driverResolution = await resolveDriver(
-          excelRow.data.driverName,
-          excelRow.data.driverPhone,
-          excelRow.data.driverVehicle
-        )
+        let driverResolution = { driverId: undefined, warnings: [] as string[] }
+        
+        if (excelRow.data.driverName && excelRow.data.driverPhone) {
+          driverResolution = await resolveDriver(
+            excelRow.data.driverName,
+            excelRow.data.driverPhone,
+            excelRow.data.driverVehicle
+          )
 
-        if (driverResolution.warnings.length > 0) {
-          warnings.push(...driverResolution.warnings.map(w => ({
-            row: rowIndex,
-            message: w
-          })))
+          if (driverResolution.warnings.length > 0) {
+            warnings.push(...driverResolution.warnings.map(w => ({
+              row: rowIndex,
+              message: w
+            })))
+          }
         }
 
         // Step 4: Resolve loading point by center name
@@ -177,30 +182,17 @@ async function importExcelFile(file: File): Promise<ImportResult> {
           continue
         }
 
-        // Step 5: Create request and dispatch
+        // Step 5: Create request with embedded driver information
         progress.step = 'importing'
         
-        const requestData = mapExcelToRequest(excelRow.data, loadingPoint.id)
-        const dispatchData = mapExcelToDispatch(excelRow.data, driverResolution.driverId)
+        const requestData = mapExcelToRequest(excelRow.data, loadingPoint.id, driverResolution.driverId)
 
-        // Use transaction for atomicity
-        const result = await prisma.$transaction(async (tx) => {
-          const request = await tx.request.create({
-            data: requestData
-          })
-
-          const dispatch = await tx.dispatch.create({
-            data: {
-              ...dispatchData,
-              requestId: request.id
-            }
-          })
-
-          return { request, dispatch }
+        // Create request with driver information in single operation
+        const request = await prisma.request.create({
+          data: requestData
         })
 
-        requests.push(result.request)
-        dispatches.push(result.dispatch)
+        requests.push(request)
         progress.successCount++
 
       } catch (error) {
@@ -221,7 +213,6 @@ async function importExcelFile(file: File): Promise<ImportResult> {
       success: progress.successCount > 0,
       progress,
       requests,
-      dispatches,
       errors,
       warnings
     }
@@ -231,7 +222,6 @@ async function importExcelFile(file: File): Promise<ImportResult> {
       success: false,
       progress,
       requests: [],
-      dispatches: [],
       errors: [{ 
         row: 0, 
         message: error instanceof Error ? error.message : 'Unknown parsing error' 
@@ -249,14 +239,23 @@ function parseExcelRow(row: any, rowIndex: number) {
   const requiredFields = {
     '센터명': 'centerName',
     '요청일': 'requestDate',
-    '센터호차': 'centerCarNo', 
+    '호차번호': 'centerCarNo', 
     '톤수': 'vehicleTon',
     '배송지역': 'regions',
-    '착지수': 'stops',
+    '착지수': 'stops'
+  }
+
+  // Optional fields that might be provided
+  const optionalFields = {
+    '기본운임': 'baseFare',
+    '착지수당': 'extraStopFee',
+    '지역운임': 'extraRegionFee',
     '기사명': 'driverName',
     '기사연락처': 'driverPhone',
     '기사차량': 'driverVehicle',
-    '기사운임': 'driverFee'
+    '배송시간': 'deliveryTime',
+    '기사운임': 'driverFee',
+    '기사메모': 'driverNotes'
   }
 
   const data: any = {}
@@ -332,50 +331,67 @@ function parseExcelRow(row: any, rowIndex: number) {
         }
         break
 
-      case 'driverPhone':
-        const phone = value.toString().replace(/[^0-9-]/g, '')
-        if (!/^010-\d{4}-\d{4}$/.test(phone)) {
-          // Try to format it
-          const digits = phone.replace(/[^0-9]/g, '')
-          if (digits.length === 11 && digits.startsWith('010')) {
-            data[englishField] = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`
-            warnings.push({
-              row: rowIndex,
-              message: 'Phone number auto-formatted'
-            })
-          } else {
-            errors.push({
-              row: rowIndex,
-              column: koreanField,
-              message: 'Invalid phone format. Expected: 010-XXXX-XXXX'
-            })
-          }
-        } else {
-          data[englishField] = phone
-        }
-        break
-
-      case 'driverFee':
-        const fee = parseInt(value)
-        if (isNaN(fee) || fee < 0) {
-          errors.push({
-            row: rowIndex,
-            column: koreanField,
-            message: 'Driver fee must be a non-negative number'
-          })
-        } else {
-          data[englishField] = fee
-        }
-        break
 
       default:
         data[englishField] = value.toString().trim()
     }
   }
 
-  // Optional fields
+  // Process optional fields
+  for (const [koreanField, englishField] of Object.entries(optionalFields)) {
+    const value = row[koreanField]
+    
+    if (value !== undefined && value !== null && value !== '') {
+      switch (englishField) {
+        case 'baseFare':
+        case 'extraStopFee':
+        case 'extraRegionFee':
+        case 'driverFee':
+          const amount = parseInt(value)
+          if (isNaN(amount) || amount < 0) {
+            warnings.push({
+              row: rowIndex,
+              message: `Invalid ${koreanField} value, setting to 0`
+            })
+            data[englishField] = 0
+          } else {
+            data[englishField] = amount
+          }
+          break
+
+        case 'driverPhone':
+          const phone = value.toString().replace(/[^0-9-]/g, '')
+          if (!/^010-\d{4}-\d{4}$/.test(phone)) {
+            // Try to format it
+            const digits = phone.replace(/[^0-9]/g, '')
+            if (digits.length === 11 && digits.startsWith('010')) {
+              data[englishField] = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`
+              warnings.push({
+                row: rowIndex,
+                message: 'Phone number auto-formatted'
+              })
+            } else {
+              warnings.push({
+                row: rowIndex,
+                message: 'Invalid phone format, driver info might not match'
+              })
+              data[englishField] = value.toString().trim()
+            }
+          } else {
+            data[englishField] = phone
+          }
+          break
+
+        default:
+          data[englishField] = value.toString().trim()
+      }
+    }
+  }
+
+  // Additional optional fields
   if (row['추가조정']) {
-    data.extraAdjustment = parseInt(row['추가조정']) || 0
+    const adjustment = parseInt(row['추가조정'])
+    data.extraAdjustment = isNaN(adjustment) ? 0 : adjustment
   } else {
     data.extraAdjustment = 0
   }
@@ -386,14 +402,6 @@ function parseExcelRow(row: any, rowIndex: number) {
 
   if (row['메모']) {
     data.notes = row['메모'].toString().trim()
-  }
-
-  if (row['배송시간']) {
-    data.deliveryTime = row['배송시간'].toString().trim()
-  }
-
-  if (row['기사메모']) {
-    data.driverNotes = row['기사메모'].toString().trim()
   }
 
   // Business rule validation
@@ -451,8 +459,8 @@ async function resolveDriver(name: string, phone: string, vehicle: string) {
   }
 }
 
-function mapExcelToRequest(row: ExcelRow, loadingPointId: string) {
-  return {
+function mapExcelToRequest(row: ExcelRow, loadingPointId: string, driverId?: string) {
+  const requestData: any = {
     loadingPointId,
     requestDate: new Date(row.requestDate),
     centerCarNo: row.centerCarNo,
@@ -460,19 +468,28 @@ function mapExcelToRequest(row: ExcelRow, loadingPointId: string) {
     regions: row.regions,
     stops: row.stops,
     notes: row.notes || undefined,
+    
+    // Fare breakdown
+    baseFare: row.baseFare || 0,
+    extraStopFee: row.extraStopFee || 0,
+    extraRegionFee: row.extraRegionFee || 0,
     extraAdjustment: row.extraAdjustment || 0,
-    adjustmentReason: row.adjustmentReason || undefined
-  }
-}
-
-function mapExcelToDispatch(row: ExcelRow, driverId?: string) {
-  return {
+    adjustmentReason: row.adjustmentReason || undefined,
+    
+    // Driver information (consolidated model)
     driverId: driverId || undefined,
-    driverName: row.driverName,
-    driverPhone: row.driverPhone,
-    driverVehicle: row.driverVehicle,
+    driverName: row.driverName || undefined,
+    driverPhone: row.driverPhone || undefined,
+    driverVehicle: row.driverVehicle || undefined,
     deliveryTime: row.deliveryTime || undefined,
-    driverFee: row.driverFee,
+    driverFee: row.driverFee || 0,
     driverNotes: row.driverNotes || undefined
   }
+
+  // Set dispatchedAt if driver information is provided
+  if (row.driverName || row.driverPhone) {
+    requestData.dispatchedAt = new Date()
+  }
+
+  return requestData
 }

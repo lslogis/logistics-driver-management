@@ -14,12 +14,12 @@ export default function LoadingPointsPage() {
 
   return (
     <ManagementPageLayout
-      title="상차지 관리"
+      title="센터 관리"
       icon={<MapPin />}
       totalCount={totalCount}
       countLabel="곳"
       primaryAction={{
-        label: '상차지 등록',
+        label: '센터 등록',
         onClick: () => console.log('Create clicked'),
         icon: <Plus className="h-4 w-4" />,
       }}
@@ -29,7 +29,7 @@ export default function LoadingPointsPage() {
           type: 'text',
           value: searchTerm,
           onChange: setSearchTerm,
-          placeholder: '센터명, 상차지명, 주소로 검색...',
+          placeholder: '센터명, 주소로 검색...',
         },
       ]}
       isLoading={isLoading}
@@ -55,7 +55,7 @@ export default function LoadingPointsPage() {
               <thead>
                 <tr className="bg-gray-50">
                   <th className="p-2 text-left">센터명</th>
-                  <th className="p-2 text-left">상차지명</th>
+                  <th className="p-2 text-left">센터명</th>
                   <th className="p-2 text-left">상태</th>
                 </tr>
               </thead>

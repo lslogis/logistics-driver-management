@@ -43,7 +43,7 @@ export default function LoadingPointDetailDrawer({
   return (
     <div 
       className={cn(
-        "fixed inset-0 z-50 transition-all duration-300 ease-in-out",
+        "fixed inset-0 z-[500] transition-all duration-300 ease-in-out",
         isOpen ? "visible" : "invisible"
       )}
     >
@@ -71,7 +71,7 @@ export default function LoadingPointDetailDrawer({
                 <MapPin className="h-6 w-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">상차지 상세 정보</h2>
+                <h2 className="text-xl font-bold">센터 상세 정보</h2>
                 <p className="text-orange-100 text-sm">Loading Point Details</p>
               </div>
             </div>

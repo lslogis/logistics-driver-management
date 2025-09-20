@@ -32,7 +32,7 @@ const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 md:left-64 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 md:left-64 z-[600] flex items-center justify-center">
       <div 
         className="fixed inset-0 md:left-64 bg-black/50" 
         onClick={() => onOpenChange(false)} 
@@ -49,7 +49,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
       className={cn(
         // Modal sizing defaults per spec: w-auto, min-w-[400px], max-w-lg
         // Also support long forms with internal scroll area
-        "relative z-50 w-auto min-w-[400px] max-w-lg mx-4 bg-white rounded-lg shadow-lg max-h-[90vh] overflow-hidden flex flex-col",
+        "relative z-[610] w-auto min-w-[400px] max-w-lg mx-4 bg-white rounded-lg shadow-lg max-h-[90vh] overflow-hidden flex flex-col",
         className
       )}
       {...props}

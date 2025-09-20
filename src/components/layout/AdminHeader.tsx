@@ -188,7 +188,7 @@ export default function AdminHeader({
           
           {/* Search suggestions - would be populated dynamically */}
           {isSearchFocused && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-xl z-50 animate-slide-down">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-xl z-[100] animate-slide-down">
               <div className="p-3">
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">최근 검색</p>
                 <div className="space-y-1">
