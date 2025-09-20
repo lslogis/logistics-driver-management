@@ -14,6 +14,7 @@ const UpdateRequestSchema = z.object({
   extraRegionFee: z.number().int().nullable().optional(),
   extraAdjustment: z.number().int().optional(),
   adjustmentReason: z.string().max(200).optional(),
+  centerBillingTotal: z.number().int().optional(),
 })
 
 // GET /api/requests/[id] - Get request by ID with full details
@@ -51,11 +52,12 @@ export async function GET(
       0
     )
     
-    // Calculate center billing from stored fare calculation or default to 0
-    const centerBilling = (requestData.baseFare || 0) + 
-                         (requestData.extraStopFee || 0) + 
-                         (requestData.extraRegionFee || 0) + 
-                         (requestData.extraAdjustment || 0)
+    // Use stored centerBillingTotal or fallback to calculated value
+    const centerBilling = requestData.centerBillingTotal || 
+                         ((requestData.baseFare || 0) + 
+                          (requestData.extraStopFee || 0) + 
+                          (requestData.extraRegionFee || 0) + 
+                          (requestData.extraAdjustment || 0))
     
     const totalMargin = centerBilling - totalDriverFees
     const marginPercentage = centerBilling > 0 ? (totalMargin / centerBilling) * 100 : 0

@@ -22,8 +22,12 @@ export const baseRequestSchema = z.object({
     .max(10, 'Maximum 10 regions allowed'),
   stops: z.number().int().min(1, 'At least 1 stop required').max(50, 'Maximum 50 stops allowed'),
   notes: z.string().optional(),
+  baseFare: z.number().int().nullable().optional(),
+  extraStopFee: z.number().int().nullable().optional(),
+  extraRegionFee: z.number().int().nullable().optional(),
   extraAdjustment: z.number().int().default(0),
-  adjustmentReason: z.string().max(200, 'Adjustment reason too long').optional()
+  adjustmentReason: z.string().max(200, 'Adjustment reason too long').optional(),
+  centerBillingTotal: z.number().int().min(0, 'Center billing total must be non-negative').default(0)
 })
 
 type BaseRequest = z.infer<typeof baseRequestSchema>

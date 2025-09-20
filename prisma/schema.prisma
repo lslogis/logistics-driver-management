@@ -243,24 +243,25 @@ model CenterFare {
 
 
 model Request {
-  id               String       @id @default(cuid())
-  requestDate      DateTime     @db.Date
-  centerCarNo      String       @db.VarChar(50)
-  vehicleTon       Decimal      @db.Decimal(3, 1)
-  regions          Json
-  stops            Int
-  notes            String?
-  baseFare         Int?
-  extraStopFee     Int?
-  extraRegionFee   Int?
-  extraAdjustment  Int          @default(0)
-  adjustmentReason String?
-  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime     @updatedAt @db.Timestamptz(6)
-  createdBy        String?
-  loadingPointId   String?
-  loadingPoint     LoadingPoint? @relation(fields: [loadingPointId], references: [id])
-  dispatches       Dispatch[]
+  id                 String       @id @default(cuid())
+  requestDate        DateTime     @db.Date
+  centerCarNo        String       @db.VarChar(50)
+  vehicleTon         Decimal      @db.Decimal(3, 1)
+  regions            Json
+  stops              Int
+  notes              String?
+  baseFare           Int?
+  extraStopFee       Int?
+  extraRegionFee     Int?
+  extraAdjustment    Int          @default(0)
+  adjustmentReason   String?
+  centerBillingTotal Int          @default(0)
+  createdAt          DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(6)
+  createdBy          String?
+  loadingPointId     String?
+  loadingPoint       LoadingPoint? @relation(fields: [loadingPointId], references: [id])
+  dispatches         Dispatch[]
 
   @@index([loadingPointId])
   @@index([requestDate, centerCarNo])

@@ -247,7 +247,6 @@ function RequestsPageContent() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">용차 관리</h1>
-                <p className="text-lg text-gray-600 mt-1">요청/배차 기반의 새로운 용차 관리 시스템</p>
               </div>
             </div>
             
@@ -275,7 +274,7 @@ function RequestsPageContent() {
       </div>
 
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>새 용차 요청 생성</DialogTitle>
           </DialogHeader>
@@ -287,7 +286,7 @@ function RequestsPageContent() {
       </Dialog>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>용차 요청 수정</DialogTitle>
           </DialogHeader>

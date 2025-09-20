@@ -85,7 +85,7 @@ export function RequestDetail({
     return amount.toLocaleString() + '원'
   }
 
-  const overallMarginStatus = getMarginStatus(request.financialSummary.marginPercentage)
+  const overallMarginStatus = getMarginStatus(request.financialSummary?.marginPercentage || 0)
 
   return (
     <div className="space-y-6">
@@ -216,25 +216,25 @@ export function RequestDetail({
             <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="text-sm text-blue-600 mb-1">상차지청구</div>
               <div className="text-lg font-semibold text-blue-800">
-                {formatCurrency(request.financialSummary.centerBilling)}
+                {formatCurrency(request.financialSummary?.centerBilling || 0)}
               </div>
             </div>
             <div className="text-center p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="text-sm text-green-600 mb-1">기사운임</div>
               <div className="text-lg font-semibold text-green-800">
-                {formatCurrency(request.financialSummary.totalDriverFees)}
+                {formatCurrency(request.financialSummary?.totalDriverFees || 0)}
               </div>
             </div>
             <div className="text-center p-4 bg-purple-50 border border-purple-200 rounded-lg">
               <div className="text-sm text-purple-600 mb-1">총 마진</div>
               <div className="text-lg font-semibold text-purple-800">
-                {formatCurrency(request.financialSummary.totalMargin)}
+                {formatCurrency(request.financialSummary?.totalMargin || 0)}
               </div>
             </div>
             <div className="text-center p-4 bg-orange-50 border border-orange-200 rounded-lg">
               <div className="text-sm text-orange-600 mb-1">마진율</div>
               <div className="text-lg font-semibold text-orange-800">
-                {request.financialSummary.marginPercentage.toFixed(1)}%
+                {(request.financialSummary?.marginPercentage || 0).toFixed(1)}%
               </div>
             </div>
           </div>
@@ -277,9 +277,9 @@ export function RequestDetail({
             </div>
           ) : (
             request.dispatches.map((dispatch, index) => {
-              const margin = request.financialSummary.centerBilling - dispatch.driverFee
-              const marginPercentage = request.financialSummary.centerBilling > 0 
-                ? (margin / request.financialSummary.centerBilling) * 100 
+              const margin = request.financialSummary?.centerBilling || 0 - dispatch.driverFee
+              const marginPercentage = request.financialSummary?.centerBilling || 0 > 0 
+                ? (margin / request.financialSummary?.centerBilling || 0) * 100 
                 : 0
               const marginStatus = getMarginStatus(marginPercentage)
 
@@ -364,25 +364,25 @@ export function RequestDetail({
               <div className="text-center">
                 <div className="text-sm opacity-75 mb-1">상차지청구금액</div>
                 <div className="text-lg font-semibold">
-                  {formatCurrency(request.financialSummary.centerBilling)}
+                  {formatCurrency(request.financialSummary?.centerBilling || 0)}
                 </div>
               </div>
               <div className="text-center">
                 <div className="text-sm opacity-75 mb-1">기사운임총액</div>
                 <div className="text-lg font-semibold">
-                  {formatCurrency(request.financialSummary.totalDriverFees)}
+                  {formatCurrency(request.financialSummary?.totalDriverFees || 0)}
                 </div>
               </div>
               <div className="text-center">
                 <div className="text-sm opacity-75 mb-1">총 마진</div>
                 <div className="text-lg font-semibold">
-                  {formatCurrency(request.financialSummary.totalMargin)}
+                  {formatCurrency(request.financialSummary?.totalMargin || 0)}
                 </div>
               </div>
               <div className="text-center">
                 <div className="text-sm opacity-75 mb-1">마진율</div>
                 <div className="text-lg font-semibold">
-                  {request.financialSummary.marginPercentage.toFixed(1)}%
+                  {(request.financialSummary?.marginPercentage || 0).toFixed(1)}%
                 </div>
               </div>
             </div>
@@ -393,10 +393,10 @@ export function RequestDetail({
               <div className="text-lg font-semibold">
                 💎 {overallMarginStatus.label}
               </div>
-              {request.financialSummary.totalMargin < 0 && (
+              {request.financialSummary?.totalMargin || 0 < 0 && (
                 <div className="mt-2 space-y-1">
                   <p className="text-sm">
-                    ⚠️ 경고: 배차가 {request.financialSummary.dispatchCount}건인데 청구금액이 부족합니다
+                    ⚠️ 경고: 배차가 {request.financialSummary?.dispatchCount || 0}건인데 청구금액이 부족합니다
                   </p>
                   <p className="text-sm">
                     💡 제안: 추가 조정을 통해 청구금액을 늘리거나 배차를 조정하세요
@@ -416,7 +416,7 @@ export function RequestDetail({
           </DialogHeader>
           <DispatchForm
             requestId={request.id}
-            centerBilling={request.financialSummary.centerBilling}
+            centerBilling={request.financialSummary?.centerBilling || 0}
             onSubmit={handleAddDispatch}
             onCancel={() => setShowAddDispatch(false)}
           />
@@ -431,7 +431,7 @@ export function RequestDetail({
           {editingDispatch && (
             <DispatchForm
               requestId={request.id}
-              centerBilling={request.financialSummary.centerBilling}
+              centerBilling={request.financialSummary?.centerBilling || 0}
               initialData={editingDispatch}
               onSubmit={handleEditDispatch}
               onCancel={() => setEditingDispatch(null)}
